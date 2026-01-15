@@ -1,8 +1,8 @@
-# Ucphi
+# UCΦ (ucphi)
 
-**The Unified Commerce Philosopher** - Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
+**Universal Commerce Φilosopher** — Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
 
-Ucphi helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling AI shopping agents to interact with your store.
+UCΦ helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling AI shopping agents to interact with your store.
 
 ## What is UCP?
 
