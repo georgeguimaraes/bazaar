@@ -6,7 +6,7 @@ UCΦ helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling A
 
 ## What is UCP?
 
-The [Universal Commerce Protocol](https://ucp.dev) is an open standard for **agentic commerce** announced by Google at NRF 2025. It allows AI agents to:
+The [Universal Commerce Protocol](https://ucp.dev) is an open standard for **agentic commerce** announced by Google at NRF 2026. It allows AI agents to:
 
 - Discover what your store offers
 - Create and manage shopping carts
