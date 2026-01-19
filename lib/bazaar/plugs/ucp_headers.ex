@@ -23,6 +23,8 @@ defmodule Bazaar.Plugs.UCPHeaders do
 
   import Plug.Conn
 
+  alias Bazaar.Telemetry
+
   @behaviour Plug
 
   @impl true
@@ -30,11 +32,16 @@ defmodule Bazaar.Plugs.UCPHeaders do
 
   @impl true
   def call(conn, _opts) do
-    conn
-    |> extract_header("ucp-agent", :ucp_agent)
-    |> extract_header("ucp-request-id", :ucp_request_id)
-    |> extract_header("request-signature", :ucp_signature)
-    |> maybe_generate_request_id()
+    Telemetry.span_with_metadata([:bazaar, :plug, :ucp_headers], %{}, fn ->
+      result =
+        conn
+        |> extract_header("ucp-agent", :ucp_agent)
+        |> extract_header("ucp-request-id", :ucp_request_id)
+        |> extract_header("request-signature", :ucp_signature)
+        |> maybe_generate_request_id()
+
+      {result, %{request_id: result.assigns[:ucp_request_id]}}
+    end)
   end
 
   defp extract_header(conn, header_name, assign_key) do

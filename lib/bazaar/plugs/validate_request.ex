@@ -22,6 +22,8 @@ defmodule Bazaar.Plugs.ValidateRequest do
 
   import Plug.Conn
 
+  alias Bazaar.Telemetry
+
   @behaviour Plug
 
   @default_schemas %{
@@ -41,7 +43,9 @@ defmodule Bazaar.Plugs.ValidateRequest do
 
     case Map.fetch(schemas, action) do
       {:ok, schema_module} ->
-        validate_with_schema(conn, schema_module)
+        Telemetry.span_with_metadata([:bazaar, :plug, :validate_request], %{}, fn ->
+          validate_with_schema(conn, schema_module)
+        end)
 
       :error ->
         # No schema for this action, pass through
@@ -56,17 +60,23 @@ defmodule Bazaar.Plugs.ValidateRequest do
       %{valid?: true} = changeset ->
         validated_data = Ecto.Changeset.apply_changes(changeset)
 
-        conn
-        |> assign(:bazaar_validated, true)
-        |> assign(:bazaar_data, validated_data)
+        result =
+          conn
+          |> assign(:bazaar_validated, true)
+          |> assign(:bazaar_data, validated_data)
+
+        {result, %{valid: true}}
 
       %{valid?: false} = changeset ->
         errors = Bazaar.Errors.from_changeset(changeset)
 
-        conn
-        |> put_status(:unprocessable_entity)
-        |> Phoenix.Controller.json(errors)
-        |> halt()
+        result =
+          conn
+          |> put_status(:unprocessable_entity)
+          |> Phoenix.Controller.json(errors)
+          |> halt()
+
+        {result, %{valid: false}}
     end
   end
 end

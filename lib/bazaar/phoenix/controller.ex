@@ -9,6 +9,7 @@ defmodule Bazaar.Phoenix.Controller do
   use Phoenix.Controller, formats: [:json]
 
   alias Bazaar.Schemas.DiscoveryProfile
+  alias Bazaar.Telemetry
 
   # Discovery
 
@@ -16,7 +17,10 @@ defmodule Bazaar.Phoenix.Controller do
     handler = conn.assigns.bazaar_handler
     base_url = get_base_url(conn)
 
-    profile = DiscoveryProfile.from_handler(handler, base_url: base_url)
+    profile =
+      Telemetry.span([:bazaar, :discovery, :profile], %{}, fn ->
+        DiscoveryProfile.from_handler(handler, base_url: base_url)
+      end)
 
     json(conn, profile)
   end
@@ -26,7 +30,18 @@ defmodule Bazaar.Phoenix.Controller do
   def create_checkout(conn, params) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.create_checkout(params, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :checkout, :create], %{}, fn ->
+        case handler.create_checkout(params, conn) do
+          {:ok, checkout} = result ->
+            {result, %{checkout_id: checkout["id"], status: checkout["status"]}}
+
+          error ->
+            {error, %{}}
+        end
+      end)
+
+    case result do
       {:ok, checkout} ->
         conn
         |> put_status(:created)
@@ -47,7 +62,18 @@ defmodule Bazaar.Phoenix.Controller do
   def get_checkout(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.get_checkout(id, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :checkout, :get], %{}, fn ->
+        case handler.get_checkout(id, conn) do
+          {:ok, checkout} = result ->
+            {result, %{checkout_id: id, status: checkout["status"]}}
+
+          error ->
+            {error, %{checkout_id: id}}
+        end
+      end)
+
+    case result do
       {:ok, checkout} ->
         json(conn, checkout)
 
@@ -67,7 +93,18 @@ defmodule Bazaar.Phoenix.Controller do
     handler = conn.assigns.bazaar_handler
     update_params = Map.delete(params, "id")
 
-    case handler.update_checkout(id, update_params, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :checkout, :update], %{}, fn ->
+        case handler.update_checkout(id, update_params, conn) do
+          {:ok, checkout} = result ->
+            {result, %{checkout_id: id, status: checkout["status"]}}
+
+          error ->
+            {error, %{checkout_id: id}}
+        end
+      end)
+
+    case result do
       {:ok, checkout} ->
         json(conn, checkout)
 
@@ -91,7 +128,18 @@ defmodule Bazaar.Phoenix.Controller do
   def cancel_checkout(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.cancel_checkout(id, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :checkout, :cancel], %{}, fn ->
+        case handler.cancel_checkout(id, conn) do
+          {:ok, _checkout} = result ->
+            {result, %{checkout_id: id}}
+
+          error ->
+            {error, %{checkout_id: id}}
+        end
+      end)
+
+    case result do
       {:ok, checkout} ->
         json(conn, checkout)
 
@@ -112,7 +160,18 @@ defmodule Bazaar.Phoenix.Controller do
   def get_order(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.get_order(id, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :order, :get], %{}, fn ->
+        case handler.get_order(id, conn) do
+          {:ok, order} = result ->
+            {result, %{order_id: id, status: order["status"]}}
+
+          error ->
+            {error, %{order_id: id}}
+        end
+      end)
+
+    case result do
       {:ok, order} ->
         json(conn, order)
 
@@ -131,7 +190,18 @@ defmodule Bazaar.Phoenix.Controller do
   def cancel_order(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.cancel_order(id, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :order, :cancel], %{}, fn ->
+        case handler.cancel_order(id, conn) do
+          {:ok, _order} = result ->
+            {result, %{order_id: id}}
+
+          error ->
+            {error, %{order_id: id}}
+        end
+      end)
+
+    case result do
       {:ok, order} ->
         json(conn, order)
 
@@ -152,7 +222,18 @@ defmodule Bazaar.Phoenix.Controller do
   def link_identity(conn, params) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.link_identity(params, conn) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :identity, :link], %{}, fn ->
+        case handler.link_identity(params, conn) do
+          {:ok, _result} = result ->
+            {result, %{provider: params["provider"]}}
+
+          error ->
+            {error, %{}}
+        end
+      end)
+
+    case result do
       {:ok, result} ->
         json(conn, result)
 
@@ -168,7 +249,18 @@ defmodule Bazaar.Phoenix.Controller do
   def webhook(conn, params) do
     handler = conn.assigns.bazaar_handler
 
-    case handler.handle_webhook(params) do
+    result =
+      Telemetry.span_with_metadata([:bazaar, :webhook, :handle], %{}, fn ->
+        case handler.handle_webhook(params) do
+          {:ok, _result} = result ->
+            {result, %{event_type: params["type"] || params["event_type"]}}
+
+          error ->
+            {error, %{}}
+        end
+      end)
+
+    case result do
       {:ok, _result} ->
         conn
         |> put_status(:ok)

@@ -20,6 +20,8 @@ defmodule Bazaar.Plugs.Idempotency do
 
   import Plug.Conn
 
+  alias Bazaar.Telemetry
+
   @behaviour Plug
 
   @impl true
@@ -27,14 +29,19 @@ defmodule Bazaar.Plugs.Idempotency do
 
   @impl true
   def call(conn, _opts) do
-    case get_req_header(conn, "idempotency-key") do
-      [key] when byte_size(key) > 0 ->
-        conn
-        |> assign(:idempotency_key, key)
-        |> put_resp_header("idempotency-key", key)
+    Telemetry.span_with_metadata([:bazaar, :plug, :idempotency], %{}, fn ->
+      case get_req_header(conn, "idempotency-key") do
+        [key] when byte_size(key) > 0 ->
+          result =
+            conn
+            |> assign(:idempotency_key, key)
+            |> put_resp_header("idempotency-key", key)
 
-      _ ->
-        conn
-    end
+          {result, %{key: key}}
+
+        _ ->
+          {conn, %{key: nil}}
+      end
+    end)
   end
 end
