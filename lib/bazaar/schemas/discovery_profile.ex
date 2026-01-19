@@ -141,6 +141,6 @@ defmodule Bazaar.Schemas.DiscoveryProfile do
 
   @doc "Converts profile to JSON string."
   def to_json(profile) when is_map(profile) do
-    Jason.encode!(profile)
+    JSON.encode!(profile)
   end
 end

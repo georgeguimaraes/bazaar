@@ -258,9 +258,9 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.discovery(%{})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
-      assert body["name"] == "Test Store"
-      assert is_list(body["capabilities"])
+      body = JSON.decode!(conn.resp_body)
+      assert body["ucp"]["merchant"]["name"] == "Test Store"
+      assert is_list(body["ucp"]["capabilities"])
     end
 
     test "create_checkout returns 201 on success", %{conn: conn} do
@@ -270,7 +270,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.create_checkout(%{"currency" => "USD"})
 
       assert conn.status == 201
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["id"] == "checkout_123"
       assert body["currency"] == "USD"
     end
@@ -282,7 +282,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.get_checkout(%{"id" => "found"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["id"] == "found"
     end
 
@@ -293,7 +293,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.get_checkout(%{"id" => "not_found"})
 
       assert conn.status == 404
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["error"] == "not_found"
       assert body["resource_id"] == "not_found"
     end
@@ -305,7 +305,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.update_checkout(%{"id" => "found", "total" => "99.99"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["id"] == "found"
       assert body["total"] == "99.99"
     end
@@ -326,7 +326,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.cancel_checkout(%{"id" => "found"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["status"] == "cancelled"
     end
 
@@ -337,7 +337,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.get_order(%{"id" => "found"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["id"] == "found"
     end
 
@@ -348,7 +348,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.get_order(%{"id" => "not_found"})
 
       assert conn.status == 404
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["error"] == "not_found"
     end
 
@@ -359,7 +359,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.cancel_order(%{"id" => "found"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["status"] == "cancelled"
     end
 
@@ -370,7 +370,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.link_identity(%{"token" => "abc123"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["token"] == "abc123"
     end
 
@@ -381,7 +381,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.link_identity(%{})
 
       assert conn.status == 422
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["error"] == "invalid_token"
     end
 
@@ -392,7 +392,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.webhook(%{"event" => "order.created"})
 
       assert conn.status == 200
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["status"] == "processed"
     end
 
@@ -403,7 +403,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.webhook(%{})
 
       assert conn.status == 422
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["error"] == "invalid_webhook"
     end
   end
@@ -419,9 +419,9 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Plug.Conn.assign(:bazaar_handler, FullHandler)
         |> Bazaar.Phoenix.Controller.discovery(%{})
 
-      body = Jason.decode!(conn.resp_body)
-      transport = hd(body["transports"])
-      assert transport["endpoint"] == "https://api.example.com"
+      body = JSON.decode!(conn.resp_body)
+      endpoint = body["ucp"]["services"]["dev.ucp.shopping"]["rest"]["endpoint"]
+      assert endpoint == "https://api.example.com"
     end
 
     test "includes port for non-standard ports" do
@@ -434,9 +434,9 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Plug.Conn.assign(:bazaar_handler, FullHandler)
         |> Bazaar.Phoenix.Controller.discovery(%{})
 
-      body = Jason.decode!(conn.resp_body)
-      transport = hd(body["transports"])
-      assert transport["endpoint"] == "http://localhost:4000"
+      body = JSON.decode!(conn.resp_body)
+      endpoint = body["ucp"]["services"]["dev.ucp.shopping"]["rest"]["endpoint"]
+      assert endpoint == "http://localhost:4000"
     end
   end
 end

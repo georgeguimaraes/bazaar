@@ -3,237 +3,185 @@ defmodule Bazaar.Schemas.DiscoveryProfileTest do
 
   alias Bazaar.Schemas.DiscoveryProfile
 
-  describe "new/1" do
-    test "creates valid changeset with basic fields" do
-      params = %{
-        "name" => "My Store",
-        "description" => "The best store ever"
+  defmodule TestHandler do
+    use Bazaar.Handler
+
+    @impl true
+    def capabilities, do: [:checkout, :orders]
+
+    @impl true
+    def business_profile do
+      %{
+        "name" => "Test Handler Store",
+        "description" => "A store for testing",
+        "logo_url" => "/images/logo.png",
+        "support_email" => "support@test.com"
       }
-
-      changeset = DiscoveryProfile.new(params)
-
-      assert changeset.valid?
-      assert Ecto.Changeset.get_change(changeset, :name) == "My Store"
     end
+  end
 
-    test "accepts capabilities array" do
-      params = %{
-        "name" => "Test Store",
-        "capabilities" => [
-          %{"name" => "checkout", "version" => "1.0", "endpoint" => "/checkout-sessions"},
-          %{"name" => "orders", "version" => "1.0", "endpoint" => "/orders"}
-        ]
-      }
+  defmodule IdentityHandler do
+    use Bazaar.Handler
 
-      changeset = DiscoveryProfile.new(params)
+    @impl true
+    def capabilities, do: [:checkout, :identity, :discount]
 
-      assert changeset.valid?
+    @impl true
+    def business_profile do
+      %{"name" => "Identity Store"}
     end
+  end
 
-    test "accepts transports array" do
-      params = %{
-        "name" => "Test Store",
-        "transports" => [
-          %{"type" => "rest", "endpoint" => "https://api.example.com", "version" => "1.0"},
-          %{"type" => "mcp", "endpoint" => "mcp://example.com", "version" => "1.0"}
-        ]
-      }
+  defmodule PaymentHandler do
+    use Bazaar.Handler
 
-      changeset = DiscoveryProfile.new(params)
+    @impl true
+    def capabilities, do: [:checkout]
 
-      assert changeset.valid?
-    end
-
-    test "accepts payment_handlers array" do
-      params = %{
-        "name" => "Test Store",
+    @impl true
+    def business_profile do
+      %{
+        "name" => "Payment Store",
         "payment_handlers" => [
-          %{"type" => "stripe", "enabled" => true},
-          %{"type" => "paypal", "enabled" => false}
+          %{
+            "type" => "stripe",
+            "name" => "Stripe",
+            "config" => %{"publishable_key" => "pk_test"}
+          },
+          %{"type" => "paypal", "name" => "PayPal", "config" => %{}}
+        ],
+        "signing_keys" => [
+          %{"kty" => "EC", "kid" => "key-1", "use" => "sig"}
         ]
       }
-
-      changeset = DiscoveryProfile.new(params)
-
-      assert changeset.valid?
-    end
-
-    test "accepts all optional fields" do
-      params = %{
-        "name" => "Full Store",
-        "description" => "A complete store profile",
-        "logo_url" => "https://example.com/logo.png",
-        "website" => "https://example.com",
-        "support_email" => "support@example.com",
-        "capabilities" => [
-          %{"name" => "checkout", "version" => "1.0", "endpoint" => "/checkout-sessions"}
-        ],
-        "transports" => [
-          %{"type" => "rest", "endpoint" => "https://api.example.com", "version" => "1.0"}
-        ],
-        "payment_handlers" => [
-          %{"type" => "stripe", "enabled" => true}
-        ],
-        "metadata" => %{"region" => "us-east-1"}
-      }
-
-      changeset = DiscoveryProfile.new(params)
-
-      assert changeset.valid?
-    end
-
-    test "sets default empty metadata" do
-      params = %{"name" => "Simple Store"}
-
-      changeset = DiscoveryProfile.new(params)
-      data = Ecto.Changeset.apply_changes(changeset)
-
-      assert data.metadata == %{}
     end
   end
 
   describe "from_handler/2" do
-    defmodule TestHandler do
-      use Bazaar.Handler
-
-      @impl true
-      def capabilities, do: [:checkout, :orders]
-
-      @impl true
-      def business_profile do
-        %{
-          "name" => "Test Handler Store",
-          "description" => "A store for testing"
-        }
-      end
-    end
-
     test "builds profile from handler module" do
-      changeset = DiscoveryProfile.from_handler(TestHandler)
+      profile = DiscoveryProfile.from_handler(TestHandler)
 
-      assert changeset.valid?
-
-      profile = Ecto.Changeset.apply_changes(changeset)
-
-      assert profile.name == "Test Handler Store"
-      assert profile.description == "A store for testing"
+      assert profile["ucp"]["merchant"]["name"] == "Test Handler Store"
+      assert profile["ucp"]["merchant"]["description"] == "A store for testing"
     end
 
     test "includes capabilities from handler" do
-      changeset = DiscoveryProfile.from_handler(TestHandler)
-      profile = Ecto.Changeset.apply_changes(changeset)
+      profile = DiscoveryProfile.from_handler(TestHandler)
+      capabilities = profile["ucp"]["capabilities"]
 
-      assert length(profile.capabilities) == 2
+      assert length(capabilities) == 2
 
-      capability_names = Enum.map(profile.capabilities, & &1.name)
-      assert "checkout" in capability_names
-      assert "orders" in capability_names
+      capability_names = Enum.map(capabilities, & &1["name"])
+      assert "dev.ucp.shopping.checkout" in capability_names
+      assert "dev.ucp.shopping.order" in capability_names
     end
 
-    test "sets correct endpoints for capabilities" do
-      changeset = DiscoveryProfile.from_handler(TestHandler)
-      profile = Ecto.Changeset.apply_changes(changeset)
+    test "sets correct spec and schema URLs for capabilities" do
+      profile = DiscoveryProfile.from_handler(TestHandler)
+      capabilities = profile["ucp"]["capabilities"]
 
-      checkout_cap = Enum.find(profile.capabilities, &(&1.name == "checkout"))
-      orders_cap = Enum.find(profile.capabilities, &(&1.name == "orders"))
-
-      assert checkout_cap.endpoint == "/checkout-sessions"
-      assert orders_cap.endpoint == "/orders"
+      checkout_cap = Enum.find(capabilities, &(&1["name"] == "dev.ucp.shopping.checkout"))
+      assert checkout_cap["spec"] == "https://ucp.dev/specification/checkout/"
+      assert checkout_cap["schema"] == "https://ucp.dev/schemas/shopping/checkout.json"
+      assert checkout_cap["version"] == "2026-01-11"
     end
 
-    test "includes base_url in transports" do
-      changeset = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
-      profile = Ecto.Changeset.apply_changes(changeset)
+    test "includes base_url in services endpoint" do
+      profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
 
-      assert length(profile.transports) == 1
-
-      transport = hd(profile.transports)
-      assert transport.type == "rest"
-      assert transport.endpoint == "https://api.mystore.com"
-      assert transport.version == "1.0"
+      services = profile["ucp"]["services"]["dev.ucp.shopping"]
+      assert services["rest"]["endpoint"] == "https://api.mystore.com"
     end
 
     test "uses empty base_url by default" do
-      changeset = DiscoveryProfile.from_handler(TestHandler)
-      profile = Ecto.Changeset.apply_changes(changeset)
+      profile = DiscoveryProfile.from_handler(TestHandler)
 
-      transport = hd(profile.transports)
-      # When no base_url is provided, endpoint should be nil or empty
-      assert is_nil(transport.endpoint) or transport.endpoint == ""
+      services = profile["ucp"]["services"]["dev.ucp.shopping"]
+      assert services["rest"]["endpoint"] == ""
+    end
+
+    test "extracts primary_domain from base_url" do
+      profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
+
+      assert profile["ucp"]["merchant"]["primary_domain"] == "api.mystore.com"
+    end
+
+    test "resolves relative logo_url with base_url" do
+      profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
+
+      assert profile["ucp"]["merchant"]["logo_url"] == "https://api.mystore.com/images/logo.png"
+    end
+
+    test "preserves absolute logo_url" do
+      defmodule AbsoluteLogoHandler do
+        use Bazaar.Handler
+
+        @impl true
+        def capabilities, do: [:checkout]
+
+        @impl true
+        def business_profile do
+          %{
+            "name" => "Absolute Logo Store",
+            "logo_url" => "https://cdn.example.com/logo.png"
+          }
+        end
+      end
+
+      profile =
+        DiscoveryProfile.from_handler(AbsoluteLogoHandler, base_url: "https://api.mystore.com")
+
+      assert profile["ucp"]["merchant"]["logo_url"] == "https://cdn.example.com/logo.png"
     end
   end
 
   describe "from_handler/2 with identity capability" do
-    defmodule IdentityHandler do
-      use Bazaar.Handler
+    test "includes identity capability" do
+      profile = DiscoveryProfile.from_handler(IdentityHandler)
+      capabilities = profile["ucp"]["capabilities"]
 
-      @impl true
-      def capabilities, do: [:checkout, :identity]
-
-      @impl true
-      def business_profile do
-        %{"name" => "Identity Store"}
-      end
+      capability_names = Enum.map(capabilities, & &1["name"])
+      assert "dev.ucp.shopping.identity" in capability_names
     end
 
-    test "includes identity capability" do
-      changeset = DiscoveryProfile.from_handler(IdentityHandler)
-      profile = Ecto.Changeset.apply_changes(changeset)
+    test "includes discount capability" do
+      profile = DiscoveryProfile.from_handler(IdentityHandler)
+      capabilities = profile["ucp"]["capabilities"]
 
-      capability_names = Enum.map(profile.capabilities, & &1.name)
-      assert "identity" in capability_names
-
-      identity_cap = Enum.find(profile.capabilities, &(&1.name == "identity"))
-      assert identity_cap.endpoint == "/identity"
+      capability_names = Enum.map(capabilities, & &1["name"])
+      assert "dev.ucp.shopping.discount" in capability_names
     end
   end
 
-  describe "json_schema/0" do
-    test "generates valid JSON schema" do
-      schema = DiscoveryProfile.json_schema()
+  describe "from_handler/2 with payment handlers" do
+    test "includes payment handlers" do
+      profile = DiscoveryProfile.from_handler(PaymentHandler)
+      handlers = profile["payment"]["handlers"]
 
-      assert schema["type"] == "object"
-      assert is_map(schema["properties"])
-      assert Map.has_key?(schema["properties"], "name")
-      assert Map.has_key?(schema["properties"], "capabilities")
-      assert Map.has_key?(schema["properties"], "transports")
+      assert length(handlers) == 2
+
+      stripe = Enum.find(handlers, &(&1["id"] == "stripe"))
+      assert stripe["name"] == "Stripe"
+      assert stripe["config"]["publishable_key"] == "pk_test"
     end
 
-    test "includes array types for nested fields" do
-      schema = DiscoveryProfile.json_schema()
+    test "includes signing keys" do
+      profile = DiscoveryProfile.from_handler(PaymentHandler)
 
-      assert schema["properties"]["capabilities"]["type"] == "array"
-      assert schema["properties"]["transports"]["type"] == "array"
-      assert schema["properties"]["payment_handlers"]["type"] == "array"
+      assert length(profile["signing_keys"]) == 1
+      assert hd(profile["signing_keys"])["kid"] == "key-1"
     end
   end
 
   describe "to_json/1" do
-    test "converts changeset to JSON string" do
-      params = %{
-        "name" => "JSON Store",
-        "description" => "Testing JSON output"
-      }
-
-      changeset = DiscoveryProfile.new(params)
-      json = DiscoveryProfile.to_json(changeset)
+    test "converts profile map to JSON string" do
+      profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.example.com")
+      json = DiscoveryProfile.to_json(profile)
 
       assert is_binary(json)
 
-      decoded = Jason.decode!(json)
-      assert decoded["name"] == "JSON Store"
-      assert decoded["description"] == "Testing JSON output"
-    end
-  end
-
-  describe "fields/0" do
-    test "returns field definitions" do
-      fields = DiscoveryProfile.fields()
-
-      assert is_list(fields)
-      assert Enum.any?(fields, fn f -> f.name == :name end)
-      assert Enum.any?(fields, fn f -> f.name == :capabilities end)
-      assert Enum.any?(fields, fn f -> f.name == :transports end)
+      decoded = JSON.decode!(json)
+      assert decoded["ucp"]["merchant"]["name"] == "Test Handler Store"
     end
   end
 end

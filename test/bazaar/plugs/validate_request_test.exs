@@ -84,7 +84,7 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
       assert conn.halted
       assert conn.status == 422
 
-      body = Jason.decode!(conn.resp_body)
+      body = JSON.decode!(conn.resp_body)
       assert body["error"] == "validation_error"
       assert is_list(body["details"])
     end

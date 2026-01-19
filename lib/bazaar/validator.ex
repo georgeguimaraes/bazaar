@@ -88,7 +88,7 @@ if Code.ensure_loaded?(JSV) do
       schema_path(schema_name)
       |> File.read()
       |> case do
-        {:ok, content} -> Jason.decode(content)
+        {:ok, content} -> JSON.decode(content)
         {:error, reason} -> {:error, {:file_read_error, reason}}
       end
     end

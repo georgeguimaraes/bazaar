@@ -287,19 +287,19 @@ defmodule Bazaar.ErrorsTest do
       changeset = Bazaar.Schemas.CheckoutSession.new(%{})
       result = Errors.from_changeset(changeset)
 
-      assert {:ok, _json} = Jason.encode(result)
+      assert is_binary(JSON.encode!(result))
     end
 
     test "not_found result is JSON encodable" do
       result = Errors.not_found("order", "123")
 
-      assert {:ok, _json} = Jason.encode(result)
+      assert is_binary(JSON.encode!(result))
     end
 
     test "from_reason result is JSON encodable" do
       result = Errors.from_reason(:forbidden)
 
-      assert {:ok, _json} = Jason.encode(result)
+      assert is_binary(JSON.encode!(result))
     end
   end
 end
