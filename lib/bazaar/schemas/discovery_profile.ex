@@ -53,13 +53,18 @@ defmodule Bazaar.Schemas.DiscoveryProfile do
       "name" => Map.get(business, "name", "Store"),
       "description" => Map.get(business, "description"),
       "primary_domain" => domain,
-      "logo_url" => Map.get(business, "logo_url"),
+      "logo_url" => resolve_url(Map.get(business, "logo_url"), base_url),
       "support_email" => Map.get(business, "support_email"),
       "website" => Map.get(business, "website") || base_url
     }
     |> Enum.reject(fn {_k, v} -> is_nil(v) end)
     |> Map.new()
   end
+
+  # Resolve relative URLs with base_url
+  defp resolve_url(nil, _base_url), do: nil
+  defp resolve_url("/" <> _ = path, base_url), do: base_url <> path
+  defp resolve_url(url, _base_url), do: url
 
   defp build_capabilities(capabilities) do
     Enum.map(capabilities, fn
