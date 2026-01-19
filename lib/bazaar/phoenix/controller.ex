@@ -16,9 +16,7 @@ defmodule Bazaar.Phoenix.Controller do
     handler = conn.assigns.bazaar_handler
     base_url = get_base_url(conn)
 
-    profile =
-      DiscoveryProfile.from_handler(handler, base_url: base_url)
-      |> Ecto.Changeset.apply_changes()
+    profile = DiscoveryProfile.from_handler(handler, base_url: base_url)
 
     json(conn, profile)
   end
@@ -186,8 +184,24 @@ defmodule Bazaar.Phoenix.Controller do
   # Helpers
 
   defp get_base_url(conn) do
-    scheme = if conn.scheme == :https, do: "https", else: "http"
+    # Check x-forwarded-proto header for reverse proxy setups (Tailscale, ngrok, etc.)
+    forwarded_proto = get_req_header(conn, "x-forwarded-proto") |> List.first()
+
+    scheme =
+      cond do
+        forwarded_proto in ["https", "http"] -> forwarded_proto
+        conn.scheme == :https -> "https"
+        true -> "http"
+      end
+
+    # For standard ports, omit the port suffix
     port_suffix = if conn.port in [80, 443], do: "", else: ":#{conn.port}"
-    "#{scheme}://#{conn.host}#{port_suffix}"
+
+    # If behind reverse proxy on standard HTTPS port, don't include port
+    if forwarded_proto == "https" do
+      "#{scheme}://#{conn.host}"
+    else
+      "#{scheme}://#{conn.host}#{port_suffix}"
+    end
   end
 end

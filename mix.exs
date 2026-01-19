@@ -8,7 +8,7 @@ defmodule Bazaar.MixProject do
     [
       app: :bazaar,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -39,7 +39,7 @@ defmodule Bazaar.MixProject do
       {:schemecto, github: "josevalim/schemecto"},
       {:ecto, "~> 3.12"},
       {:jason, "~> 1.4"},
-      {:jsv, "~> 0.15", only: [:dev, :test]},
+      {:jsv, "~> 0.15", optional: true},
       {:plug, "~> 1.16", optional: true},
       {:phoenix, "~> 1.7", optional: true},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
@@ -58,7 +58,17 @@ defmodule Bazaar.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md"],
+      extras: [
+        "README.md",
+        "guides/getting-started.md",
+        "guides/handlers.md",
+        "guides/schemas.md",
+        "guides/plugs.md",
+        "guides/testing.md"
+      ],
+      groups_for_extras: [
+        Guides: ~r/guides\/.*/
+      ],
       source_ref: "v#{@version}"
     ]
   end

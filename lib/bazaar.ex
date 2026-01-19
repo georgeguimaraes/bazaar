@@ -36,9 +36,4 @@ defmodule Bazaar do
   - [Universal Commerce Protocol](https://ucp.dev)
   - [UCP Specification](https://developers.google.com/merchant/ucp)
   """
-
-  @doc """
-  Returns the current Bazaar version.
-  """
-  def version, do: "0.1.0"
 end

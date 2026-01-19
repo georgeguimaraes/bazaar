@@ -4,50 +4,15 @@ defmodule Bazaar.Schemas.DiscoveryProfile do
 
   This is the manifest served at `/.well-known/ucp` that describes
   the merchant's capabilities, endpoints, and configuration.
+
+  Follows the official UCP spec format from https://ucp.dev
   """
 
-  @capability_fields [
-    %{name: :name, type: :string, description: "Capability name"},
-    %{name: :version, type: :string, description: "Capability version"},
-    %{name: :endpoint, type: :string, description: "Relative endpoint path"}
-  ]
-
-  @transport_fields [
-    %{name: :type, type: :string, description: "Transport type (rest, mcp, a2a)"},
-    %{name: :endpoint, type: :string, default: "", description: "Base URL for this transport"},
-    %{name: :version, type: :string, description: "Transport version"}
-  ]
-
-  @payment_handler_fields [
-    %{name: :type, type: :string, description: "Payment handler type"},
-    %{name: :enabled, type: :boolean, default: true}
-  ]
-
-  @fields [
-    %{name: :name, type: :string, description: "Business name"},
-    %{name: :description, type: :string, description: "Business description"},
-    %{name: :logo_url, type: :string, description: "URL to business logo"},
-    %{name: :website, type: :string, description: "Business website URL"},
-    %{name: :support_email, type: :string, description: "Support email address"},
-    %{name: :capabilities, type: Schemecto.many(@capability_fields, with: &Function.identity/1)},
-    %{name: :transports, type: Schemecto.many(@transport_fields, with: &Function.identity/1)},
-    %{
-      name: :payment_handlers,
-      type: Schemecto.many(@payment_handler_fields, with: &Function.identity/1)
-    },
-    %{name: :metadata, type: :map, default: %{}}
-  ]
-
-  @doc "Returns the field definitions."
-  def fields, do: @fields
-
-  @doc "Creates a new discovery profile."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params)
-  end
+  @ucp_version "2026-01-11"
+  @ucp_spec_base "https://ucp.dev"
 
   @doc """
-  Builds a discovery profile from handler module configuration.
+  Builds a UCP-compliant discovery profile from handler module configuration.
 
   ## Example
 
@@ -56,40 +21,121 @@ defmodule Bazaar.Schemas.DiscoveryProfile do
   def from_handler(handler_module, opts \\ []) do
     base_url = Keyword.get(opts, :base_url, "")
     capabilities = handler_module.capabilities()
+    business = handler_module.business_profile()
+    payment_handlers = Map.get(business, "payment_handlers", [])
+    signing_keys = Map.get(business, "signing_keys", [])
 
     %{
-      "name" => get_in(handler_module.business_profile(), ["name"]) || "Store",
-      "description" => get_in(handler_module.business_profile(), ["description"]),
-      "capabilities" => build_capabilities(capabilities),
-      "transports" => [
-        %{"type" => "rest", "endpoint" => base_url, "version" => "1.0"}
-      ]
+      "ucp" => %{
+        "version" => @ucp_version,
+        "merchant" => build_merchant(business, base_url),
+        "services" => %{
+          "dev.ucp.shopping" => %{
+            "version" => @ucp_version,
+            "spec" => "#{@ucp_spec_base}/specification/overview/",
+            "rest" => %{
+              "schema" => "#{@ucp_spec_base}/services/shopping/rest.openapi.json",
+              "endpoint" => base_url
+            }
+          }
+        },
+        "capabilities" => build_capabilities(capabilities)
+      },
+      "payment" => build_payment(payment_handlers),
+      "signing_keys" => signing_keys
     }
-    |> new()
+  end
+
+  defp build_merchant(business, base_url) do
+    domain = extract_domain(base_url)
+
+    %{
+      "name" => Map.get(business, "name", "Store"),
+      "description" => Map.get(business, "description"),
+      "primary_domain" => domain,
+      "logo_url" => Map.get(business, "logo_url"),
+      "support_email" => Map.get(business, "support_email"),
+      "website" => Map.get(business, "website") || base_url
+    }
+    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+    |> Map.new()
   end
 
   defp build_capabilities(capabilities) do
     Enum.map(capabilities, fn
       :checkout ->
-        %{"name" => "checkout", "version" => "1.0", "endpoint" => "/checkout-sessions"}
+        %{
+          "name" => "dev.ucp.shopping.checkout",
+          "version" => @ucp_version,
+          "spec" => "#{@ucp_spec_base}/specification/checkout/",
+          "schema" => "#{@ucp_spec_base}/schemas/shopping/checkout.json"
+        }
 
       :orders ->
-        %{"name" => "orders", "version" => "1.0", "endpoint" => "/orders"}
+        %{
+          "name" => "dev.ucp.shopping.order",
+          "version" => @ucp_version,
+          "spec" => "#{@ucp_spec_base}/specification/order/",
+          "schema" => "#{@ucp_spec_base}/schemas/shopping/order.json"
+        }
+
+      :fulfillment ->
+        %{
+          "name" => "dev.ucp.shopping.fulfillment",
+          "version" => @ucp_version,
+          "spec" => "#{@ucp_spec_base}/specification/fulfillment/",
+          "schema" => "#{@ucp_spec_base}/schemas/shopping/fulfillment.json",
+          "extends" => "dev.ucp.shopping.order"
+        }
 
       :identity ->
-        %{"name" => "identity", "version" => "1.0", "endpoint" => "/identity"}
+        %{
+          "name" => "dev.ucp.shopping.identity",
+          "version" => @ucp_version,
+          "spec" => "#{@ucp_spec_base}/specification/identity/",
+          "schema" => "#{@ucp_spec_base}/schemas/shopping/identity.json"
+        }
+
+      :discount ->
+        %{
+          "name" => "dev.ucp.shopping.discount",
+          "version" => @ucp_version,
+          "spec" => "#{@ucp_spec_base}/specification/discount/",
+          "schema" => "#{@ucp_spec_base}/schemas/shopping/discount.json"
+        }
     end)
   end
 
-  @doc "Generates JSON Schema for this type."
-  def json_schema do
-    Schemecto.new(@fields) |> Schemecto.to_json_schema()
+  defp build_payment(handlers) when is_list(handlers) and length(handlers) > 0 do
+    %{
+      "handlers" =>
+        Enum.map(handlers, fn handler ->
+          %{
+            "id" => Map.get(handler, "type") || Map.get(handler, "id"),
+            "name" => Map.get(handler, "name") || String.capitalize(Map.get(handler, "type", "")),
+            "version" => @ucp_version,
+            "spec" => "#{@ucp_spec_base}/handlers/tokenization/#{Map.get(handler, "type")}/",
+            "config" => Map.get(handler, "config", %{})
+          }
+          |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+          |> Map.new()
+        end)
+    }
   end
 
-  @doc "Converts to JSON-encodable map for the discovery endpoint."
-  def to_json(changeset) do
-    changeset
-    |> Ecto.Changeset.apply_changes()
-    |> Jason.encode!()
+  defp build_payment(_), do: %{"handlers" => []}
+
+  defp extract_domain(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{host: host} when is_binary(host) -> host
+      _ -> nil
+    end
+  end
+
+  defp extract_domain(_), do: nil
+
+  @doc "Converts profile to JSON string."
+  def to_json(profile) when is_map(profile) do
+    Jason.encode!(profile)
   end
 end
