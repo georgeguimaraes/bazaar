@@ -47,7 +47,7 @@ defmodule Bazaar.MixProject do
 
   defp package do
     [
-      maintainers: ["Your Name"],
+      maintainers: ["George Guimarães"],
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @source_url},
       files: ~w(lib priv .formatter.exs mix.exs README.md LICENSE)
