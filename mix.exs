@@ -39,6 +39,7 @@ defmodule Bazaar.MixProject do
       {:schemecto, github: "josevalim/schemecto"},
       {:ecto, "~> 3.12"},
       {:jason, "~> 1.4"},
+      {:jsv, "~> 0.15", only: [:dev, :test]},
       {:plug, "~> 1.16", optional: true},
       {:phoenix, "~> 1.7", optional: true},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
@@ -50,7 +51,7 @@ defmodule Bazaar.MixProject do
       maintainers: ["Your Name"],
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @source_url},
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE)
+      files: ~w(lib priv .formatter.exs mix.exs README.md LICENSE)
     ]
   end
 
