@@ -7,7 +7,7 @@ Handlers are the core of your Bazaar implementation. They define what your store
 Every handler uses the `Bazaar.Handler` behaviour:
 
 ```elixir
-defmodule MyApp.Commerce.Handler do
+defmodule MyApp.UCPHandler do
   use Bazaar.Handler
 
   @impl true
@@ -72,15 +72,21 @@ def create_checkout(params, conn) do
   # params: Map with checkout data (string keys)
   # conn: Plug.Conn (useful for auth info, headers)
 
-  case Bazaar.Schemas.CheckoutSession.new(params) do
-    %{valid?: true} = changeset ->
-      checkout = Ecto.Changeset.apply_changes(changeset)
-      # Save to database...
-      {:ok, checkout_to_map(checkout)}
+  # Save to your database, then return full checkout response
+  checkout = Repo.insert!(Checkout.from_params(params))
 
-    %{valid?: false} = changeset ->
-      {:error, changeset}
-  end
+  {:ok, %{
+    "id" => checkout.id,
+    "status" => "incomplete",
+    "currency" => params["currency"],
+    "line_items" => enrich_line_items(params["line_items"]),
+    "totals" => calculate_totals(params["line_items"]),
+    "links" => [
+      %{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"},
+      %{"type" => "terms_of_service", "url" => "https://mystore.example/terms"}
+    ],
+    "payment" => %{"handlers" => []}
+  }}
 end
 ```
 
@@ -102,7 +108,7 @@ Fetches an existing checkout by ID.
 def get_checkout(id, conn) do
   case Repo.get(Checkout, id) do
     nil -> {:error, :not_found}
-    checkout -> {:ok, checkout_to_map(checkout)}
+    checkout -> {:ok, checkout_to_ucp(checkout)}
   end
 end
 ```
@@ -122,12 +128,12 @@ def update_checkout(id, params, conn) do
     nil ->
       {:error, :not_found}
 
-    %{status: :complete} ->
+    %{status: :completed} ->
       {:error, :invalid_state}
 
     checkout ->
       case update_checkout_record(checkout, params) do
-        {:ok, updated} -> {:ok, checkout_to_map(updated)}
+        {:ok, updated} -> {:ok, checkout_to_ucp(updated)}
         {:error, changeset} -> {:error, changeset}
       end
   end
@@ -151,12 +157,12 @@ def cancel_checkout(id, conn) do
     nil ->
       {:error, :not_found}
 
-    %{status: :cancelled} ->
+    %{status: :canceled} ->
       {:error, :already_cancelled}
 
     checkout ->
       {:ok, _} = Repo.update(Checkout.cancel(checkout))
-      {:ok, %{id: id, status: "cancelled"}}
+      {:ok, %{"id" => id, "status" => "canceled"}}
   end
 end
 ```
@@ -174,7 +180,7 @@ Fetches an order by ID.
 def get_order(id, conn) do
   case Repo.get(Order, id) do
     nil -> {:error, :not_found}
-    order -> {:ok, order_to_map(order)}
+    order -> {:ok, order_to_ucp(order)}
   end
 end
 ```
@@ -190,15 +196,15 @@ def cancel_order(id, conn) do
     nil ->
       {:error, :not_found}
 
-    %{status: :shipped} ->
+    %{fulfillment_status: :shipped} ->
       {:error, :invalid_state}
 
-    %{status: :cancelled} ->
+    %{status: :canceled} ->
       {:error, :already_cancelled}
 
     order ->
       {:ok, _} = Repo.update(Order.cancel(order))
-      {:ok, %{id: id, status: "cancelled"}}
+      {:ok, %{"id" => id, "status" => "canceled"}}
   end
 end
 ```
@@ -218,7 +224,7 @@ def link_identity(params, conn) do
     %{"provider" => provider, "token" => token} ->
       case verify_oauth_token(provider, token) do
         {:ok, user_info} ->
-          {:ok, %{linked: true, user_id: user_info.id}}
+          {:ok, %{"linked" => true, "user_id" => user_info.id}}
 
         {:error, reason} ->
           {:error, reason}
@@ -294,13 +300,66 @@ def create_checkout(params, conn) do
 end
 ```
 
+## UCP Response Format
+
+### Checkout Response
+
+Your handler must return checkouts in UCP format:
+
+```elixir
+%{
+  "id" => "checkout_abc123",
+  "status" => "incomplete",  # incomplete | requires_escalation | ready_for_complete | completed | canceled
+  "currency" => "USD",
+  "line_items" => [
+    %{
+      "item" => %{
+        "id" => "PROD-1",
+        "title" => "Widget",
+        "price" => 1999  # cents
+      },
+      "quantity" => 2,
+      "totals" => [
+        %{"type" => "subtotal", "amount" => 3998}
+      ]
+    }
+  ],
+  "totals" => [
+    %{"type" => "subtotal", "amount" => 3998},
+    %{"type" => "tax", "amount" => 320},
+    %{"type" => "total", "amount" => 4318}
+  ],
+  "links" => [
+    %{"type" => "privacy_policy", "url" => "https://..."},
+    %{"type" => "terms_of_service", "url" => "https://..."}
+  ],
+  "payment" => %{"handlers" => []}
+}
+```
+
+### Order Response
+
+```elixir
+%{
+  "id" => "order_xyz789",
+  "checkout_id" => "checkout_abc123",
+  "permalink_url" => "https://mystore.example/orders/xyz789",
+  "line_items" => [...],
+  "totals" => [...],
+  "fulfillment" => %{
+    "expectations" => [],
+    "events" => []
+  }
+}
+```
+
 ## Complete Example
 
 ```elixir
-defmodule MyApp.Commerce.Handler do
+defmodule MyApp.UCPHandler do
   use Bazaar.Handler
 
-  alias MyApp.{Repo, Checkout, Order}
+  alias MyApp.{Repo, Checkout, Order, Product}
   require Logger
 
   @impl true
@@ -319,12 +378,19 @@ defmodule MyApp.Commerce.Handler do
 
   @impl true
   def create_checkout(params, _conn) do
-    with %{valid?: true} = cs <- Bazaar.Schemas.CheckoutSession.new(params),
-         data <- Ecto.Changeset.apply_changes(cs),
-         {:ok, checkout} <- Repo.insert(Checkout.from_ucp(data)) do
-      {:ok, Checkout.to_ucp(checkout)}
-    else
-      %{valid?: false} = changeset -> {:error, changeset}
+    line_items = enrich_line_items(params["line_items"])
+    totals = calculate_totals(line_items)
+
+    checkout = %Checkout{
+      id: generate_id("checkout"),
+      currency: params["currency"],
+      line_items: line_items,
+      totals: totals,
+      status: :incomplete
+    }
+
+    case Repo.insert(checkout) do
+      {:ok, saved} -> {:ok, to_ucp(saved)}
       {:error, changeset} -> {:error, changeset}
     end
   end
@@ -333,16 +399,16 @@ defmodule MyApp.Commerce.Handler do
   def get_checkout(id, _conn) do
     case Repo.get(Checkout, id) do
       nil -> {:error, :not_found}
-      checkout -> {:ok, Checkout.to_ucp(checkout)}
+      checkout -> {:ok, to_ucp(checkout)}
     end
   end
 
   @impl true
   def update_checkout(id, params, _conn) do
     with checkout when not is_nil(checkout) <- Repo.get(Checkout, id),
-         false <- checkout.status == :complete,
+         false <- checkout.status == :completed,
          {:ok, updated} <- Checkout.update(checkout, params) do
-      {:ok, Checkout.to_ucp(updated)}
+      {:ok, to_ucp(updated)}
     else
       nil -> {:error, :not_found}
       true -> {:error, :invalid_state}
@@ -354,10 +420,10 @@ defmodule MyApp.Commerce.Handler do
   def cancel_checkout(id, _conn) do
     case Repo.get(Checkout, id) do
       nil -> {:error, :not_found}
-      %{status: :cancelled} -> {:error, :already_cancelled}
+      %{status: :canceled} -> {:error, :already_cancelled}
       checkout ->
         Repo.update!(Checkout.cancel(checkout))
-        {:ok, %{id: id, status: "cancelled"}}
+        {:ok, %{"id" => id, "status" => "canceled"}}
     end
   end
 
@@ -367,7 +433,7 @@ defmodule MyApp.Commerce.Handler do
   def get_order(id, _conn) do
     case Repo.get(Order, id) do
       nil -> {:error, :not_found}
-      order -> {:ok, Order.to_ucp(order)}
+      order -> {:ok, order_to_ucp(order)}
     end
   end
 
@@ -378,7 +444,7 @@ defmodule MyApp.Commerce.Handler do
       %{status: s} when s in [:shipped, :delivered] -> {:error, :invalid_state}
       order ->
         Repo.update!(Order.cancel(order))
-        {:ok, %{id: id, status: "cancelled"}}
+        {:ok, %{"id" => id, "status" => "canceled"}}
     end
   end
 
@@ -391,6 +457,70 @@ defmodule MyApp.Commerce.Handler do
   end
 
   def handle_webhook(_), do: {:error, :unknown_event}
+
+  # Private helpers
+
+  defp enrich_line_items(line_items) do
+    Enum.map(line_items, fn li ->
+      product = Repo.get!(Product, li["item"]["id"])
+      %{
+        "item" => %{
+          "id" => product.id,
+          "title" => product.title,
+          "price" => product.price_cents
+        },
+        "quantity" => li["quantity"],
+        "totals" => [
+          %{"type" => "subtotal", "amount" => product.price_cents * li["quantity"]}
+        ]
+      }
+    end)
+  end
+
+  defp calculate_totals(line_items) do
+    subtotal = Enum.reduce(line_items, 0, fn li, acc ->
+      acc + hd(li["totals"])["amount"]
+    end)
+
+    tax = round(subtotal * 0.08)  # 8% tax
+
+    [
+      %{"type" => "subtotal", "amount" => subtotal},
+      %{"type" => "tax", "amount" => tax},
+      %{"type" => "total", "amount" => subtotal + tax}
+    ]
+  end
+
+  defp to_ucp(checkout) do
+    %{
+      "id" => checkout.id,
+      "status" => to_string(checkout.status),
+      "currency" => checkout.currency,
+      "line_items" => checkout.line_items,
+      "totals" => checkout.totals,
+      "links" => [
+        %{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"},
+        %{"type" => "terms_of_service", "url" => "https://mystore.example/terms"}
+      ],
+      "payment" => %{"handlers" => []}
+    }
+  end
+
+  defp order_to_ucp(order) do
+    %{
+      "id" => order.id,
+      "checkout_id" => order.checkout_id,
+      "permalink_url" => "https://mystore.example/orders/#{order.id}",
+      "line_items" => order.line_items,
+      "totals" => order.totals,
+      "fulfillment" => %{
+        "expectations" => order.fulfillment_expectations || [],
+        "events" => order.fulfillment_events || []
+      }
+    }
+  end
+
+  defp generate_id(prefix), do: "#{prefix}_#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
 end
 ```
 

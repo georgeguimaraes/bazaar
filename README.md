@@ -1,4 +1,4 @@
-# 🎪 Bazaar
+# Bazaar 🎪
 
 **Open your store to AI agents.** Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
 
@@ -22,6 +22,25 @@ UCP was co-developed with Shopify, Walmart, Etsy, Target, and others.
 - **Handler Behaviour**: Clean interface for your commerce logic
 - **Built-in Plugs**: Request validation, idempotency, and UCP headers
 - **Auto-generated Discovery**: `/.well-known/ucp` endpoint from your handler
+
+## How It Works
+
+Bazaar is a thin layer that connects your Phoenix app to AI shopping agents via UCP.
+
+```
+AI Agent → UCP Request → Bazaar Router → Bazaar Controller → Your Handler → Response
+```
+
+Bazaar handles the HTTP/JSON plumbing. You write the commerce logic.
+
+| Bazaar | You |
+|--------|-----|
+| Parses JSON, validates structure | Write business logic |
+| Routes to correct callback | Query your database |
+| Handles UCP headers | Calculate prices, tax, shipping |
+| Returns proper HTTP responses | Integrate with payment/fulfillment |
+
+Bazaar doesn't touch your database or know about your products. It just speaks UCP so AI agents can shop at your store.
 
 ## Installation
 
@@ -48,14 +67,12 @@ mix deps.get
 The handler defines your store's capabilities and commerce logic:
 
 ```elixir
-defmodule MyApp.Commerce.Handler do
+defmodule MyApp.UCPHandler do
   use Bazaar.Handler
 
-  # Define what your store supports
   @impl true
   def capabilities, do: [:checkout, :orders]
 
-  # Your store's profile (shown in discovery)
   @impl true
   def business_profile do
     %{
@@ -64,26 +81,20 @@ defmodule MyApp.Commerce.Handler do
     }
   end
 
-  # Handle checkout creation
   @impl true
   def create_checkout(params, _conn) do
-    case Bazaar.Schemas.CheckoutSession.new(params) do
-      %{valid?: true} = changeset ->
-        checkout = Ecto.Changeset.apply_changes(changeset)
-        # Save to your database here...
-        {:ok, Map.from_struct(checkout)}
-
-      %{valid?: false} = changeset ->
-        {:error, changeset}
-    end
+    # params already validated by Bazaar
+    # Save to your DB, return the checkout map
+    {:ok, %{"id" => "chk_123", "status" => "incomplete", ...}}
   end
 
-  # Fetch a checkout by ID
   @impl true
   def get_checkout(id, _conn) do
-    # Replace with your database lookup
-    {:error, :not_found}
+    # Fetch from your DB
+    {:ok, checkout} or {:error, :not_found}
   end
+
+  # ... other callbacks: update_checkout, cancel_checkout, get_order, cancel_order
 end
 ```
 
@@ -102,7 +113,7 @@ defmodule MyAppWeb.Router do
 
   scope "/" do
     pipe_through :api
-    bazaar_routes "/", MyApp.Commerce.Handler
+    bazaar_routes "/", MyApp.UCPHandler
   end
 end
 ```

@@ -7,20 +7,20 @@ This guide shows you how to test your Bazaar implementation.
 ### Basic Handler Test
 
 ```elixir
-defmodule MyApp.Commerce.HandlerTest do
+defmodule MyApp.UCPHandlerTest do
   use ExUnit.Case, async: true
 
-  alias MyApp.Commerce.Handler
+  alias MyApp.UCPHandler
 
   describe "capabilities/0" do
     test "returns expected capabilities" do
-      assert Handler.capabilities() == [:checkout, :orders]
+      assert UCPHandler.capabilities() == [:checkout, :orders]
     end
   end
 
   describe "business_profile/0" do
     test "returns store profile" do
-      profile = Handler.business_profile()
+      profile = UCPHandler.business_profile()
 
       assert profile["name"] == "My Store"
       assert is_binary(profile["description"])
@@ -29,45 +29,43 @@ defmodule MyApp.Commerce.HandlerTest do
 
   describe "create_checkout/2" do
     test "creates checkout with valid params" do
-      params = %{
-        "currency" => "USD",
-        "line_items" => [
-          %{"sku" => "TEST-1", "quantity" => 1, "unit_price" => "19.99"}
-        ]
-      }
+      params = valid_checkout_params()
 
-      assert {:ok, checkout} = Handler.create_checkout(params, nil)
-      assert checkout.currency == "USD"
+      assert {:ok, checkout} = UCPHandler.create_checkout(params, nil)
+      assert checkout["currency"] == "USD"
+      assert checkout["status"] == "incomplete"
+      assert is_list(checkout["totals"])
+      assert is_list(checkout["links"])
     end
 
     test "returns error for invalid params" do
       params = %{"currency" => "INVALID"}
 
-      assert {:error, changeset} = Handler.create_checkout(params, nil)
-      refute changeset.valid?
+      assert {:error, _} = UCPHandler.create_checkout(params, nil)
     end
   end
 
   describe "get_checkout/2" do
     test "returns checkout when found" do
       # Setup: create a checkout first
-      {:ok, created} = Handler.create_checkout(valid_params(), nil)
+      {:ok, created} = UCPHandler.create_checkout(valid_checkout_params(), nil)
 
-      assert {:ok, checkout} = Handler.get_checkout(created.id, nil)
-      assert checkout.id == created.id
+      assert {:ok, checkout} = UCPHandler.get_checkout(created["id"], nil)
+      assert checkout["id"] == created["id"]
     end
 
     test "returns not_found for missing checkout" do
-      assert {:error, :not_found} = Handler.get_checkout("nonexistent", nil)
+      assert {:error, :not_found} = UCPHandler.get_checkout("nonexistent", nil)
     end
   end
 
-  defp valid_params do
+  defp valid_checkout_params do
     %{
       "currency" => "USD",
       "line_items" => [
-        %{"sku" => "TEST-1", "quantity" => 1, "unit_price" => "10.00"}
-      ]
+        %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
+      ],
+      "payment" => %{}
     }
   end
 end
@@ -76,10 +74,10 @@ end
 ### Testing with Database
 
 ```elixir
-defmodule MyApp.Commerce.HandlerTest do
+defmodule MyApp.UCPHandlerTest do
   use MyApp.DataCase, async: true
 
-  alias MyApp.Commerce.Handler
+  alias MyApp.UCPHandler
   alias MyApp.Repo
 
   setup do
@@ -91,25 +89,35 @@ defmodule MyApp.Commerce.HandlerTest do
     test "persists checkout to database" do
       params = valid_checkout_params()
 
-      {:ok, checkout} = Handler.create_checkout(params, nil)
+      {:ok, checkout} = UCPHandler.create_checkout(params, nil)
 
       # Verify it's in the database
-      assert Repo.get!(MyApp.Checkout, checkout.id)
+      assert Repo.get!(MyApp.Checkout, checkout["id"])
     end
   end
 
   describe "cancel_checkout/2" do
-    test "updates status to cancelled" do
-      {:ok, checkout} = Handler.create_checkout(valid_checkout_params(), nil)
+    test "updates status to canceled" do
+      {:ok, checkout} = UCPHandler.create_checkout(valid_checkout_params(), nil)
 
-      {:ok, cancelled} = Handler.cancel_checkout(checkout.id, nil)
+      {:ok, cancelled} = UCPHandler.cancel_checkout(checkout["id"], nil)
 
-      assert cancelled.status == "cancelled"
+      assert cancelled["status"] == "canceled"
 
       # Verify in database
-      db_checkout = Repo.get!(MyApp.Checkout, checkout.id)
-      assert db_checkout.status == :cancelled
+      db_checkout = Repo.get!(MyApp.Checkout, checkout["id"])
+      assert db_checkout.status == :canceled
     end
+  end
+
+  defp valid_checkout_params do
+    %{
+      "currency" => "USD",
+      "line_items" => [
+        %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
+      ],
+      "payment" => %{}
+    }
   end
 end
 ```
@@ -129,8 +137,9 @@ defmodule Bazaar.Schemas.CheckoutSessionTest do
       params = %{
         "currency" => "USD",
         "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}
-        ]
+          %{"item" => %{"id" => "ABC"}, "quantity" => 1}
+        ],
+        "payment" => %{}
       }
 
       changeset = CheckoutSession.new(params)
@@ -141,8 +150,9 @@ defmodule Bazaar.Schemas.CheckoutSessionTest do
     test "requires currency" do
       params = %{
         "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}
-        ]
+          %{"item" => %{"id" => "ABC"}, "quantity" => 1}
+        ],
+        "payment" => %{}
       }
 
       changeset = CheckoutSession.new(params)
@@ -151,10 +161,35 @@ defmodule Bazaar.Schemas.CheckoutSessionTest do
       assert "can't be blank" in errors_on(changeset).currency
     end
 
+    test "requires line_items" do
+      params = %{
+        "currency" => "USD",
+        "payment" => %{}
+      }
+
+      changeset = CheckoutSession.new(params)
+
+      refute changeset.valid?
+      assert "can't be blank" in errors_on(changeset).line_items
+    end
+
+    test "requires payment" do
+      params = %{
+        "currency" => "USD",
+        "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}]
+      }
+
+      changeset = CheckoutSession.new(params)
+
+      refute changeset.valid?
+      assert "can't be blank" in errors_on(changeset).payment
+    end
+
     test "validates currency format" do
       params = %{
         "currency" => "INVALID",
-        "line_items" => [%{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}]
+        "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
+        "payment" => %{}
       }
 
       changeset = CheckoutSession.new(params)
@@ -164,19 +199,24 @@ defmodule Bazaar.Schemas.CheckoutSessionTest do
     end
 
     test "requires at least one line item" do
-      params = %{"currency" => "USD", "line_items" => []}
+      params = %{
+        "currency" => "USD",
+        "line_items" => [],
+        "payment" => %{}
+      }
 
       changeset = CheckoutSession.new(params)
 
       refute changeset.valid?
     end
 
-    test "validates line item quantity > 0" do
+    test "validates line item quantity >= 1" do
       params = %{
         "currency" => "USD",
         "line_items" => [
-          %{"sku" => "ABC", "quantity" => 0, "unit_price" => "10.00"}
-        ]
+          %{"item" => %{"id" => "ABC"}, "quantity" => 0}
+        ],
+        "payment" => %{}
       }
 
       changeset = CheckoutSession.new(params)
@@ -200,26 +240,151 @@ defmodule Bazaar.Schemas.OrderTest do
 
   alias Bazaar.Schemas.Order
 
-  describe "from_checkout/2" do
+  describe "from_checkout/3" do
     test "creates order from checkout data" do
       checkout = %{
-        id: "checkout_123",
-        currency: "USD",
-        total: Decimal.new("99.99"),
-        line_items: [%{sku: "ABC", quantity: 1, unit_price: Decimal.new("99.99")}],
-        buyer: %{email: "test@example.com"},
-        shipping_address: %{city: "NYC", country: "US"}
+        "id" => "checkout_123",
+        "currency" => "USD",
+        "line_items" => [
+          %{
+            "item" => %{"id" => "ABC", "title" => "Widget", "price" => 1999},
+            "quantity" => 1,
+            "totals" => [%{"type" => "subtotal", "amount" => 1999}]
+          }
+        ],
+        "totals" => [
+          %{"type" => "subtotal", "amount" => 1999},
+          %{"type" => "total", "amount" => 1999}
+        ]
       }
 
-      changeset = Order.from_checkout(checkout, "order_456")
+      changeset = Order.from_checkout(checkout, "order_456", "https://shop.example/orders/456")
 
       assert changeset.valid?
 
       order = Ecto.Changeset.apply_changes(changeset)
       assert order.id == "order_456"
-      assert order.checkout_session_id == "checkout_123"
-      assert order.status == :pending
+      assert order.checkout_id == "checkout_123"
+      assert order.permalink_url == "https://shop.example/orders/456"
     end
+  end
+
+  describe "new/1" do
+    test "requires id, checkout_id, permalink_url, line_items, totals" do
+      changeset = Order.new(%{})
+
+      refute changeset.valid?
+      errors = errors_on(changeset)
+      assert "can't be blank" in errors.id
+      assert "can't be blank" in errors.checkout_id
+      assert "can't be blank" in errors.permalink_url
+      assert "can't be blank" in errors.line_items
+      assert "can't be blank" in errors.totals
+    end
+  end
+
+  defp errors_on(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
+  end
+end
+```
+
+## Testing Against Official UCP Schemas
+
+Use `Bazaar.Validator` to ensure your responses match the official UCP spec:
+
+```elixir
+defmodule MyApp.UCPConformanceTest do
+  use ExUnit.Case, async: true
+
+  alias MyApp.UCPHandler
+
+  describe "checkout response conformance" do
+    test "checkout response matches UCP spec" do
+      params = valid_checkout_params()
+
+      {:ok, checkout} = UCPHandler.create_checkout(params, nil)
+
+      # Validate against official UCP JSON Schema
+      assert {:ok, _} = Bazaar.Validator.validate_checkout(checkout)
+    end
+
+    test "checkout with all fields matches UCP spec" do
+      checkout = %{
+        "ucp" => %{
+          "version" => "2026-01-11",
+          "capabilities" => [
+            %{"name" => "dev.ucp.shopping.checkout", "version" => "2026-01-11"}
+          ]
+        },
+        "id" => "checkout_123",
+        "status" => "incomplete",
+        "currency" => "USD",
+        "line_items" => [
+          %{
+            "id" => "li_1",
+            "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1999},
+            "quantity" => 2,
+            "totals" => [%{"type" => "subtotal", "amount" => 3998}]
+          }
+        ],
+        "totals" => [
+          %{"type" => "subtotal", "amount" => 3998},
+          %{"type" => "total", "amount" => 3998}
+        ],
+        "links" => [
+          %{"type" => "privacy_policy", "url" => "https://example.com/privacy"},
+          %{"type" => "terms_of_service", "url" => "https://example.com/terms"}
+        ],
+        "payment" => %{"handlers" => []}
+      }
+
+      assert {:ok, _} = Bazaar.Validator.validate_checkout(checkout)
+    end
+  end
+
+  describe "order response conformance" do
+    test "order response matches UCP spec" do
+      order = %{
+        "ucp" => %{
+          "version" => "2026-01-11",
+          "capabilities" => [
+            %{"name" => "dev.ucp.shopping.order", "version" => "2026-01-11"}
+          ]
+        },
+        "id" => "order_123",
+        "checkout_id" => "checkout_456",
+        "permalink_url" => "https://shop.example/orders/123",
+        "line_items" => [
+          %{
+            "id" => "li_1",
+            "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1999},
+            "quantity" => %{"total" => 2, "fulfilled" => 0},
+            "totals" => [%{"type" => "subtotal", "amount" => 3998}],
+            "status" => "processing"
+          }
+        ],
+        "fulfillment" => %{
+          "expectations" => [],
+          "events" => []
+        },
+        "totals" => [
+          %{"type" => "total", "amount" => 3998}
+        ]
+      }
+
+      assert {:ok, _} = Bazaar.Validator.validate_order(order)
+    end
+  end
+
+  defp valid_checkout_params do
+    %{
+      "currency" => "USD",
+      "line_items" => [
+        %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
+      ],
+      "payment" => %{}
+    }
   end
 end
 ```
@@ -245,19 +410,20 @@ defmodule MyAppWeb.UCPRoutesTest do
   describe "POST /checkout-sessions" do
     test "creates checkout with valid params", %{conn: conn} do
       params = %{
-        currency: "USD",
-        line_items: [
-          %{sku: "TEST-1", quantity: 1, unit_price: "19.99"}
-        ]
+        "currency" => "USD",
+        "line_items" => [
+          %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
+        ],
+        "payment" => %{}
       }
 
       conn = post(conn, "/checkout-sessions", params)
 
-      assert %{"id" => _id} = json_response(conn, 201)
+      assert %{"id" => _id, "status" => "incomplete"} = json_response(conn, 201)
     end
 
     test "returns 422 for invalid params", %{conn: conn} do
-      params = %{currency: "INVALID"}
+      params = %{"currency" => "INVALID"}
 
       conn = post(conn, "/checkout-sessions", params)
 
@@ -284,10 +450,26 @@ defmodule MyAppWeb.UCPRoutesTest do
     end
   end
 
+  describe "DELETE /checkout-sessions/:id" do
+    test "cancels checkout", %{conn: conn} do
+      # Create a checkout first
+      create_conn = post(conn, "/checkout-sessions", valid_checkout_params())
+      %{"id" => id} = json_response(create_conn, 201)
+
+      # Cancel it
+      conn = delete(conn, "/checkout-sessions/#{id}")
+
+      assert json_response(conn, 200)["status"] == "canceled"
+    end
+  end
+
   defp valid_checkout_params do
     %{
-      currency: "USD",
-      line_items: [%{sku: "ABC", quantity: 1, unit_price: "10.00"}]
+      "currency" => "USD",
+      "line_items" => [
+        %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
+      ],
+      "payment" => %{}
     }
   end
 end
@@ -356,7 +538,8 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
       |> put_private(:phoenix_action, :create_checkout)
       |> Map.put(:params, %{
         "currency" => "USD",
-        "line_items" => [%{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}]
+        "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
+        "payment" => %{}
       })
       |> ValidateRequest.call(opts)
 
@@ -438,24 +621,29 @@ defmodule MyAppWeb.CheckoutFlowTest do
   test "complete checkout flow", %{conn: conn} do
     # 1. Create checkout
     create_params = %{
-      currency: "USD",
-      line_items: [
-        %{sku: "LAPTOP-1", name: "Laptop", quantity: 1, unit_price: "999.99"}
-      ]
+      "currency" => "USD",
+      "line_items" => [
+        %{"item" => %{"id" => "LAPTOP-1"}, "quantity" => 1}
+      ],
+      "payment" => %{}
     }
 
     conn = post(conn, "/checkout-sessions", create_params)
-    assert %{"id" => checkout_id, "status" => "open"} = json_response(conn, 201)
+    assert %{"id" => checkout_id, "status" => "incomplete"} = json_response(conn, 201)
 
     # 2. Update with buyer info
     update_params = %{
-      buyer: %{email: "test@example.com", name: "Test User"},
-      shipping_address: %{
-        line1: "123 Main St",
-        city: "NYC",
-        state: "NY",
-        postal_code: "10001",
-        country: "US"
+      "buyer" => %{
+        "first_name" => "Test",
+        "last_name" => "User",
+        "email" => "test@example.com"
+      },
+      "shipping_address" => %{
+        "street_address" => "123 Main St",
+        "address_locality" => "NYC",
+        "address_region" => "NY",
+        "postal_code" => "10001",
+        "address_country" => "US"
       }
     }
 
@@ -485,27 +673,58 @@ defmodule MyApp.UCPHelpers do
         "currency" => "USD",
         "line_items" => [
           %{
-            "sku" => "TEST-#{System.unique_integer([:positive])}",
-            "name" => "Test Product",
-            "quantity" => 1,
-            "unit_price" => "19.99"
+            "item" => %{"id" => "TEST-#{System.unique_integer([:positive])}"},
+            "quantity" => 1
           }
-        ]
+        ],
+        "payment" => %{}
       },
       overrides
     )
   end
 
-  def valid_order_params(overrides \\ %{}) do
+  def valid_checkout_response(overrides \\ %{}) do
+    Map.merge(
+      %{
+        "id" => "checkout_#{System.unique_integer([:positive])}",
+        "status" => "incomplete",
+        "currency" => "USD",
+        "line_items" => [
+          %{
+            "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1999},
+            "quantity" => 1,
+            "totals" => [%{"type" => "subtotal", "amount" => 1999}]
+          }
+        ],
+        "totals" => [
+          %{"type" => "subtotal", "amount" => 1999},
+          %{"type" => "total", "amount" => 1999}
+        ],
+        "links" => [
+          %{"type" => "privacy_policy", "url" => "https://example.com/privacy"},
+          %{"type" => "terms_of_service", "url" => "https://example.com/terms"}
+        ],
+        "payment" => %{"handlers" => []}
+      },
+      overrides
+    )
+  end
+
+  def valid_order_response(overrides \\ %{}) do
     Map.merge(
       %{
         "id" => "order_#{System.unique_integer([:positive])}",
-        "status" => "pending",
-        "currency" => "USD",
-        "total" => "19.99",
+        "checkout_id" => "checkout_123",
+        "permalink_url" => "https://shop.example/orders/123",
         "line_items" => [
-          %{"sku" => "TEST-1", "quantity" => 1, "unit_price" => "19.99"}
-        ]
+          %{
+            "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1999},
+            "quantity" => 1,
+            "totals" => [%{"type" => "subtotal", "amount" => 1999}]
+          }
+        ],
+        "totals" => [%{"type" => "total", "amount" => 1999}],
+        "fulfillment" => %{"expectations" => [], "events" => []}
       },
       overrides
     )
@@ -523,10 +742,10 @@ mix test
 mix test --cover
 
 # Run specific file
-mix test test/my_app/commerce/handler_test.exs
+mix test test/my_app/ucp_handler_test.exs
 
 # Run specific test
-mix test test/my_app/commerce/handler_test.exs:42
+mix test test/my_app/ucp_handler_test.exs:42
 ```
 
 ## Tips
@@ -548,6 +767,17 @@ Always test:
 - Invalid field values
 - Not found scenarios
 - State transition errors (e.g., cancelling already cancelled)
+
+### Test UCP Conformance
+
+Use `Bazaar.Validator` to ensure your responses match the official UCP spec:
+
+```elixir
+test "response matches UCP spec" do
+  {:ok, checkout} = MyHandler.create_checkout(params, nil)
+  assert {:ok, _} = Bazaar.Validator.validate_checkout(checkout)
+end
+```
 
 ### Mock External Services
 
