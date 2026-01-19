@@ -1,6 +1,6 @@
 # Plugs Guide
 
-Ucphi provides three plugs for production-ready UCP implementations:
+Bazaar provides three plugs for production-ready UCP implementations:
 
 | Plug | Purpose |
 |------|---------|
@@ -15,7 +15,7 @@ Add plugs to your router pipeline:
 ```elixir
 defmodule MyAppWeb.Router do
   use MyAppWeb, :router
-  use Ucphi.Phoenix.Router
+  use Bazaar.Phoenix.Router
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -23,14 +23,14 @@ defmodule MyAppWeb.Router do
 
   # UCP-specific pipeline
   pipeline :ucp do
-    plug Ucphi.Plugs.UCPHeaders
-    plug Ucphi.Plugs.ValidateRequest
-    plug Ucphi.Plugs.Idempotency
+    plug Bazaar.Plugs.UCPHeaders
+    plug Bazaar.Plugs.ValidateRequest
+    plug Bazaar.Plugs.Idempotency
   end
 
   scope "/" do
     pipe_through [:api, :ucp]
-    ucphi_routes "/", MyApp.Commerce.Handler
+    bazaar_routes "/", MyApp.Commerce.Handler
   end
 end
 ```
@@ -49,7 +49,7 @@ Extracts UCP-specific headers and manages request IDs.
 ### Usage
 
 ```elixir
-plug Ucphi.Plugs.UCPHeaders
+plug Bazaar.Plugs.UCPHeaders
 ```
 
 ### Accessing Headers in Handler
@@ -97,7 +97,7 @@ UCP-Request-ID: req_custom123
 
 ## ValidateRequest
 
-Validates request bodies against Ucphi schemas before reaching your handler.
+Validates request bodies against Bazaar schemas before reaching your handler.
 
 ### What It Does
 
@@ -109,22 +109,22 @@ Validates request bodies against Ucphi schemas before reaching your handler.
 ### Usage
 
 ```elixir
-plug Ucphi.Plugs.ValidateRequest
+plug Bazaar.Plugs.ValidateRequest
 ```
 
 ### Default Schemas
 
 | Action | Schema |
 |--------|--------|
-| `create_checkout` | `Ucphi.Schemas.CheckoutSession` |
-| `update_checkout` | `Ucphi.Schemas.CheckoutSession` |
+| `create_checkout` | `Bazaar.Schemas.CheckoutSession` |
+| `update_checkout` | `Bazaar.Schemas.CheckoutSession` |
 
 ### Custom Schemas
 
 Override or add schemas:
 
 ```elixir
-plug Ucphi.Plugs.ValidateRequest,
+plug Bazaar.Plugs.ValidateRequest,
   schemas: %{
     create_checkout: MyApp.Schemas.CustomCheckout,
     my_custom_action: MyApp.Schemas.CustomSchema
@@ -137,13 +137,13 @@ After validation, data is available in assigns:
 
 ```elixir
 def create_checkout(params, conn) do
-  if conn.assigns[:ucphi_validated] do
+  if conn.assigns[:bazaar_validated] do
     # Use pre-validated data
-    validated = conn.assigns[:ucphi_data]
+    validated = conn.assigns[:bazaar_data]
     # validated is already an Ecto struct
   else
     # Validate manually (plug wasn't used or no schema)
-    changeset = Ucphi.Schemas.CheckoutSession.new(params)
+    changeset = Bazaar.Schemas.CheckoutSession.new(params)
   end
 end
 ```
@@ -177,7 +177,7 @@ Handles retry safety by caching responses for repeated requests.
 ### Usage
 
 ```elixir
-plug Ucphi.Plugs.Idempotency
+plug Bazaar.Plugs.Idempotency
 ```
 
 ### Options
@@ -189,7 +189,7 @@ plug Ucphi.Plugs.Idempotency
 | `:header` | `"idempotency-key"` | Header name |
 
 ```elixir
-plug Ucphi.Plugs.Idempotency,
+plug Bazaar.Plugs.Idempotency,
   ttl: 3600,  # 1 hour
   header: "x-idempotency-key"
 ```
@@ -266,7 +266,7 @@ defmodule MyApp.RedisIdempotencyCache do
 end
 
 # In router:
-plug Ucphi.Plugs.Idempotency,
+plug Bazaar.Plugs.Idempotency,
   cache: MyApp.RedisIdempotencyCache
 ```
 
@@ -284,13 +284,13 @@ Order matters! Recommended sequence:
 ```elixir
 pipeline :ucp do
   # 1. Extract headers first (for logging)
-  plug Ucphi.Plugs.UCPHeaders
+  plug Bazaar.Plugs.UCPHeaders
 
   # 2. Check idempotency (may return cached response)
-  plug Ucphi.Plugs.Idempotency
+  plug Bazaar.Plugs.Idempotency
 
   # 3. Validate request body (if not cached)
-  plug Ucphi.Plugs.ValidateRequest
+  plug Bazaar.Plugs.ValidateRequest
 end
 ```
 
@@ -299,7 +299,7 @@ end
 ```elixir
 defmodule MyAppWeb.Router do
   use MyAppWeb, :router
-  use Ucphi.Phoenix.Router
+  use Bazaar.Phoenix.Router
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -307,28 +307,28 @@ defmodule MyAppWeb.Router do
   end
 
   pipeline :ucp do
-    plug Ucphi.Plugs.UCPHeaders
-    plug Ucphi.Plugs.Idempotency, ttl: 86400
-    plug Ucphi.Plugs.ValidateRequest
+    plug Bazaar.Plugs.UCPHeaders
+    plug Bazaar.Plugs.Idempotency, ttl: 86400
+    plug Bazaar.Plugs.ValidateRequest
   end
 
   # Public discovery (no validation needed)
   scope "/" do
     pipe_through :api
 
-    get "/.well-known/ucp", Ucphi.Phoenix.Controller, :discovery,
-      assigns: %{ucphi_handler: MyApp.Commerce.Handler}
+    get "/.well-known/ucp", Bazaar.Phoenix.Controller, :discovery,
+      assigns: %{bazaar_handler: MyApp.Commerce.Handler}
   end
 
   # Protected UCP endpoints
   scope "/" do
     pipe_through [:api, :ucp]
 
-    post "/checkout-sessions", Ucphi.Phoenix.Controller, :create_checkout,
-      assigns: %{ucphi_handler: MyApp.Commerce.Handler}
+    post "/checkout-sessions", Bazaar.Phoenix.Controller, :create_checkout,
+      assigns: %{bazaar_handler: MyApp.Commerce.Handler}
 
-    get "/checkout-sessions/:id", Ucphi.Phoenix.Controller, :get_checkout,
-      assigns: %{ucphi_handler: MyApp.Commerce.Handler}
+    get "/checkout-sessions/:id", Bazaar.Phoenix.Controller, :get_checkout,
+      assigns: %{bazaar_handler: MyApp.Commerce.Handler}
 
     # ... other routes
   end

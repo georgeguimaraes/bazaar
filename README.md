@@ -1,8 +1,8 @@
-# UCΦ (ucphi)
+# Bazaar
 
-**Universal Commerce Φilosopher** — Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
+**Open your store to AI agents.** Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
 
-UCΦ helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling AI shopping agents to interact with your store.
+Bazaar helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling AI shopping agents to interact with your store.
 
 ## What is UCP?
 
@@ -25,12 +25,12 @@ UCP was co-developed with Shopify, Walmart, Etsy, Target, and others.
 
 ## Installation
 
-Add `ucphi` to your dependencies in `mix.exs`:
+Add `bazaar` to your dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:ucphi, "~> 0.1.0"}
+    {:bazaar, "~> 0.1.0"}
   ]
 end
 ```
@@ -49,7 +49,7 @@ The handler defines your store's capabilities and commerce logic:
 
 ```elixir
 defmodule MyApp.Commerce.Handler do
-  use Ucphi.Handler
+  use Bazaar.Handler
 
   # Define what your store supports
   @impl true
@@ -67,7 +67,7 @@ defmodule MyApp.Commerce.Handler do
   # Handle checkout creation
   @impl true
   def create_checkout(params, _conn) do
-    case Ucphi.Schemas.CheckoutSession.new(params) do
+    case Bazaar.Schemas.CheckoutSession.new(params) do
       %{valid?: true} = changeset ->
         checkout = Ecto.Changeset.apply_changes(changeset)
         # Save to your database here...
@@ -94,7 +94,7 @@ Add UCP routes to your Phoenix router:
 ```elixir
 defmodule MyAppWeb.Router do
   use Phoenix.Router
-  use Ucphi.Phoenix.Router
+  use Bazaar.Phoenix.Router
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -102,7 +102,7 @@ defmodule MyAppWeb.Router do
 
   scope "/" do
     pipe_through :api
-    ucphi_routes "/", MyApp.Commerce.Handler
+    bazaar_routes "/", MyApp.Commerce.Handler
   end
 end
 ```
@@ -132,7 +132,7 @@ You should see your store's profile and capabilities.
 
 ## Guides
 
-New to Ucphi? Check out these guides:
+New to Bazaar? Check out these guides:
 
 - **[Getting Started](guides/getting-started.md)** - Build your first UCP merchant
 - **[Handlers](guides/handlers.md)** - Implement commerce logic
@@ -154,17 +154,17 @@ UCP defines three capabilities your store can support:
 
 ### Schemas
 
-Ucphi provides validated schemas for UCP data structures:
+Bazaar provides validated schemas for UCP data structures:
 
 ```elixir
 # Validate checkout params
-changeset = Ucphi.Schemas.CheckoutSession.new(params)
+changeset = Bazaar.Schemas.CheckoutSession.new(params)
 
 # Create order from checkout
-order = Ucphi.Schemas.Order.from_checkout(checkout, "order_123")
+order = Bazaar.Schemas.Order.from_checkout(checkout, "order_123", "https://shop.com/orders/123")
 
 # Generate JSON Schema for documentation
-schema = Ucphi.Schemas.CheckoutSession.json_schema()
+schema = Bazaar.Schemas.CheckoutSession.json_schema()
 ```
 
 ### Plugs
@@ -173,9 +173,9 @@ Optional plugs for production use:
 
 ```elixir
 pipeline :ucp do
-  plug Ucphi.Plugs.UCPHeaders      # Extract UCP headers
-  plug Ucphi.Plugs.ValidateRequest  # Validate request body
-  plug Ucphi.Plugs.Idempotency      # Handle retry safety
+  plug Bazaar.Plugs.UCPHeaders      # Extract UCP headers
+  plug Bazaar.Plugs.ValidateRequest  # Validate request body
+  plug Bazaar.Plugs.Idempotency      # Handle retry safety
 end
 ```
 
@@ -185,7 +185,7 @@ Here's a more complete handler example:
 
 ```elixir
 defmodule MyApp.Commerce.Handler do
-  use Ucphi.Handler
+  use Bazaar.Handler
 
   alias MyApp.{Repo, Checkout, Order}
 
@@ -205,7 +205,7 @@ defmodule MyApp.Commerce.Handler do
 
   @impl true
   def create_checkout(params, _conn) do
-    case Ucphi.Schemas.CheckoutSession.new(params) do
+    case Bazaar.Schemas.CheckoutSession.new(params) do
       %{valid?: true} = changeset ->
         data = Ecto.Changeset.apply_changes(changeset)
         checkout = Repo.insert!(Checkout.from_ucp(data))
@@ -295,10 +295,6 @@ UCP integrates with:
 - [Agent2Agent (A2A)](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/) - Agent communication
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) - AI model integration
 - [Agent Payments Protocol (AP2)](https://developers.google.com/merchant/ucp) - Secure payments
-
-## Why "Ucphi"?
-
-**U**nified **C**ommerce **Phi**losopher - a nod to the Philosopher's Stone, the alchemist's goal of transmuting base metals into gold. Ucphi transmutes carts into commerce.
 
 ## License
 

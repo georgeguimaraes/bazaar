@@ -1,10 +1,10 @@
 # Schemas Guide
 
-Ucphi provides validated schemas for UCP data structures. These schemas validate incoming data and provide type-safe access to fields.
+Bazaar provides validated schemas for UCP data structures. These schemas validate incoming data and provide type-safe access to fields.
 
 ## Overview
 
-Ucphi includes three main schemas:
+Bazaar includes three main schemas:
 
 | Schema | Purpose |
 |--------|---------|
@@ -31,14 +31,14 @@ params = %{
   ]
 }
 
-case Ucphi.Schemas.CheckoutSession.new(params) do
+case Bazaar.Schemas.CheckoutSession.new(params) do
   %{valid?: true} = changeset ->
     checkout = Ecto.Changeset.apply_changes(changeset)
     # checkout.currency => "USD"
     # checkout.line_items => [%{sku: "WIDGET-001", ...}]
 
   %{valid?: false} = changeset ->
-    errors = Ucphi.Errors.from_changeset(changeset)
+    errors = Bazaar.Errors.from_changeset(changeset)
     # Handle validation errors
 end
 ```
@@ -142,7 +142,7 @@ params = %{
   }
 }
 
-changeset = Ucphi.Schemas.CheckoutSession.new(params)
+changeset = Bazaar.Schemas.CheckoutSession.new(params)
 ```
 
 ### Updating a Checkout
@@ -157,7 +157,7 @@ existing = %{
 
 params = %{"total" => "150.00"}
 
-changeset = Ucphi.Schemas.CheckoutSession.update(existing, params)
+changeset = Bazaar.Schemas.CheckoutSession.update(existing, params)
 ```
 
 ## Order
@@ -176,7 +176,7 @@ checkout = %{
   shipping_address: %{...}
 }
 
-changeset = Ucphi.Schemas.Order.from_checkout(checkout, "order_123")
+changeset = Bazaar.Schemas.Order.from_checkout(checkout, "order_123")
 order = Ecto.Changeset.apply_changes(changeset)
 
 # order.id => "order_123"
@@ -241,7 +241,7 @@ The discovery profile describes your store for the `/.well-known/ucp` endpoint.
 ### Building from Handler
 
 ```elixir
-changeset = Ucphi.Schemas.DiscoveryProfile.from_handler(
+changeset = Bazaar.Schemas.DiscoveryProfile.from_handler(
   MyApp.Commerce.Handler,
   base_url: "https://api.mystore.com"
 )
@@ -271,7 +271,7 @@ params = %{
   "metadata" => %{"region" => "us-east-1"}
 }
 
-changeset = Ucphi.Schemas.DiscoveryProfile.new(params)
+changeset = Bazaar.Schemas.DiscoveryProfile.new(params)
 ```
 
 ## JSON Schema Generation
@@ -280,14 +280,14 @@ All schemas can generate JSON Schema for documentation:
 
 ```elixir
 # Checkout schema
-Ucphi.Schemas.CheckoutSession.json_schema()
+Bazaar.Schemas.CheckoutSession.json_schema()
 # => %{"type" => "object", "properties" => %{...}}
 
 # Order schema
-Ucphi.Schemas.Order.json_schema()
+Bazaar.Schemas.Order.json_schema()
 
 # Discovery profile schema
-Ucphi.Schemas.DiscoveryProfile.json_schema()
+Bazaar.Schemas.DiscoveryProfile.json_schema()
 ```
 
 ## Field Definitions
@@ -296,29 +296,29 @@ Access raw field definitions for custom use:
 
 ```elixir
 # All checkout fields
-Ucphi.Schemas.CheckoutSession.fields()
+Bazaar.Schemas.CheckoutSession.fields()
 
 # Line item fields only
-Ucphi.Schemas.CheckoutSession.line_item_fields()
+Bazaar.Schemas.CheckoutSession.line_item_fields()
 
 # Address fields
-Ucphi.Schemas.CheckoutSession.address_fields()
+Bazaar.Schemas.CheckoutSession.address_fields()
 
 # Order shipment fields
-Ucphi.Schemas.Order.shipment_fields()
+Bazaar.Schemas.Order.shipment_fields()
 ```
 
 ## Currency Validation
 
-Ucphi validates currencies against ISO 4217:
+Bazaar validates currencies against ISO 4217:
 
 ```elixir
-Ucphi.Currencies.valid?("USD")  # => true
-Ucphi.Currencies.valid?("EUR")  # => true
-Ucphi.Currencies.valid?("XYZ")  # => false
+Bazaar.Currencies.valid?("USD")  # => true
+Bazaar.Currencies.valid?("EUR")  # => true
+Bazaar.Currencies.valid?("XYZ")  # => false
 
 # Get all supported currencies
-Ucphi.Currencies.codes()
+Bazaar.Currencies.codes()
 # => ["AED", "AFN", "ALL", ..., "ZWL"]
 ```
 
@@ -327,9 +327,9 @@ Ucphi.Currencies.codes()
 Convert changeset errors to UCP format:
 
 ```elixir
-changeset = Ucphi.Schemas.CheckoutSession.new(%{})
+changeset = Bazaar.Schemas.CheckoutSession.new(%{})
 
-errors = Ucphi.Errors.from_changeset(changeset)
+errors = Bazaar.Errors.from_changeset(changeset)
 # => %{
 #   "error" => "validation_error",
 #   "message" => "Validation failed",
@@ -359,7 +359,7 @@ Schemas expect string keys in params:
 Prices are cast to `Decimal`:
 
 ```elixir
-changeset = Ucphi.Schemas.CheckoutSession.new(%{
+changeset = Bazaar.Schemas.CheckoutSession.new(%{
   "currency" => "USD",
   "total" => "99.99",  # String is fine
   "line_items" => [...]
@@ -382,7 +382,7 @@ params = %{
   ]
 }
 
-changeset = Ucphi.Schemas.CheckoutSession.new(params)
+changeset = Bazaar.Schemas.CheckoutSession.new(params)
 changeset.valid?  # => false
 ```
 

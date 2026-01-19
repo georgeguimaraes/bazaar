@@ -1,12 +1,12 @@
-defmodule Ucphi.MixProject do
+defmodule Bazaar.MixProject do
   use Mix.Project
 
   @version "0.1.0"
-  @source_url "https://github.com/yourusername/ucphi"
+  @source_url "https://github.com/georgeguimaraes/bazaar"
 
   def project do
     [
-      app: :ucphi,
+      app: :bazaar,
       version: @version,
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
@@ -14,12 +14,11 @@ defmodule Ucphi.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
 
       # Hex
-      description:
-        "The Unified Commerce Philosopher: Elixir SDK for Universal Commerce Protocol (UCP)",
+      description: "Open your store to AI agents. Elixir SDK for UCP.",
       package: package(),
 
       # Docs
-      name: "Ucphi",
+      name: "Bazaar",
       docs: docs(),
       source_url: @source_url
     ]
@@ -28,7 +27,7 @@ defmodule Ucphi.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Ucphi.Application, []}
+      mod: {Bazaar.Application, []}
     ]
   end
 

@@ -1,6 +1,6 @@
 # Testing Guide
 
-This guide shows you how to test your Ucphi implementation.
+This guide shows you how to test your Bazaar implementation.
 
 ## Testing Handlers
 
@@ -119,10 +119,10 @@ end
 ### CheckoutSession Tests
 
 ```elixir
-defmodule Ucphi.Schemas.CheckoutSessionTest do
+defmodule Bazaar.Schemas.CheckoutSessionTest do
   use ExUnit.Case, async: true
 
-  alias Ucphi.Schemas.CheckoutSession
+  alias Bazaar.Schemas.CheckoutSession
 
   describe "new/1" do
     test "creates valid changeset with required fields" do
@@ -195,10 +195,10 @@ end
 ### Order Tests
 
 ```elixir
-defmodule Ucphi.Schemas.OrderTest do
+defmodule Bazaar.Schemas.OrderTest do
   use ExUnit.Case, async: true
 
-  alias Ucphi.Schemas.Order
+  alias Bazaar.Schemas.Order
 
   describe "from_checkout/2" do
     test "creates order from checkout data" do
@@ -298,13 +298,13 @@ end
 ### UCPHeaders Plug
 
 ```elixir
-defmodule Ucphi.Plugs.UCPHeadersTest do
+defmodule Bazaar.Plugs.UCPHeadersTest do
   use ExUnit.Case, async: true
 
   import Plug.Test
   import Plug.Conn
 
-  alias Ucphi.Plugs.UCPHeaders
+  alias Bazaar.Plugs.UCPHeaders
 
   test "extracts UCP-Agent header" do
     conn =
@@ -338,13 +338,13 @@ end
 ### ValidateRequest Plug
 
 ```elixir
-defmodule Ucphi.Plugs.ValidateRequestTest do
+defmodule Bazaar.Plugs.ValidateRequestTest do
   use ExUnit.Case, async: true
 
   import Plug.Test
   import Plug.Conn
 
-  alias Ucphi.Plugs.ValidateRequest
+  alias Bazaar.Plugs.ValidateRequest
 
   setup do
     {:ok, opts: ValidateRequest.init([])}
@@ -361,7 +361,7 @@ defmodule Ucphi.Plugs.ValidateRequestTest do
       |> ValidateRequest.call(opts)
 
     refute conn.halted
-    assert conn.assigns[:ucphi_validated]
+    assert conn.assigns[:bazaar_validated]
   end
 
   test "returns 422 for invalid request", %{opts: opts} do
@@ -380,19 +380,19 @@ end
 ### Idempotency Plug
 
 ```elixir
-defmodule Ucphi.Plugs.IdempotencyTest do
+defmodule Bazaar.Plugs.IdempotencyTest do
   use ExUnit.Case, async: false
 
   import Plug.Test
   import Plug.Conn
 
-  alias Ucphi.Plugs.Idempotency
-  alias Ucphi.Plugs.Idempotency.ETSCache
+  alias Bazaar.Plugs.Idempotency
+  alias Bazaar.Plugs.Idempotency.ETSCache
 
   setup do
     # Clear cache between tests
-    if :ets.whereis(:ucphi_idempotency_cache) != :undefined do
-      :ets.delete_all_objects(:ucphi_idempotency_cache)
+    if :ets.whereis(:bazaar_idempotency_cache) != :undefined do
+      :ets.delete_all_objects(:bazaar_idempotency_cache)
     end
 
     {:ok, opts: Idempotency.init([])}
@@ -533,7 +533,7 @@ mix test test/my_app/commerce/handler_test.exs:42
 
 ### Use async: true
 
-Most Ucphi tests can run in parallel:
+Most Bazaar tests can run in parallel:
 
 ```elixir
 use ExUnit.Case, async: true

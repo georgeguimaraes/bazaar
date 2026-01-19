@@ -1,6 +1,6 @@
-# Getting Started with Ucphi
+# Getting Started with Bazaar
 
-This guide walks you through building your first UCP-compliant merchant API with Ucphi.
+This guide walks you through building your first UCP-compliant merchant API with Bazaar.
 
 ## Prerequisites
 
@@ -25,16 +25,16 @@ mix phx.new my_store --no-html --no-assets --no-mailer
 cd my_store
 ```
 
-## Step 2: Add Ucphi
+## Step 2: Add Bazaar
 
-Add ucphi to your dependencies in `mix.exs`:
+Add bazaar to your dependencies in `mix.exs`:
 
 ```elixir
 defp deps do
   [
     {:phoenix, "~> 1.7"},
     # ... other deps
-    {:ucphi, "~> 0.1.0"}
+    {:bazaar, "~> 0.1.0"}
   ]
 end
 ```
@@ -51,7 +51,7 @@ Create a new file at `lib/my_store/commerce/handler.ex`:
 
 ```elixir
 defmodule MyStore.Commerce.Handler do
-  use Ucphi.Handler
+  use Bazaar.Handler
 
   @impl true
   def capabilities, do: [:checkout]
@@ -60,13 +60,13 @@ defmodule MyStore.Commerce.Handler do
   def business_profile do
     %{
       "name" => "My Store",
-      "description" => "A demo store built with Ucphi"
+      "description" => "A demo store built with Bazaar"
     }
   end
 
   @impl true
   def create_checkout(params, _conn) do
-    case Ucphi.Schemas.CheckoutSession.new(params) do
+    case Bazaar.Schemas.CheckoutSession.new(params) do
       %{valid?: true} = changeset ->
         checkout = Ecto.Changeset.apply_changes(changeset)
 
@@ -109,7 +109,7 @@ Update your router at `lib/my_store_web/router.ex`:
 ```elixir
 defmodule MyStoreWeb.Router do
   use MyStoreWeb, :router
-  use Ucphi.Phoenix.Router  # Add this line
+  use Bazaar.Phoenix.Router  # Add this line
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -118,7 +118,7 @@ defmodule MyStoreWeb.Router do
   # Add this scope
   scope "/", MyStoreWeb do
     pipe_through :api
-    ucphi_routes "/", MyStore.Commerce.Handler
+    bazaar_routes "/", MyStore.Commerce.Handler
   end
 end
 ```
@@ -142,7 +142,7 @@ You should see:
 ```json
 {
   "name": "My Store",
-  "description": "A demo store built with Ucphi",
+  "description": "A demo store built with Bazaar",
   "capabilities": [
     {
       "name": "checkout",
@@ -223,15 +223,15 @@ Check out these guides:
 
 ## Common Issues
 
-### "module Ucphi.Phoenix.Router is not available"
+### "module Bazaar.Phoenix.Router is not available"
 
-Make sure you've added ucphi to your deps and run `mix deps.get`.
+Make sure you've added bazaar to your deps and run `mix deps.get`.
 
 ### Routes not showing up
 
 Check that you:
-1. Added `use Ucphi.Phoenix.Router` to your router
-2. Called `ucphi_routes/2` inside a scope with `pipe_through :api`
+1. Added `use Bazaar.Phoenix.Router` to your router
+2. Called `bazaar_routes/2` inside a scope with `pipe_through :api`
 
 ### Validation errors for valid data
 

@@ -1,14 +1,14 @@
 # Handlers Guide
 
-Handlers are the core of your Ucphi implementation. They define what your store can do and how it responds to requests.
+Handlers are the core of your Bazaar implementation. They define what your store can do and how it responds to requests.
 
 ## Basic Structure
 
-Every handler uses the `Ucphi.Handler` behaviour:
+Every handler uses the `Bazaar.Handler` behaviour:
 
 ```elixir
 defmodule MyApp.Commerce.Handler do
-  use Ucphi.Handler
+  use Bazaar.Handler
 
   @impl true
   def capabilities, do: [:checkout, :orders]
@@ -72,7 +72,7 @@ def create_checkout(params, conn) do
   # params: Map with checkout data (string keys)
   # conn: Plug.Conn (useful for auth info, headers)
 
-  case Ucphi.Schemas.CheckoutSession.new(params) do
+  case Bazaar.Schemas.CheckoutSession.new(params) do
     %{valid?: true} = changeset ->
       checkout = Ecto.Changeset.apply_changes(changeset)
       # Save to database...
@@ -298,7 +298,7 @@ end
 
 ```elixir
 defmodule MyApp.Commerce.Handler do
-  use Ucphi.Handler
+  use Bazaar.Handler
 
   alias MyApp.{Repo, Checkout, Order}
   require Logger
@@ -319,7 +319,7 @@ defmodule MyApp.Commerce.Handler do
 
   @impl true
   def create_checkout(params, _conn) do
-    with %{valid?: true} = cs <- Ucphi.Schemas.CheckoutSession.new(params),
+    with %{valid?: true} = cs <- Bazaar.Schemas.CheckoutSession.new(params),
          data <- Ecto.Changeset.apply_changes(cs),
          {:ok, checkout} <- Repo.insert(Checkout.from_ucp(data)) do
       {:ok, Checkout.to_ucp(checkout)}
