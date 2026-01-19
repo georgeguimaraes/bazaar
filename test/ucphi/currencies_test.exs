@@ -149,7 +149,8 @@ defmodule Ucphi.CurrenciesTest do
         changeset =
           Ucphi.Schemas.CheckoutSession.new(%{
             "currency" => currency,
-            "line_items" => [%{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}]
+            "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
+            "payment" => %{}
           })
 
         assert changeset.valid?,
@@ -161,7 +162,8 @@ defmodule Ucphi.CurrenciesTest do
       changeset =
         Ucphi.Schemas.CheckoutSession.new(%{
           "currency" => "INVALID",
-          "line_items" => [%{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}]
+          "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
+          "payment" => %{}
         })
 
       refute changeset.valid?

@@ -51,7 +51,8 @@ defmodule Ucphi.ErrorsTest do
       changeset =
         Ucphi.Schemas.CheckoutSession.new(%{
           "currency" => "INVALID",
-          "line_items" => [%{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}]
+          "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
+          "payment" => %{}
         })
 
       result = Errors.from_changeset(changeset)
@@ -66,13 +67,14 @@ defmodule Ucphi.ErrorsTest do
         Ucphi.Schemas.CheckoutSession.new(%{
           "currency" => "USD",
           "line_items" => [
-            %{"name" => "Product without required fields"}
-          ]
+            %{"quantity" => 1}
+          ],
+          "payment" => %{}
         })
 
       result = Errors.from_changeset(changeset)
 
-      # Should have nested field paths like "line_items.0.sku"
+      # Should have nested field paths like "line_items.0.item"
       fields = Enum.map(result["details"], & &1["field"])
       assert Enum.any?(fields, &String.contains?(&1, "line_items"))
     end
@@ -105,7 +107,8 @@ defmodule Ucphi.ErrorsTest do
       changeset =
         Ucphi.Schemas.CheckoutSession.new(%{
           "currency" => "USD",
-          "line_items" => [%{"sku" => "ABC", "quantity" => 1, "unit_price" => "10.00"}]
+          "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
+          "payment" => %{}
         })
 
       # Valid changesets shouldn't normally be passed to from_changeset,

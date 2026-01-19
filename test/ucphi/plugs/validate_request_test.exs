@@ -98,8 +98,9 @@ defmodule Ucphi.Plugs.ValidateRequestTest do
         |> Map.put(:params, %{
           "currency" => "USD",
           "line_items" => [
-            %{"sku" => "PROD-1", "quantity" => 1, "unit_price" => "19.99"}
-          ]
+            %{"item" => %{"id" => "PROD-1"}, "quantity" => 1}
+          ],
+          "payment" => %{}
         })
         |> ValidateRequest.call(checkout_opts)
 

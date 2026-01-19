@@ -4,71 +4,141 @@ defmodule Ucphi.Schemas.Order do
 
   An order represents a completed checkout session with payment
   and fulfillment information.
+
+  ## Spec Compliance
+
+  This schema follows the official UCP specification:
+  - Prices are in **minor units** (cents) as integers
+  - Includes `checkout_id` for reconciliation
+  - Requires `permalink_url` for order access
+  - Fulfillment with expectations and events
+  - Adjustments for refunds and money movements
   """
 
   import Ecto.Changeset
 
-  @status_values [:pending, :confirmed, :processing, :shipped, :delivered, :cancelled, :refunded]
-  @fulfillment_status_values [:unfulfilled, :partially_fulfilled, :fulfilled]
-  @payment_status_values [:pending, :authorized, :captured, :failed, :refunded]
+  # Reuse types from CheckoutSession
+  alias Ucphi.Schemas.CheckoutSession
 
-  @status_type Ecto.ParameterizedType.init(Ecto.Enum, values: @status_values)
-  @fulfillment_status_type Ecto.ParameterizedType.init(Ecto.Enum,
-                             values: @fulfillment_status_values
-                           )
-  @payment_status_type Ecto.ParameterizedType.init(Ecto.Enum, values: @payment_status_values)
+  # Adjustment type values per UCP spec
+  @adjustment_type_values [:refund, :credit, :chargeback, :adjustment]
+  @adjustment_type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @adjustment_type_values)
 
-  @line_item_fields [
-    %{name: :sku, type: :string, description: "Stock keeping unit identifier"},
-    %{name: :name, type: :string, description: "Display name of the item"},
-    %{name: :description, type: :string, description: "Item description"},
-    %{name: :quantity, type: :integer, default: 1, description: "Quantity ordered"},
-    %{name: :unit_price, type: :decimal, description: "Price per unit"},
-    %{name: :image_url, type: :string, description: "URL to item image"}
+  # Fulfillment event type values
+  @fulfillment_event_type_values [:shipped, :out_for_delivery, :delivered, :failed, :returned]
+  @fulfillment_event_type_type Ecto.ParameterizedType.init(Ecto.Enum,
+                                 values: @fulfillment_event_type_values
+                               )
+
+  # UCP response wrapper
+  @ucp_fields [
+    %{name: :name, type: :string, description: "Capability name in reverse-domain notation"},
+    %{name: :version, type: :string, description: "Protocol version (YYYY-MM-DD format)"}
   ]
 
-  @buyer_fields [
-    %{name: :email, type: :string, description: "Buyer email address"},
-    %{name: :name, type: :string, description: "Buyer full name"},
-    %{name: :phone, type: :string, description: "Buyer phone number"}
+  # Item response fields (immutable in orders)
+  @order_line_item_fields [
+    %{
+      name: :item,
+      type: Schemecto.one(CheckoutSession.line_item_response_fields(), with: &Function.identity/1)
+    },
+    %{name: :quantity, type: :integer, description: "Quantity ordered"}
   ]
 
-  @address_fields [
-    %{name: :line1, type: :string, description: "Street address line 1"},
-    %{name: :line2, type: :string, description: "Street address line 2"},
-    %{name: :city, type: :string, description: "City"},
-    %{name: :state, type: :string, description: "State or province"},
-    %{name: :postal_code, type: :string, description: "Postal or ZIP code"},
-    %{name: :country, type: :string, description: "ISO 3166-1 alpha-2 country code"}
+  # Fulfillment expectation (buyer-facing delivery groups)
+  @expectation_fields [
+    %{name: :id, type: :string, description: "Expectation identifier"},
+    %{
+      name: :delivery_method,
+      type: :string,
+      description: "Delivery method (shipping, pickup, etc.)"
+    },
+    %{
+      name: :estimated_delivery_date,
+      type: :string,
+      description: "Estimated delivery date (RFC 3339)"
+    },
+    %{
+      name: :line_item_ids,
+      type: {:array, :string},
+      description: "Line items in this fulfillment group"
+    }
   ]
 
-  @shipment_fields [
-    %{name: :id, type: :string, description: "Shipment identifier"},
+  # Fulfillment event (actual shipment events)
+  @fulfillment_event_fields [
+    %{name: :id, type: :string, description: "Event identifier"},
+    %{name: :type, type: @fulfillment_event_type_type, description: "Event type"},
+    %{name: :timestamp, type: :string, description: "Event timestamp (RFC 3339)"},
     %{name: :carrier, type: :string, description: "Shipping carrier name"},
     %{name: :tracking_number, type: :string, description: "Tracking number"},
     %{name: :tracking_url, type: :string, description: "URL to track shipment"},
-    %{name: :status, type: :string, description: "Shipment status"},
-    %{name: :shipped_at, type: :utc_datetime},
-    %{name: :delivered_at, type: :utc_datetime}
+    %{name: :line_item_ids, type: {:array, :string}, description: "Line items in this shipment"}
+  ]
+
+  # Fulfillment object
+  @fulfillment_fields [
+    %{
+      name: :expectations,
+      type: Schemecto.many(@expectation_fields, with: &Function.identity/1),
+      description: "Buyer-facing groups for when/how items will be delivered"
+    },
+    %{
+      name: :events,
+      type: Schemecto.many(@fulfillment_event_fields, with: &Function.identity/1),
+      description: "Append-only event log of actual shipments"
+    }
+  ]
+
+  # Adjustment (refunds, credits, chargebacks)
+  @adjustment_fields [
+    %{name: :id, type: :string, description: "Adjustment identifier"},
+    %{name: :type, type: @adjustment_type_type, description: "Type of adjustment"},
+    %{name: :amount, type: :integer, description: "Amount in minor currency units (cents)"},
+    %{name: :reason, type: :string, description: "Reason for adjustment"},
+    %{name: :timestamp, type: :string, description: "Adjustment timestamp (RFC 3339)"}
   ]
 
   @fields [
+    %{
+      name: :ucp,
+      type: Schemecto.one(@ucp_fields, with: &Function.identity/1),
+      description: "UCP response metadata"
+    },
     %{name: :id, type: :string, description: "Unique order identifier"},
-    %{name: :checkout_session_id, type: :string, description: "Original checkout session ID"},
-    %{name: :status, type: @status_type},
-    %{name: :fulfillment_status, type: @fulfillment_status_type},
-    %{name: :payment_status, type: @payment_status_type},
+    %{
+      name: :checkout_id,
+      type: :string,
+      description: "Associated checkout ID for reconciliation"
+    },
+    %{
+      name: :permalink_url,
+      type: :string,
+      description: "Permalink to access the order on merchant site"
+    },
     %{name: :currency, type: :string, description: "ISO 4217 currency code"},
-    %{name: :subtotal, type: :decimal},
-    %{name: :tax, type: :decimal},
-    %{name: :shipping, type: :decimal},
-    %{name: :total, type: :decimal},
-    %{name: :line_items, type: Schemecto.many(@line_item_fields, with: &Function.identity/1)},
-    %{name: :buyer, type: Schemecto.one(@buyer_fields, with: &Function.identity/1)},
-    %{name: :shipping_address, type: Schemecto.one(@address_fields, with: &Function.identity/1)},
-    %{name: :billing_address, type: Schemecto.one(@address_fields, with: &Function.identity/1)},
-    %{name: :shipments, type: Schemecto.many(@shipment_fields, with: &Function.identity/1)},
-    %{name: :metadata, type: :map, default: %{}},
+    %{
+      name: :line_items,
+      type: Schemecto.many(@order_line_item_fields, with: &Function.identity/1),
+      description: "Immutable line items (source of truth for what was ordered)"
+    },
+    %{
+      name: :fulfillment,
+      type: Schemecto.one(@fulfillment_fields, with: &Function.identity/1),
+      description: "Fulfillment data with expectations and events"
+    },
+    %{
+      name: :adjustments,
+      type: Schemecto.many(@adjustment_fields, with: &__MODULE__.validate_adjustment/1),
+      description: "Append-only event log of money movements (refunds, etc.)"
+    },
+    %{
+      name: :totals,
+      type:
+        Schemecto.many(CheckoutSession.total_fields(), with: &CheckoutSession.validate_total/1),
+      description: "Different totals for the order"
+    },
+    %{name: :metadata, type: :map, default: %{}, description: "Custom key-value data"},
     %{name: :created_at, type: :utc_datetime},
     %{name: :updated_at, type: :utc_datetime}
   ]
@@ -76,63 +146,81 @@ defmodule Ucphi.Schemas.Order do
   @doc "Returns the field definitions for this schema."
   def fields, do: @fields
 
-  @doc "Returns the shipment field definitions."
-  def shipment_fields, do: @shipment_fields
+  @doc "Returns the fulfillment field definitions."
+  def fulfillment_fields, do: @fulfillment_fields
 
-  @doc "Creates a new order changeset from params."
+  @doc "Returns the expectation field definitions."
+  def expectation_fields, do: @expectation_fields
+
+  @doc "Returns the fulfillment event field definitions."
+  def fulfillment_event_fields, do: @fulfillment_event_fields
+
+  @doc "Returns the adjustment field definitions."
+  def adjustment_fields, do: @adjustment_fields
+
+  @doc "Returns the adjustment type values."
+  def adjustment_type_values, do: @adjustment_type_values
+
+  @doc "Returns the fulfillment event type values."
+  def fulfillment_event_type_values, do: @fulfillment_event_type_values
+
+  @doc """
+  Creates a new order changeset from params.
+
+  ## Required Fields
+
+  - `id` - Unique order identifier
+  - `checkout_id` - Associated checkout session ID
+  - `permalink_url` - URL to access order on merchant site
+  - `line_items` - Immutable line items from checkout
+  - `totals` - Order totals
+  """
   def new(params \\ %{}) do
     Schemecto.new(@fields, params)
-    |> validate_required([:id, :status, :currency, :total, :line_items])
+    |> validate_required([:id, :checkout_id, :permalink_url, :line_items, :totals])
+    |> validate_format(:permalink_url, ~r/^https?:\/\//, message: "must be a valid URL")
   end
 
-  @doc "Creates an order from a completed checkout session."
-  def from_checkout(checkout, order_id) do
-    checkout
-    |> Map.take([
-      :currency,
-      :subtotal,
-      :tax,
-      :shipping,
-      :total,
-      :line_items,
-      :buyer,
-      :shipping_address,
-      :billing_address,
-      :metadata
-    ])
-    |> Map.merge(%{
-      id: order_id,
-      checkout_session_id: checkout.id,
-      status: :pending,
-      fulfillment_status: :unfulfilled,
-      payment_status: :pending,
-      created_at: DateTime.utc_now(),
-      updated_at: DateTime.utc_now()
-    })
+  @doc "Validates an adjustment changeset."
+  def validate_adjustment(changeset) do
+    changeset
+    |> validate_required([:id, :type, :amount])
+    |> validate_number(:amount, greater_than_or_equal_to: 0)
+  end
+
+  @doc """
+  Creates an order from a completed checkout session.
+
+  ## Example
+
+      order = Ucphi.Schemas.Order.from_checkout(checkout_data, "order-123", "https://shop.com/orders/123")
+  """
+  def from_checkout(checkout, order_id, permalink_url) do
+    %{
+      "id" => order_id,
+      "checkout_id" => checkout[:id] || checkout["id"],
+      "permalink_url" => permalink_url,
+      "currency" => checkout[:currency] || checkout["currency"],
+      "line_items" => checkout[:line_items] || checkout["line_items"] || [],
+      "totals" => checkout[:totals] || checkout["totals"] || [],
+      "fulfillment" => %{
+        "expectations" => [],
+        "events" => []
+      },
+      "adjustments" => [],
+      "ucp" => %{
+        "name" => "dev.ucp.shopping.order",
+        "version" => "2026-01-11"
+      }
+    }
     |> new()
   end
 
   @doc "Generates JSON Schema for this type."
   def json_schema do
-    # Filter out :utc_datetime fields as Schemecto doesn't support them in JSON Schema
     json_schema_fields =
       @fields
       |> Enum.reject(fn field -> field[:type] == :utc_datetime end)
-
-    # Also filter datetime from shipment fields
-    filtered_shipment_fields =
-      @shipment_fields
-      |> Enum.reject(fn field -> field[:type] == :utc_datetime end)
-
-    # Replace shipments with filtered version
-    json_schema_fields =
-      Enum.map(json_schema_fields, fn
-        %{name: :shipments} = field ->
-          %{field | type: Schemecto.many(filtered_shipment_fields, with: &Function.identity/1)}
-
-        field ->
-          field
-      end)
 
     Schemecto.new(json_schema_fields) |> Schemecto.to_json_schema()
   end

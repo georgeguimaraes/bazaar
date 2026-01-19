@@ -7,29 +7,32 @@ defmodule Ucphi.Schemas.OrderTest do
     test "creates valid changeset with required fields" do
       params = %{
         "id" => "order_123",
-        "status" => "pending",
+        "checkout_id" => "checkout_456",
+        "permalink_url" => "https://shop.com/orders/123",
         "currency" => "USD",
-        "total" => "99.99",
         "line_items" => [
-          %{"sku" => "PROD-1", "quantity" => 1, "unit_price" => "99.99"}
+          %{
+            "item" => %{"id" => "WIDGET-1", "title" => "Widget", "price" => 1999},
+            "quantity" => 2
+          }
+        ],
+        "totals" => [
+          %{"type" => "subtotal", "amount" => 3998},
+          %{"type" => "total", "amount" => 3998}
         ]
       }
 
       changeset = Order.new(params)
 
       assert changeset.valid?
-      assert Ecto.Changeset.get_change(changeset, :id) == "order_123"
-      assert Ecto.Changeset.get_change(changeset, :status) == :pending
     end
 
     test "returns invalid changeset when id is missing" do
       params = %{
-        "status" => "pending",
-        "currency" => "USD",
-        "total" => "99.99",
-        "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "99.99"}
-        ]
+        "checkout_id" => "checkout_456",
+        "permalink_url" => "https://shop.com/orders/123",
+        "line_items" => [],
+        "totals" => []
       }
 
       changeset = Order.new(params)
@@ -38,93 +41,110 @@ defmodule Ucphi.Schemas.OrderTest do
       assert {:id, {"can't be blank", _}} = hd(changeset.errors)
     end
 
-    test "returns invalid changeset when status is missing" do
+    test "returns invalid changeset when checkout_id is missing" do
       params = %{
         "id" => "order_123",
-        "currency" => "USD",
-        "total" => "99.99",
+        "permalink_url" => "https://shop.com/orders/123",
+        "line_items" => [],
+        "totals" => []
+      }
+
+      changeset = Order.new(params)
+
+      refute changeset.valid?
+      errors = Keyword.keys(changeset.errors)
+      assert :checkout_id in errors
+    end
+
+    test "returns invalid changeset when permalink_url is missing" do
+      params = %{
+        "id" => "order_123",
+        "checkout_id" => "checkout_456",
+        "line_items" => [],
+        "totals" => []
+      }
+
+      changeset = Order.new(params)
+
+      refute changeset.valid?
+      errors = Keyword.keys(changeset.errors)
+      assert :permalink_url in errors
+    end
+
+    test "validates permalink_url format" do
+      params = %{
+        "id" => "order_123",
+        "checkout_id" => "checkout_456",
+        "permalink_url" => "not-a-url",
         "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "99.99"}
+          %{"item" => %{"id" => "WIDGET-1"}, "quantity" => 1}
+        ],
+        "totals" => [
+          %{"type" => "total", "amount" => 1000}
         ]
       }
 
       changeset = Order.new(params)
 
       refute changeset.valid?
-      assert {:status, {"can't be blank", _}} = hd(changeset.errors)
+      assert {:permalink_url, {"must be a valid URL", _}} = hd(changeset.errors)
     end
 
-    test "accepts all valid status values" do
-      statuses = ~w(pending confirmed processing shipped delivered cancelled refunded)
-
-      for status <- statuses do
-        params = %{
-          "id" => "order_#{status}",
-          "status" => status,
-          "currency" => "USD",
-          "total" => "50.00",
-          "line_items" => [
-            %{"sku" => "ABC", "quantity" => 1, "unit_price" => "50.00"}
+    test "accepts fulfillment data" do
+      params = %{
+        "id" => "order_123",
+        "checkout_id" => "checkout_456",
+        "permalink_url" => "https://shop.com/orders/123",
+        "line_items" => [
+          %{"item" => %{"id" => "WIDGET-1"}, "quantity" => 1}
+        ],
+        "totals" => [
+          %{"type" => "total", "amount" => 1000}
+        ],
+        "fulfillment" => %{
+          "expectations" => [
+            %{
+              "id" => "exp_1",
+              "delivery_method" => "shipping",
+              "estimated_delivery_date" => "2026-01-25T00:00:00Z",
+              "line_item_ids" => ["item_1"]
+            }
+          ],
+          "events" => [
+            %{
+              "id" => "evt_1",
+              "type" => "shipped",
+              "timestamp" => "2026-01-20T14:30:00Z",
+              "carrier" => "USPS",
+              "tracking_number" => "1234567890"
+            }
           ]
         }
-
-        changeset = Order.new(params)
-        assert changeset.valid?, "Expected status '#{status}' to be valid"
-      end
-    end
-
-    test "accepts fulfillment_status values" do
-      params = %{
-        "id" => "order_123",
-        "status" => "confirmed",
-        "fulfillment_status" => "partially_fulfilled",
-        "currency" => "USD",
-        "total" => "99.99",
-        "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "99.99"}
-        ]
       }
 
       changeset = Order.new(params)
 
       assert changeset.valid?
-      assert Ecto.Changeset.get_change(changeset, :fulfillment_status) == :partially_fulfilled
     end
 
-    test "accepts payment_status values" do
+    test "accepts adjustments" do
       params = %{
         "id" => "order_123",
-        "status" => "confirmed",
-        "payment_status" => "captured",
-        "currency" => "USD",
-        "total" => "99.99",
+        "checkout_id" => "checkout_456",
+        "permalink_url" => "https://shop.com/orders/123",
         "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "99.99"}
-        ]
-      }
-
-      changeset = Order.new(params)
-
-      assert changeset.valid?
-      assert Ecto.Changeset.get_change(changeset, :payment_status) == :captured
-    end
-
-    test "accepts shipments array" do
-      params = %{
-        "id" => "order_123",
-        "status" => "shipped",
-        "currency" => "USD",
-        "total" => "99.99",
-        "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "99.99"}
+          %{"item" => %{"id" => "WIDGET-1"}, "quantity" => 1}
         ],
-        "shipments" => [
+        "totals" => [
+          %{"type" => "total", "amount" => 1000}
+        ],
+        "adjustments" => [
           %{
-            "id" => "ship_001",
-            "carrier" => "UPS",
-            "tracking_number" => "1Z999AA10123456784",
-            "tracking_url" => "https://ups.com/track/1Z999AA10123456784",
-            "status" => "in_transit"
+            "id" => "adj_1",
+            "type" => "refund",
+            "amount" => 500,
+            "reason" => "Customer request",
+            "timestamp" => "2026-01-22T10:00:00Z"
           }
         ]
       }
@@ -134,65 +154,116 @@ defmodule Ucphi.Schemas.OrderTest do
       assert changeset.valid?
     end
 
-    test "accepts buyer and address information" do
-      params = %{
-        "id" => "order_123",
-        "status" => "pending",
-        "currency" => "USD",
-        "total" => "99.99",
-        "line_items" => [
-          %{"sku" => "ABC", "quantity" => 1, "unit_price" => "99.99"}
-        ],
-        "buyer" => %{
-          "email" => "buyer@example.com",
-          "name" => "Jane Smith"
-        },
-        "shipping_address" => %{
-          "line1" => "456 Oak Ave",
-          "city" => "Los Angeles",
-          "state" => "CA",
-          "postal_code" => "90001",
-          "country" => "US"
+    test "validates adjustment type" do
+      types = Order.adjustment_type_values()
+
+      for type <- types do
+        params = %{
+          "id" => "order_123",
+          "checkout_id" => "checkout_456",
+          "permalink_url" => "https://shop.com/orders/123",
+          "line_items" => [
+            %{"item" => %{"id" => "WIDGET-1"}, "quantity" => 1}
+          ],
+          "totals" => [
+            %{"type" => "total", "amount" => 1000}
+          ],
+          "adjustments" => [
+            %{"id" => "adj_1", "type" => to_string(type), "amount" => 500}
+          ]
         }
-      }
 
-      changeset = Order.new(params)
+        changeset = Order.new(params)
+        assert changeset.valid?, "Expected adjustment type '#{type}' to be valid"
+      end
+    end
 
-      assert changeset.valid?
+    test "validates fulfillment event type" do
+      types = Order.fulfillment_event_type_values()
+
+      for type <- types do
+        params = %{
+          "id" => "order_123",
+          "checkout_id" => "checkout_456",
+          "permalink_url" => "https://shop.com/orders/123",
+          "line_items" => [
+            %{"item" => %{"id" => "WIDGET-1"}, "quantity" => 1}
+          ],
+          "totals" => [
+            %{"type" => "total", "amount" => 1000}
+          ],
+          "fulfillment" => %{
+            "expectations" => [],
+            "events" => [
+              %{"id" => "evt_1", "type" => to_string(type), "timestamp" => "2026-01-20T14:30:00Z"}
+            ]
+          }
+        }
+
+        changeset = Order.new(params)
+        assert changeset.valid?, "Expected fulfillment event type '#{type}' to be valid"
+      end
     end
   end
 
-  describe "from_checkout/2" do
+  describe "from_checkout/3" do
     test "creates order from checkout data" do
       checkout = %{
-        id: "checkout_abc",
-        currency: "USD",
-        subtotal: Decimal.new("100.00"),
-        tax: Decimal.new("8.00"),
-        shipping: Decimal.new("5.00"),
-        total: Decimal.new("113.00"),
-        line_items: [
-          %{sku: "PROD-1", quantity: 2, unit_price: Decimal.new("50.00")}
+        "id" => "checkout_abc",
+        "currency" => "USD",
+        "line_items" => [
+          %{"item" => %{"id" => "PROD-1", "title" => "Product", "price" => 5000}, "quantity" => 2}
         ],
-        buyer: %{email: "test@example.com", name: "Test User"},
-        shipping_address: %{line1: "123 Main St", city: "NYC", country: "US"},
-        billing_address: nil,
-        metadata: %{"source" => "web"}
+        "totals" => [
+          %{"type" => "subtotal", "amount" => 10000},
+          %{"type" => "tax", "amount" => 800},
+          %{"type" => "total", "amount" => 10800}
+        ]
       }
 
-      changeset = Order.from_checkout(checkout, "order_xyz")
+      changeset = Order.from_checkout(checkout, "order_xyz", "https://shop.com/orders/xyz")
 
       assert changeset.valid?
+      data = Ecto.Changeset.apply_changes(changeset)
+      assert data.id == "order_xyz"
+      assert data.checkout_id == "checkout_abc"
+      assert data.permalink_url == "https://shop.com/orders/xyz"
+      assert data.currency == "USD"
+    end
 
-      order = Ecto.Changeset.apply_changes(changeset)
+    test "initializes empty fulfillment and adjustments" do
+      checkout = %{
+        "id" => "checkout_abc",
+        "currency" => "USD",
+        "line_items" => [
+          %{"item" => %{"id" => "PROD-1"}, "quantity" => 1}
+        ],
+        "totals" => [
+          %{"type" => "total", "amount" => 5000}
+        ]
+      }
 
-      assert order.id == "order_xyz"
-      assert order.checkout_session_id == "checkout_abc"
-      assert order.status == :pending
-      assert order.fulfillment_status == :unfulfilled
-      assert order.payment_status == :pending
-      assert order.currency == "USD"
-      assert order.total == Decimal.new("113.00")
+      changeset = Order.from_checkout(checkout, "order_xyz", "https://shop.com/orders/xyz")
+      data = Ecto.Changeset.apply_changes(changeset)
+
+      assert data.fulfillment.expectations == []
+      assert data.fulfillment.events == []
+      assert data.adjustments == []
+    end
+
+    test "sets UCP metadata" do
+      checkout = %{
+        "id" => "checkout_abc",
+        "currency" => "USD",
+        "line_items" => [],
+        "totals" => []
+      }
+
+      changeset = Order.from_checkout(checkout, "order_xyz", "https://shop.com/orders/xyz")
+      data = Ecto.Changeset.apply_changes(changeset)
+
+      assert data.ucp.name == "dev.ucp.shopping.order"
+      assert data.ucp.version == "2026-01-11"
     end
   end
 
@@ -203,17 +274,16 @@ defmodule Ucphi.Schemas.OrderTest do
       assert schema["type"] == "object"
       assert is_map(schema["properties"])
       assert Map.has_key?(schema["properties"], "id")
-      assert Map.has_key?(schema["properties"], "status")
-      assert Map.has_key?(schema["properties"], "line_items")
-      assert Map.has_key?(schema["properties"], "shipments")
+      assert Map.has_key?(schema["properties"], "checkout_id")
+      assert Map.has_key?(schema["properties"], "permalink_url")
     end
 
-    test "includes enum values for status" do
+    test "includes nested schemas" do
       schema = Order.json_schema()
 
-      assert is_list(schema["properties"]["status"]["enum"])
-      assert "pending" in schema["properties"]["status"]["enum"]
-      assert "shipped" in schema["properties"]["status"]["enum"]
+      assert schema["properties"]["line_items"]["type"] == "array"
+      assert is_map(schema["properties"]["fulfillment"])
+      assert is_map(schema["properties"]["adjustments"])
     end
   end
 
@@ -223,18 +293,31 @@ defmodule Ucphi.Schemas.OrderTest do
 
       assert is_list(fields)
       assert Enum.any?(fields, fn f -> f.name == :id end)
-      assert Enum.any?(fields, fn f -> f.name == :status end)
-      assert Enum.any?(fields, fn f -> f.name == :shipments end)
+      assert Enum.any?(fields, fn f -> f.name == :checkout_id end)
+      assert Enum.any?(fields, fn f -> f.name == :permalink_url end)
+      assert Enum.any?(fields, fn f -> f.name == :fulfillment end)
+      assert Enum.any?(fields, fn f -> f.name == :adjustments end)
     end
   end
 
-  describe "shipment_fields/0" do
-    test "returns shipment field definitions" do
-      fields = Order.shipment_fields()
+  describe "fulfillment_fields/0" do
+    test "returns fulfillment field definitions" do
+      fields = Order.fulfillment_fields()
 
       assert is_list(fields)
-      assert Enum.any?(fields, fn f -> f.name == :carrier end)
-      assert Enum.any?(fields, fn f -> f.name == :tracking_number end)
+      assert Enum.any?(fields, fn f -> f.name == :expectations end)
+      assert Enum.any?(fields, fn f -> f.name == :events end)
+    end
+  end
+
+  describe "adjustment_fields/0" do
+    test "returns adjustment field definitions" do
+      fields = Order.adjustment_fields()
+
+      assert is_list(fields)
+      assert Enum.any?(fields, fn f -> f.name == :id end)
+      assert Enum.any?(fields, fn f -> f.name == :type end)
+      assert Enum.any?(fields, fn f -> f.name == :amount end)
     end
   end
 end
