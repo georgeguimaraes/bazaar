@@ -69,7 +69,7 @@ Example: `req_mfrggzdfmy2tqnzy`
 
 ## Idempotency
 
-Extracts idempotency keys from requests for retry safety.
+Extracts idempotency keys from requests.
 
 ### What It Does
 
@@ -87,55 +87,10 @@ plug Bazaar.Plugs.Idempotency
 
 ```elixir
 def create_checkout(params, conn) do
-  case conn.assigns[:idempotency_key] do
-    nil ->
-      # No idempotency requested
-      do_create(params)
-
-    key ->
-      # Check your cache, return cached response or create new
-      case MyApp.IdempotencyCache.get(key) do
-        {:ok, cached} -> {:ok, cached}
-        :miss ->
-          {:ok, checkout} = do_create(params)
-          MyApp.IdempotencyCache.put(key, checkout)
-          {:ok, checkout}
-      end
-  end
+  key = conn.assigns[:idempotency_key]  # nil if not provided
+  # ...
 end
 ```
-
-### Implementing Idempotency Caching
-
-Bazaar extracts the header but **you must implement caching** for production use. Here's a Redis example:
-
-```elixir
-defmodule MyApp.IdempotencyCache do
-  @ttl 86_400  # 24 hours
-
-  def get(key) do
-    case Redix.command(:redix, ["GET", cache_key(key)]) do
-      {:ok, nil} -> :miss
-      {:ok, data} -> {:ok, Jason.decode!(data)}
-    end
-  end
-
-  def put(key, response) do
-    data = Jason.encode!(response)
-    Redix.command(:redix, ["SETEX", cache_key(key), @ttl, data])
-    :ok
-  end
-
-  defp cache_key(key), do: "idempotency:#{key}"
-end
-```
-
-### When to Use Idempotency
-
-AI agents should send idempotency keys for:
-- Creating checkouts
-- Completing payments
-- Any operation that shouldn't be duplicated on retry
 
 ## Plug Order
 
