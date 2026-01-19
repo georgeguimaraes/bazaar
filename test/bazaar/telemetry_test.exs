@@ -3,10 +3,14 @@ defmodule Bazaar.TelemetryTest do
 
   alias Bazaar.Telemetry
 
+  # Module function to avoid telemetry warning about local functions
+  def handle_event(event, measurements, metadata, pid) do
+    send(pid, {event, measurements, metadata})
+  end
+
   describe "span/3" do
     test "emits start and stop events" do
       ref = make_ref()
-      parent = self()
 
       :telemetry.attach_many(
         "test-#{inspect(ref)}",
@@ -14,10 +18,8 @@ defmodule Bazaar.TelemetryTest do
           [:bazaar, :test, :start],
           [:bazaar, :test, :stop]
         ],
-        fn event, measurements, metadata, _ ->
-          send(parent, {event, measurements, metadata})
-        end,
-        nil
+        &__MODULE__.handle_event/4,
+        self()
       )
 
       result = Telemetry.span([:bazaar, :test], %{foo: "bar"}, fn -> {:ok, "result"} end)
@@ -33,7 +35,6 @@ defmodule Bazaar.TelemetryTest do
 
     test "emits exception event on error" do
       ref = make_ref()
-      parent = self()
 
       :telemetry.attach_many(
         "test-#{inspect(ref)}",
@@ -41,10 +42,8 @@ defmodule Bazaar.TelemetryTest do
           [:bazaar, :test, :start],
           [:bazaar, :test, :exception]
         ],
-        fn event, measurements, metadata, _ ->
-          send(parent, {event, measurements, metadata})
-        end,
-        nil
+        &__MODULE__.handle_event/4,
+        self()
       )
 
       assert_raise RuntimeError, fn ->
@@ -63,17 +62,14 @@ defmodule Bazaar.TelemetryTest do
   describe "span_with_metadata/3" do
     test "includes stop metadata from function result" do
       ref = make_ref()
-      parent = self()
 
       :telemetry.attach_many(
         "test-#{inspect(ref)}",
         [
           [:bazaar, :test, :stop]
         ],
-        fn event, measurements, metadata, _ ->
-          send(parent, {event, measurements, metadata})
-        end,
-        nil
+        &__MODULE__.handle_event/4,
+        self()
       )
 
       result =
