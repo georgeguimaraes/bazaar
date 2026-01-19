@@ -52,11 +52,14 @@ defmodule Bazaar.Handler do
   @type conn :: Plug.Conn.t()
   @type params :: map()
   @type id :: String.t()
-  @type capability :: :checkout | :orders | :identity
+  @type capability :: :checkout | :orders | :identity | :fulfillment | :discount
 
   # Discovery
   @callback capabilities() :: [capability()]
   @callback business_profile() :: map()
+
+  # Fulfillment configuration (optional)
+  @callback fulfillment_config() :: map()
 
   # Checkout capability
   @callback create_checkout(params(), conn()) ::
@@ -83,6 +86,8 @@ defmodule Bazaar.Handler do
               {:ok, term()} | {:error, term()}
 
   @optional_callbacks [
+    # Discovery
+    fulfillment_config: 0,
     # Checkout
     create_checkout: 2,
     get_checkout: 2,
@@ -113,7 +118,12 @@ defmodule Bazaar.Handler do
         }
       end
 
-      defoverridable capabilities: 0, business_profile: 0
+      @impl Bazaar.Handler
+      def fulfillment_config do
+        Bazaar.Schemas.Fulfillment.default_merchant_config()
+      end
+
+      defoverridable capabilities: 0, business_profile: 0, fulfillment_config: 0
     end
   end
 end

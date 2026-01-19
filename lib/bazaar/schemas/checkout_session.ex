@@ -210,6 +210,11 @@ defmodule Bazaar.Schemas.CheckoutSession do
     },
     %{name: :payment, type: Schemecto.one(@payment_fields, with: &Function.identity/1)},
     %{
+      name: :fulfillment,
+      type: :map,
+      description: "Fulfillment methods and options for shipping/pickup"
+    },
+    %{
       name: :continue_url,
       type: :string,
       description: "URL for checkout handoff when requires_escalation"
@@ -304,6 +309,7 @@ defmodule Bazaar.Schemas.CheckoutSession do
         type: Schemecto.many(@message_fields, with: &Function.identity/1)
       },
       %{name: :payment, type: Schemecto.one(@payment_fields, with: &Function.identity/1)},
+      %{name: :fulfillment, type: :map, description: "Fulfillment methods and options"},
       %{name: :continue_url, type: :string},
       %{name: :expires_at, type: :string}
     ]

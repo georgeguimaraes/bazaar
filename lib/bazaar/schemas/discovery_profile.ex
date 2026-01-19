@@ -25,7 +25,7 @@ defmodule Bazaar.Schemas.DiscoveryProfile do
     payment_handlers = Map.get(business, "payment_handlers", [])
     signing_keys = Map.get(business, "signing_keys", [])
 
-    %{
+    base_profile = %{
       "ucp" => %{
         "version" => @ucp_version,
         "merchant" => build_merchant(business, base_url),
@@ -44,6 +44,14 @@ defmodule Bazaar.Schemas.DiscoveryProfile do
       "payment" => build_payment(payment_handlers),
       "signing_keys" => signing_keys
     }
+
+    # Add fulfillment config if capability is declared
+    if :fulfillment in capabilities do
+      fulfillment_config = handler_module.fulfillment_config()
+      put_in(base_profile, ["ucp", "fulfillment"], fulfillment_config)
+    else
+      base_profile
+    end
   end
 
   defp build_merchant(business, base_url) do
