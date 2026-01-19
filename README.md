@@ -1,4 +1,4 @@
-# Bazaar
+# 🎪 Bazaar
 
 **Open your store to AI agents.** Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
 
