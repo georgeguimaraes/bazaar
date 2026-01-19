@@ -1,12 +1,11 @@
 # Plugs Guide
 
-Bazaar provides three plugs for production-ready UCP implementations:
+Bazaar provides plugs for UCP implementations:
 
 | Plug | Purpose |
 |------|---------|
 | `UCPHeaders` | Extract and manage UCP-specific headers |
-| `ValidateRequest` | Validate request bodies against schemas |
-| `Idempotency` | Handle retry safety with idempotency keys |
+| `Idempotency` | Extract idempotency keys for retry safety |
 
 ## Setting Up Plugs
 
@@ -21,16 +20,14 @@ defmodule MyAppWeb.Router do
     plug :accepts, ["json"]
   end
 
-  # UCP-specific pipeline
   pipeline :ucp do
     plug Bazaar.Plugs.UCPHeaders
-    plug Bazaar.Plugs.ValidateRequest
     plug Bazaar.Plugs.Idempotency
   end
 
   scope "/" do
     pipe_through [:api, :ucp]
-    bazaar_routes "/", MyApp.Commerce.Handler
+    bazaar_routes "/", MyApp.UCPHandler
   end
 end
 ```
@@ -56,123 +53,29 @@ plug Bazaar.Plugs.UCPHeaders
 
 ```elixir
 def create_checkout(params, conn) do
-  # Agent making the request
-  agent = conn.assigns[:ucp_agent]
-  # e.g., "google-shopping/1.0"
-
-  # Unique request ID (for logging/tracing)
-  request_id = conn.assigns[:ucp_request_id]
-  # e.g., "req_abc123..."
-
-  # Request signature (for verification)
+  agent = conn.assigns[:ucp_agent]        # e.g., "google-shopping/1.0"
+  request_id = conn.assigns[:ucp_request_id]  # e.g., "req_abc123..."
   signature = conn.assigns[:ucp_signature]
 
-  # ... rest of implementation
+  # ...
 end
 ```
 
 ### Request ID Format
 
-Generated request IDs follow the format:
-```
-req_[base32-encoded-random-bytes]
-```
+Generated request IDs follow the format: `req_[base32-encoded-random-bytes]`
 
 Example: `req_mfrggzdfmy2tqnzy`
 
-### Example Request
-
-```bash
-curl -X POST http://localhost:4000/checkout-sessions \
-  -H "Content-Type: application/json" \
-  -H "UCP-Agent: my-shopping-agent/1.0" \
-  -H "UCP-Request-ID: req_custom123" \
-  -d '{"currency": "USD", "line_items": [...]}'
-```
-
-Response will include:
-```
-UCP-Request-ID: req_custom123
-```
-
-## ValidateRequest
-
-Validates request bodies against Bazaar schemas before reaching your handler.
-
-### What It Does
-
-1. Checks if the current action has a schema
-2. Validates params against the schema
-3. Returns 422 with errors if invalid
-4. Stores validated data in `conn.assigns`
-
-### Usage
-
-```elixir
-plug Bazaar.Plugs.ValidateRequest
-```
-
-### Default Schemas
-
-| Action | Schema |
-|--------|--------|
-| `create_checkout` | `Bazaar.Schemas.CheckoutSession` |
-| `update_checkout` | `Bazaar.Schemas.CheckoutSession` |
-
-### Custom Schemas
-
-Override or add schemas:
-
-```elixir
-plug Bazaar.Plugs.ValidateRequest,
-  schemas: %{
-    create_checkout: MyApp.Schemas.CustomCheckout,
-    my_custom_action: MyApp.Schemas.CustomSchema
-  }
-```
-
-### Accessing Validated Data
-
-After validation, data is available in assigns:
-
-```elixir
-def create_checkout(params, conn) do
-  if conn.assigns[:bazaar_validated] do
-    # Use pre-validated data
-    validated = conn.assigns[:bazaar_data]
-    # validated is already an Ecto struct
-  else
-    # Validate manually (plug wasn't used or no schema)
-    changeset = Bazaar.Schemas.CheckoutSession.new(params)
-  end
-end
-```
-
-### Validation Error Response
-
-Invalid requests return 422 with:
-
-```json
-{
-  "error": "validation_error",
-  "message": "Validation failed",
-  "details": [
-    {"field": "currency", "message": "can't be blank"},
-    {"field": "line_items", "message": "can't be blank"}
-  ]
-}
-```
-
 ## Idempotency
 
-Handles retry safety by caching responses for repeated requests.
+Extracts idempotency keys from requests for retry safety.
 
 ### What It Does
 
-1. Checks for `Idempotency-Key` header
-2. If key exists in cache, returns cached response
-3. If new key, processes request and caches response
-4. Only caches successful responses (2xx status)
+1. Extracts `Idempotency-Key` header
+2. Stores key in `conn.assigns.idempotency_key`
+3. Echoes key in response header
 
 ### Usage
 
@@ -180,173 +83,80 @@ Handles retry safety by caching responses for repeated requests.
 plug Bazaar.Plugs.Idempotency
 ```
 
-### Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `:cache` | `ETSCache` | Cache backend module |
-| `:ttl` | `86400` | Cache TTL in seconds (24h) |
-| `:header` | `"idempotency-key"` | Header name |
+### Accessing the Key
 
 ```elixir
-plug Bazaar.Plugs.Idempotency,
-  ttl: 3600,  # 1 hour
-  header: "x-idempotency-key"
+def create_checkout(params, conn) do
+  case conn.assigns[:idempotency_key] do
+    nil ->
+      # No idempotency requested
+      do_create(params)
+
+    key ->
+      # Check your cache, return cached response or create new
+      case MyApp.IdempotencyCache.get(key) do
+        {:ok, cached} -> {:ok, cached}
+        :miss ->
+          {:ok, checkout} = do_create(params)
+          MyApp.IdempotencyCache.put(key, checkout)
+          {:ok, checkout}
+      end
+  end
+end
 ```
 
-### How It Works
+### Implementing Idempotency Caching
 
-**First request:**
-```bash
-curl -X POST http://localhost:4000/checkout-sessions \
-  -H "Idempotency-Key: unique-key-123" \
-  -H "Content-Type: application/json" \
-  -d '{"currency": "USD", ...}'
-```
-
-Response:
-```
-HTTP/1.1 201 Created
-Idempotency-Key: unique-key-123
-Content-Type: application/json
-
-{"id": "checkout_abc", ...}
-```
-
-**Retry with same key:**
-```bash
-curl -X POST http://localhost:4000/checkout-sessions \
-  -H "Idempotency-Key: unique-key-123" \
-  -H "Content-Type: application/json" \
-  -d '{"currency": "USD", ...}'
-```
-
-Response (from cache):
-```
-HTTP/1.1 201 Created
-Idempotency-Key: unique-key-123
-Idempotency-Replay: true
-Content-Type: application/json
-
-{"id": "checkout_abc", ...}
-```
-
-### Cache Key Structure
-
-Keys are scoped by method and path:
-```
-POST:/checkout-sessions:unique-key-123
-```
-
-This means the same idempotency key can be used for different endpoints.
-
-### Custom Cache Backend
-
-For production, use Redis or another distributed cache:
+Bazaar extracts the header but **you must implement caching** for production use. Here's a Redis example:
 
 ```elixir
-defmodule MyApp.RedisIdempotencyCache do
+defmodule MyApp.IdempotencyCache do
+  @ttl 86_400  # 24 hours
+
   def get(key) do
-    case Redix.command(:redix, ["GET", key]) do
+    case Redix.command(:redix, ["GET", cache_key(key)]) do
       {:ok, nil} -> :miss
-      {:ok, data} -> {:ok, :erlang.binary_to_term(data)}
+      {:ok, data} -> {:ok, Jason.decode!(data)}
     end
   end
 
-  def put(key, response, ttl) do
-    data = :erlang.term_to_binary(response)
-    Redix.command(:redix, ["SETEX", key, ttl, data])
+  def put(key, response) do
+    data = Jason.encode!(response)
+    Redix.command(:redix, ["SETEX", cache_key(key), @ttl, data])
     :ok
   end
 
-  def delete(key) do
-    Redix.command(:redix, ["DEL", key])
-    :ok
-  end
+  defp cache_key(key), do: "idempotency:#{key}"
 end
-
-# In router:
-plug Bazaar.Plugs.Idempotency,
-  cache: MyApp.RedisIdempotencyCache
 ```
 
-### When to Use Idempotency Keys
+### When to Use Idempotency
 
-Clients should send idempotency keys for:
+AI agents should send idempotency keys for:
 - Creating checkouts
 - Completing payments
-- Any operation that shouldn't be duplicated
+- Any operation that shouldn't be duplicated on retry
 
 ## Plug Order
 
-Order matters! Recommended sequence:
+Recommended sequence:
 
 ```elixir
 pipeline :ucp do
-  # 1. Extract headers first (for logging)
-  plug Bazaar.Plugs.UCPHeaders
-
-  # 2. Check idempotency (may return cached response)
-  plug Bazaar.Plugs.Idempotency
-
-  # 3. Validate request body (if not cached)
-  plug Bazaar.Plugs.ValidateRequest
+  plug Bazaar.Plugs.UCPHeaders    # Extract headers first (for logging)
+  plug Bazaar.Plugs.Idempotency   # Extract idempotency key
 end
 ```
 
-## Complete Example
-
-```elixir
-defmodule MyAppWeb.Router do
-  use MyAppWeb, :router
-  use Bazaar.Phoenix.Router
-
-  pipeline :api do
-    plug :accepts, ["json"]
-    plug :fetch_query_params
-  end
-
-  pipeline :ucp do
-    plug Bazaar.Plugs.UCPHeaders
-    plug Bazaar.Plugs.Idempotency, ttl: 86400
-    plug Bazaar.Plugs.ValidateRequest
-  end
-
-  # Public discovery (no validation needed)
-  scope "/" do
-    pipe_through :api
-
-    get "/.well-known/ucp", Bazaar.Phoenix.Controller, :discovery,
-      assigns: %{bazaar_handler: MyApp.Commerce.Handler}
-  end
-
-  # Protected UCP endpoints
-  scope "/" do
-    pipe_through [:api, :ucp]
-
-    post "/checkout-sessions", Bazaar.Phoenix.Controller, :create_checkout,
-      assigns: %{bazaar_handler: MyApp.Commerce.Handler}
-
-    get "/checkout-sessions/:id", Bazaar.Phoenix.Controller, :get_checkout,
-      assigns: %{bazaar_handler: MyApp.Commerce.Handler}
-
-    # ... other routes
-  end
-end
-```
-
-## Logging and Debugging
+## Logging
 
 Use request IDs for tracing:
 
 ```elixir
 def create_checkout(params, conn) do
-  request_id = conn.assigns[:ucp_request_id]
-
-  Logger.metadata(request_id: request_id)
+  Logger.metadata(request_id: conn.assigns[:ucp_request_id])
   Logger.info("Creating checkout", params: params)
-
-  # ... implementation
+  # ...
 end
 ```
 
