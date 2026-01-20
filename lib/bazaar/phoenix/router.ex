@@ -28,6 +28,9 @@ defmodule Bazaar.Phoenix.Router do
   | DELETE | `/checkout-sessions/:id` | Cancel checkout |
   | GET | `/orders/:id` | Get order |
   | POST | `/orders/:id/actions/cancel` | Cancel order |
+  | GET | `/products` | List products |
+  | GET | `/products/search` | Search products |
+  | GET | `/products/:id` | Get product |
   | POST | `/webhooks/ucp` | Webhook endpoint |
 
   ## Options
@@ -128,6 +131,30 @@ defmodule Bazaar.Phoenix.Router do
             "/identity/link",
             Bazaar.Phoenix.Controller,
             :link_identity,
+            assigns: %{bazaar_handler: handler}
+          )
+        end
+
+        # Catalog capability routes
+        if :catalog in capabilities do
+          get(
+            "/products",
+            Bazaar.Phoenix.Controller,
+            :list_products,
+            assigns: %{bazaar_handler: handler}
+          )
+
+          get(
+            "/products/search",
+            Bazaar.Phoenix.Controller,
+            :search_products,
+            assigns: %{bazaar_handler: handler}
+          )
+
+          get(
+            "/products/:id",
+            Bazaar.Phoenix.Controller,
+            :get_product,
             assigns: %{bazaar_handler: handler}
           )
         end

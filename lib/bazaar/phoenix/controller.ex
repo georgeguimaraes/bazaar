@@ -279,6 +279,88 @@ defmodule Bazaar.Phoenix.Controller do
     end
   end
 
+  # Catalog
+
+  def list_products(conn, params) do
+    handler = conn.assigns.bazaar_handler
+
+    result =
+      Telemetry.span_with_metadata([:bazaar, :catalog, :list], %{}, fn ->
+        case handler.list_products(params, conn) do
+          {:ok, result} ->
+            {result, %{count: length(result["products"] || [])}}
+
+          error ->
+            {error, %{}}
+        end
+      end)
+
+    case result do
+      {:ok, result} ->
+        json(conn, result)
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(Bazaar.Errors.from_reason(reason))
+    end
+  end
+
+  def get_product(conn, %{"id" => id}) do
+    handler = conn.assigns.bazaar_handler
+
+    result =
+      Telemetry.span_with_metadata([:bazaar, :catalog, :get], %{}, fn ->
+        case handler.get_product(id, conn) do
+          {:ok, _product} = result ->
+            {result, %{product_id: id}}
+
+          error ->
+            {error, %{product_id: id}}
+        end
+      end)
+
+    case result do
+      {:ok, product} ->
+        json(conn, product)
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(Bazaar.Errors.not_found("product", id))
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(Bazaar.Errors.from_reason(reason))
+    end
+  end
+
+  def search_products(conn, params) do
+    handler = conn.assigns.bazaar_handler
+
+    result =
+      Telemetry.span_with_metadata([:bazaar, :catalog, :search], %{}, fn ->
+        case handler.search_products(params, conn) do
+          {:ok, result} ->
+            {result, %{query: params["q"], count: length(result["products"] || [])}}
+
+          error ->
+            {error, %{query: params["q"]}}
+        end
+      end)
+
+    case result do
+      {:ok, result} ->
+        json(conn, result)
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(Bazaar.Errors.from_reason(reason))
+    end
+  end
+
   # Webhooks
 
   def webhook(conn, params) do

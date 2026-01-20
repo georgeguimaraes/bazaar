@@ -46,6 +46,11 @@ defmodule Bazaar.Handler do
   - `get_order/2` - Retrieve an order
   - `cancel_order/2` - Cancel an order
 
+  ### Catalog Capability
+  - `list_products/2` - List products with optional filters (category, limit, cursor)
+  - `get_product/2` - Get a single product by ID or SKU
+  - `search_products/2` - Search products by query string
+
   ### Identity Capability
   - `link_identity/2` - Link a user identity via OAuth
   """
@@ -53,7 +58,7 @@ defmodule Bazaar.Handler do
   @type conn :: Plug.Conn.t()
   @type params :: map()
   @type id :: String.t()
-  @type capability :: :checkout | :orders | :identity | :fulfillment | :discount
+  @type capability :: :checkout | :orders | :identity | :fulfillment | :discount | :catalog
 
   # Discovery
   @callback capabilities() :: [capability()]
@@ -80,6 +85,14 @@ defmodule Bazaar.Handler do
   @callback cancel_order(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
 
+  # Catalog capability
+  @callback list_products(params(), conn()) ::
+              {:ok, map()} | {:error, term()}
+  @callback get_product(id(), conn()) ::
+              {:ok, map()} | {:error, :not_found | term()}
+  @callback search_products(params(), conn()) ::
+              {:ok, map()} | {:error, term()}
+
   # Identity capability
   @callback link_identity(params(), conn()) ::
               {:ok, map()} | {:error, term()}
@@ -100,6 +113,10 @@ defmodule Bazaar.Handler do
     # Orders
     get_order: 2,
     cancel_order: 2,
+    # Catalog
+    list_products: 2,
+    get_product: 2,
+    search_products: 2,
     # Identity
     link_identity: 2,
     # Webhooks
