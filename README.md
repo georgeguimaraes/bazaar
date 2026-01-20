@@ -17,11 +17,34 @@ UCP was co-developed with Shopify, Walmart, Etsy, Target, and others.
 
 ## Features
 
-- **Validated Schemas**: Ecto-based validation for checkout sessions, orders, and discovery profiles
+- **Generated Schemas**: Smelter-generated Ecto schemas from official UCP JSON Schemas
 - **Phoenix Router Macro**: Mount all UCP routes with a single line
 - **Handler Behaviour**: Clean interface for your commerce logic
 - **Built-in Plugs**: Request validation, idempotency, and UCP headers
 - **Auto-generated Discovery**: `/.well-known/ucp` endpoint from your handler
+- **Business Logic Helpers**: Currency conversion, message factories, order creation
+
+## Architecture
+
+Bazaar separates concerns cleanly:
+
+```
+lib/bazaar/
+├── schemas/           # Generated from UCP JSON Schemas (via Smelter)
+│   ├── shopping/      # Checkout, Order, Payment types
+│   ├── capability/    # Capability definitions
+│   └── ucp/           # Discovery profile, response types
+├── checkout.ex        # Business logic: currency helpers
+├── order.ex           # Business logic: from_checkout helper
+├── message.ex         # Business logic: error/warning/info factories
+├── fulfillment.ex     # Business logic: field definitions
+├── handler.ex         # Handler behaviour
+├── phoenix/           # Router and controller
+└── plugs/             # Request validation, headers, idempotency
+```
+
+**Schemas** are generated from JSON and provide validation via `new/1` and `fields/0`.
+**Business logic** modules add helpers and factories on top of the schemas.
 
 ## How It Works
 
@@ -165,17 +188,29 @@ UCP defines three capabilities your store can support:
 
 ### Schemas
 
-Bazaar provides validated schemas for UCP data structures:
+Bazaar schemas are generated from official UCP JSON Schemas using [Smelter](https://github.com/georgeguimaraes/smelter):
 
 ```elixir
-# Validate checkout params
-changeset = Bazaar.Schemas.CheckoutSession.new(params)
+# Validate checkout response
+changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(params)
 
-# Create order from checkout
-order = Bazaar.Schemas.Order.from_checkout(checkout, "order_123", "https://shop.com/orders/123")
+# Create order params from checkout
+order_params = Bazaar.Order.from_checkout(checkout, "order_123", "https://shop.com/orders/123")
 
-# Generate JSON Schema for documentation
-schema = Bazaar.Schemas.CheckoutSession.json_schema()
+# Currency helpers
+cents = Bazaar.Checkout.to_minor_units(19.99)  # => 1999
+dollars = Bazaar.Checkout.to_major_units(1999)  # => 19.99
+
+# Message factories
+error = Bazaar.Message.error(%{"code" => "out_of_stock", "content" => "Item unavailable"})
+```
+
+### Regenerating Schemas
+
+If UCP schemas are updated, regenerate with:
+
+```bash
+mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
 ```
 
 ### Plugs
@@ -216,7 +251,7 @@ defmodule MyApp.Commerce.Handler do
 
   @impl true
   def create_checkout(params, _conn) do
-    case Bazaar.Schemas.CheckoutSession.new(params) do
+    case Bazaar.Schemas.Shopping.CheckoutResp.new(params) do
       %{valid?: true} = changeset ->
         data = Ecto.Changeset.apply_changes(changeset)
         checkout = Repo.insert!(Checkout.from_ucp(data))
@@ -297,6 +332,16 @@ defmodule MyApp.Commerce.Handler do
 
   def handle_webhook(_), do: {:error, :unknown_event}
 end
+```
+
+## Validating with ucp-tools
+
+Use [ucp-tools](https://github.com/user/ucp-tools) to validate your implementation:
+
+```bash
+# Validate your discovery profile
+curl http://localhost:4000/.well-known/ucp > profile.json
+ucp-validate validate -f profile.json
 ```
 
 ## Related Protocols

@@ -1,16 +1,38 @@
 # Schemas Guide
 
-Bazaar provides validated schemas for UCP data structures. These schemas validate incoming data and provide type-safe access to fields.
+Bazaar schemas are **generated from official UCP JSON Schemas** using [Smelter](https://github.com/georgeguimaraes/smelter). They validate incoming data and provide type-safe access to fields.
 
-## Overview
+## Architecture
 
-Bazaar includes these main schemas:
+Bazaar separates generated schemas from business logic:
 
-| Schema | Purpose |
-|--------|---------|
-| `CheckoutSession` | Shopping cart / checkout data |
-| `Order` | Completed order with fulfillment |
-| `DiscoveryProfile` | Store capabilities manifest |
+```
+lib/bazaar/
+├── schemas/                    # Generated from JSON Schemas
+│   ├── shopping/
+│   │   ├── checkout_resp.ex    # Checkout validation
+│   │   ├── order.ex            # Order validation
+│   │   └── types/              # Shared types (line items, totals, etc.)
+│   ├── capability/             # Capability definitions
+│   └── ucp/                    # Discovery profile types
+├── checkout.ex                 # Business logic: currency helpers
+├── order.ex                    # Business logic: from_checkout helper
+├── message.ex                  # Business logic: error/warning/info factories
+└── fulfillment.ex              # Business logic: field definitions
+```
+
+**Generated schemas** provide `new/1` and `fields/0` functions.
+**Business logic modules** add helpers and factories on top.
+
+## Regenerating Schemas
+
+When UCP JSON Schemas are updated, regenerate with:
+
+```bash
+mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
+```
+
+This will overwrite all files in `lib/bazaar/schemas/` with fresh generated code.
 
 ## Key Concepts
 
@@ -23,10 +45,10 @@ UCP uses **minor currency units** (cents) as integers, not decimals:
 %{"price" => 1999}
 
 # Convert dollars to cents
-Bazaar.Schemas.CheckoutSession.to_minor_units(19.99)  # => 1999
+Bazaar.Checkout.to_minor_units(19.99)  # => 1999
 
 # Convert cents to dollars
-Bazaar.Schemas.CheckoutSession.to_major_units(1999)  # => 19.99
+Bazaar.Checkout.to_major_units(1999)  # => 19.99
 ```
 
 ### Structured Totals
@@ -57,25 +79,31 @@ Checkout responses require legal links:
 
 Link types: `privacy_policy`, `terms_of_service`, `refund_policy`, `shipping_policy`, `faq`
 
-## CheckoutSession
+## Checkout Schema
 
-The checkout session represents a shopping cart that can be converted into an order.
+The checkout schema validates shopping cart data. Use `Bazaar.Schemas.Shopping.CheckoutResp` for responses.
 
-### Creating a Checkout (Request)
+### Creating a Checkout
 
 ```elixir
 params = %{
+  "ucp" => %{"name" => "dev.ucp.shopping.checkout", "version" => "2026-01-11"},
+  "id" => "checkout_123",
+  "status" => "incomplete",
   "currency" => "USD",
   "line_items" => [
     %{
-      "item" => %{"id" => "WIDGET-001"},
-      "quantity" => 2
+      "item" => %{"id" => "WIDGET-001", "title" => "Widget", "price" => 1999},
+      "quantity" => 2,
+      "totals" => [%{"type" => "subtotal", "amount" => 3998}]
     }
   ],
+  "totals" => [%{"type" => "total", "amount" => 3998}],
+  "links" => [%{"type" => "privacy_policy", "url" => "https://example.com/privacy"}],
   "payment" => %{}
 }
 
-case Bazaar.Schemas.CheckoutSession.new(params) do
+case Bazaar.Schemas.Shopping.CheckoutResp.new(params) do
   %{valid?: true} = changeset ->
     checkout = Ecto.Changeset.apply_changes(changeset)
     # Process checkout...
@@ -85,55 +113,6 @@ case Bazaar.Schemas.CheckoutSession.new(params) do
     # Handle validation errors...
 end
 ```
-
-### Required Fields (Create Request)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `currency` | string | ISO 4217 code (USD, EUR, etc.) |
-| `line_items` | array | At least one item required |
-| `payment` | object | Payment configuration |
-
-### Line Item Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `item` | object | Yes | Item details (see below) |
-| `quantity` | integer | Yes | Must be >= 1 |
-
-### Item Fields (Request)
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | Yes | Product identifier |
-
-### Item Fields (Response)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Product identifier |
-| `title` | string | Product title |
-| `price` | integer | Unit price in cents |
-| `image_url` | string | Product image URL |
-
-### Checkout Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique checkout identifier |
-| `status` | string | Status (see below) |
-| `currency` | string | ISO 4217 currency code |
-| `line_items` | array | Items with enriched data |
-| `totals` | array | Typed total amounts |
-| `links` | array | Required legal links |
-| `payment` | object | Payment configuration |
-| `buyer` | object | Customer info |
-| `shipping_address` | object | Delivery address |
-| `billing_address` | object | Billing address |
-| `messages` | array | Error/warning/info messages |
-| `continue_url` | string | URL for escalation handoff |
-| `expires_at` | string | RFC 3339 expiry timestamp |
-| `metadata` | map | Custom key-value data |
 
 ### Status Values
 
@@ -159,14 +138,6 @@ end
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `first_name` | string | First name |
-| `last_name` | string | Last name |
-| `full_name` | string | Full name (if not using first/last) |
-| `email` | string | Email address |
-| `phone_number` | string | Phone in E.164 format |
-
 ### Address Fields
 
 ```elixir
@@ -184,98 +155,9 @@ end
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `street_address` | string | Street address |
-| `extended_address` | string | Apartment, suite, etc. |
-| `address_locality` | string | City |
-| `address_region` | string | State/province (required for US/CA) |
-| `postal_code` | string | Postal or ZIP code |
-| `address_country` | string | ISO 3166-1 alpha-2 country code |
-| `first_name` | string | Recipient first name |
-| `last_name` | string | Recipient last name |
-| `phone_number` | string | Contact phone number |
+## Order Schema
 
-### Complete Checkout Response Example
-
-```elixir
-%{
-  "id" => "checkout_abc123",
-  "status" => "incomplete",
-  "currency" => "USD",
-  "line_items" => [
-    %{
-      "item" => %{
-        "id" => "LAPTOP-PRO",
-        "title" => "Pro Laptop 15\"",
-        "price" => 129900,
-        "image_url" => "https://example.com/laptop.jpg"
-      },
-      "quantity" => 1,
-      "totals" => [
-        %{"type" => "subtotal", "amount" => 129900}
-      ]
-    },
-    %{
-      "item" => %{
-        "id" => "CASE-001",
-        "title" => "Laptop Case",
-        "price" => 4999
-      },
-      "quantity" => 1,
-      "totals" => [
-        %{"type" => "subtotal", "amount" => 4999}
-      ]
-    }
-  ],
-  "totals" => [
-    %{"type" => "subtotal", "amount" => 134899},
-    %{"type" => "tax", "amount" => 10800},
-    %{"type" => "total", "amount" => 145699}
-  ],
-  "links" => [
-    %{"type" => "privacy_policy", "url" => "https://example.com/privacy"},
-    %{"type" => "terms_of_service", "url" => "https://example.com/terms"}
-  ],
-  "payment" => %{"handlers" => []},
-  "buyer" => %{
-    "first_name" => "Jane",
-    "last_name" => "Doe",
-    "email" => "jane@example.com"
-  },
-  "shipping_address" => %{
-    "street_address" => "456 Oak Avenue",
-    "address_locality" => "San Francisco",
-    "address_region" => "CA",
-    "postal_code" => "94102",
-    "address_country" => "US"
-  },
-  "metadata" => %{
-    "source" => "mobile_app",
-    "promo_code" => "SAVE10"
-  }
-}
-```
-
-### Updating a Checkout
-
-```elixir
-existing = %{
-  "id" => "checkout_123",
-  "currency" => "USD",
-  "status" => "incomplete"
-}
-
-params = %{
-  "buyer" => %{"email" => "new@example.com"}
-}
-
-changeset = Bazaar.Schemas.CheckoutSession.update(existing, params)
-```
-
-## Order
-
-Orders represent completed checkouts with fulfillment tracking.
+Use `Bazaar.Schemas.Shopping.Order` for order validation and `Bazaar.Order` for business logic.
 
 ### Creating from Checkout
 
@@ -287,12 +169,12 @@ checkout = %{
   "totals" => [...]
 }
 
-changeset = Bazaar.Schemas.Order.from_checkout(
+order_params = Bazaar.Order.from_checkout(
   checkout,
   "order_123",
   "https://shop.example/orders/123"
 )
-order = Ecto.Changeset.apply_changes(changeset)
+# Returns a map ready to be validated with Bazaar.Schemas.Shopping.Order.new/1
 ```
 
 ### Order Fields
@@ -333,134 +215,60 @@ order = Ecto.Changeset.apply_changes(changeset)
 }
 ```
 
-### Fulfillment Event Types
+Fulfillment event types: `shipped`, `out_for_delivery`, `delivered`, `failed`, `returned`
 
-| Type | Description |
-|------|-------------|
-| `shipped` | Package shipped |
-| `out_for_delivery` | Out for delivery |
-| `delivered` | Package delivered |
-| `failed` | Delivery failed |
-| `returned` | Package returned |
+## Message Factories
 
-### Adjustments
+Use `Bazaar.Message` to create error, warning, and info messages:
 
 ```elixir
-"adjustments" => [
-  %{
-    "id" => "adj_1",
-    "type" => "refund",
-    "amount" => 1999,
-    "reason" => "Customer requested",
-    "timestamp" => "2025-01-16T10:00:00Z"
-  }
-]
+# Create error message
+error = Bazaar.Message.error(%{
+  "code" => "out_of_stock",
+  "content" => "Item SKU-123 is no longer available",
+  "severity" => "recoverable",
+  "path" => "$.line_items[0]"
+})
+
+# Create warning message
+warning = Bazaar.Message.warning(%{
+  "code" => "price_changed",
+  "content" => "Price has increased since item was added"
+})
+
+# Create info message
+info = Bazaar.Message.info(%{
+  "code" => "promo_available",
+  "content" => "Use code SAVE10 for 10% off"
+})
+
+# Parse message by type
+changeset = Bazaar.Message.parse(%{"type" => "error", "code" => "...", ...})
+
+# Validate list of messages
+{:ok, messages} = Bazaar.Message.validate_messages([...])
 ```
 
-Adjustment types: `refund`, `credit`, `chargeback`, `adjustment`
+### Severity Values
 
-## DiscoveryProfile
+| Severity | Description |
+|----------|-------------|
+| `recoverable` | Agent can resolve automatically |
+| `requires_buyer_input` | Need buyer action |
+| `requires_buyer_review` | Need buyer confirmation |
 
-The discovery profile describes your store for the `/.well-known/ucp` endpoint.
+## Discovery Profile
 
-### Building from Handler
+Use `Bazaar.DiscoveryProfile` to build the `/.well-known/ucp` response:
 
 ```elixir
-changeset = Bazaar.Schemas.DiscoveryProfile.from_handler(
+profile = Bazaar.DiscoveryProfile.build(
   MyApp.UCPHandler,
   base_url: "https://api.mystore.com"
 )
-
-profile = Ecto.Changeset.apply_changes(changeset)
 ```
 
-### Manual Creation
-
-```elixir
-params = %{
-  "name" => "My Store",
-  "description" => "The best store ever",
-  "logo_url" => "https://example.com/logo.png",
-  "website" => "https://example.com",
-  "support_email" => "support@example.com",
-  "capabilities" => [
-    %{"name" => "checkout", "version" => "1.0", "endpoint" => "/checkout-sessions"},
-    %{"name" => "orders", "version" => "1.0", "endpoint" => "/orders"}
-  ],
-  "transports" => [
-    %{"type" => "rest", "endpoint" => "https://api.example.com", "version" => "1.0"}
-  ]
-}
-
-changeset = Bazaar.Schemas.DiscoveryProfile.new(params)
-```
-
-## JSON Schema Generation
-
-All schemas can generate JSON Schema for documentation:
-
-```elixir
-# Checkout schema
-Bazaar.Schemas.CheckoutSession.json_schema()
-# => %{"type" => "object", "properties" => %{...}}
-
-# Order schema
-Bazaar.Schemas.Order.json_schema()
-
-# Discovery profile schema
-Bazaar.Schemas.DiscoveryProfile.json_schema()
-```
-
-## Validating Against Official UCP Schemas
-
-Bazaar includes the official UCP JSON Schemas for conformance testing:
-
-```elixir
-# Validate a checkout response
-{:ok, _} = Bazaar.Validator.validate_checkout(checkout_response)
-
-# Validate an order response
-{:ok, _} = Bazaar.Validator.validate_order(order_response)
-
-# Get available schemas
-Bazaar.Validator.available_schemas()  # => [:checkout, :order]
-```
-
-This is useful for testing that your handler returns valid UCP responses:
-
-```elixir
-test "checkout response matches UCP spec" do
-  {:ok, checkout} = MyHandler.create_checkout(valid_params(), nil)
-  assert {:ok, _} = Bazaar.Validator.validate_checkout(checkout)
-end
-```
-
-## Field Definitions
-
-Access raw field definitions for custom use:
-
-```elixir
-# All checkout fields
-Bazaar.Schemas.CheckoutSession.fields()
-
-# Line item fields
-Bazaar.Schemas.CheckoutSession.line_item_fields()
-
-# Buyer fields
-Bazaar.Schemas.CheckoutSession.buyer_fields()
-
-# Address fields
-Bazaar.Schemas.CheckoutSession.address_fields()
-
-# Total fields
-Bazaar.Schemas.CheckoutSession.total_fields()
-
-# Link fields
-Bazaar.Schemas.CheckoutSession.link_fields()
-
-# Order fulfillment fields
-Bazaar.Schemas.Order.fulfillment_fields()
-```
+This is usually handled automatically by Bazaar's controller.
 
 ## Currency Validation
 
@@ -481,7 +289,7 @@ Bazaar.Currencies.codes()
 Convert changeset errors to UCP format:
 
 ```elixir
-changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
 
 errors = Bazaar.Errors.from_changeset(changeset)
 # => %{
@@ -490,9 +298,25 @@ errors = Bazaar.Errors.from_changeset(changeset)
 #   "details" => [
 #     %{"field" => "currency", "message" => "can't be blank"},
 #     %{"field" => "line_items", "message" => "can't be blank"},
-#     %{"field" => "payment", "message" => "can't be blank"}
+#     ...
 #   ]
 # }
+```
+
+## Field Definitions
+
+Access raw field definitions for custom use:
+
+```elixir
+# All checkout fields
+Bazaar.Schemas.Shopping.CheckoutResp.fields()
+
+# All order fields
+Bazaar.Schemas.Shopping.Order.fields()
+
+# Fulfillment configuration
+Bazaar.Fulfillment.default_merchant_config()
+Bazaar.Fulfillment.default_platform_config()
 ```
 
 ## Tips
@@ -519,24 +343,6 @@ Prices are integers in minor units (cents):
 
 # Wrong - decimal/string
 %{"item" => %{"price" => "19.99"}}
-```
-
-### Nested Validation
-
-Line items, totals, and addresses are validated recursively:
-
-```elixir
-# This will fail - quantity must be >= 1
-params = %{
-  "currency" => "USD",
-  "line_items" => [
-    %{"item" => %{"id" => "ABC"}, "quantity" => 0}
-  ],
-  "payment" => %{}
-}
-
-changeset = Bazaar.Schemas.CheckoutSession.new(params)
-changeset.valid?  # => false
 ```
 
 ## Next Steps
