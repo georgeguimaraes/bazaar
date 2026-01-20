@@ -334,16 +334,6 @@ defmodule MyApp.Commerce.Handler do
 end
 ```
 
-## Validating with ucp-tools
-
-Use [ucp-tools](https://github.com/user/ucp-tools) to validate your implementation:
-
-```bash
-# Validate your discovery profile
-curl http://localhost:4000/.well-known/ucp > profile.json
-ucp-validate validate -f profile.json
-```
-
 ## Related Protocols
 
 UCP integrates with:
