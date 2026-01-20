@@ -108,6 +108,8 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
             results = []
 
             # Generate module for the main schema if it's generatable
+            # Check if main schema is generatable (has properties or composition)
+            # Files with only $defs are processed below for their definitions
             results =
               if generatable?(schema) do
                 result =
@@ -122,7 +124,17 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
                 [result | results]
               else
-                Mix.shell().info("  Skipped #{relative_path} (not generatable)")
+                defs = schema["$defs"] || %{}
+                generatable_defs = Enum.count(defs, fn {_, d} -> generatable?(d) end)
+
+                if generatable_defs > 0 do
+                  Mix.shell().info(
+                    "  Skipped #{relative_path} root (container only, #{generatable_defs} $defs processed below)"
+                  )
+                else
+                  Mix.shell().info("  Skipped #{relative_path} (no properties or composition)")
+                end
+
                 [{:ok, :skipped} | results]
               end
 
