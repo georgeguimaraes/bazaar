@@ -54,35 +54,53 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   end
 
   defp generate(schema_path, opts) do
-    case File.read(schema_path) do
-      {:ok, content} ->
-        case JSON.decode(content) do
-          {:ok, schema} ->
-            output = generate_code(schema, schema_path, opts)
+    schemax_opts = [
+      module: opts[:module] || infer_module_name(schema_path),
+      module_prefix: "Bazaar.Schemas.Generated",
+      schemas_dir: find_schemas_dir(schema_path)
+    ]
 
-            case opts[:output] do
-              nil ->
-                Mix.shell().info(output)
+    case Schemax.compile(schema_path, schemax_opts) do
+      {:ok, output} ->
+        case opts[:output] do
+          nil ->
+            Mix.shell().info(output)
 
-              output_path ->
-                File.mkdir_p!(Path.dirname(output_path))
-                File.write!(output_path, output)
-                Mix.shell().info("Generated #{output_path}")
-            end
-
-          {:error, error} ->
-            Mix.shell().error("Failed to parse JSON: #{inspect(error)}")
-            exit({:shutdown, 1})
+          output_path ->
+            File.mkdir_p!(Path.dirname(output_path))
+            File.write!(output_path, output)
+            Mix.shell().info("Generated #{output_path}")
         end
 
       {:error, reason} ->
-        Mix.shell().error("Failed to read file: #{inspect(reason)}")
+        Mix.shell().error("Failed to generate schema: #{inspect(reason)}")
         exit({:shutdown, 1})
     end
   end
 
+  # For backwards compatibility - exposed for batch generator
   @doc false
   def generate_code(schema, schema_path, opts) do
+    schemax_opts = [
+      module: opts[:module] || infer_module_name(schema_path),
+      module_prefix: "Bazaar.Schemas.Generated",
+      schemas_dir: find_schemas_dir(schema_path)
+    ]
+
+    schema_with_path = Map.put(schema, :_source_path, schema_path)
+
+    case Schemax.Resolver.resolve(schema_with_path, schema_path, schemax_opts) do
+      {:ok, resolved} ->
+        Schemax.Generator.Schemecto.generate(resolved, schemax_opts)
+
+      {:error, _reason} ->
+        # Fallback to legacy generation if resolution fails
+        legacy_generate_code(schema, schema_path, opts)
+    end
+  end
+
+  # Legacy generation for compatibility
+  defp legacy_generate_code(schema, schema_path, opts) do
     module_name = opts[:module] || infer_module_name(schema_path)
     title = schema["title"] || "Schema"
     description = schema["description"]
@@ -142,7 +160,6 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   end
 
   defp json_type_to_ecto(%{"$ref" => ref}, _name, schema_path) do
-    # Handle $ref - generate a Schemecto.one reference with full module path
     ref_module = ref_to_module_name(ref, schema_path)
     "Schemecto.one(#{ref_module}.fields(), with: &Function.identity/1)"
   end
@@ -177,21 +194,10 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
     json_primitive_type(type)
   end
 
-  defp json_type_to_ecto(%{"oneOf" => _}, _name, _schema_path) do
-    ":map"
-  end
-
-  defp json_type_to_ecto(%{"allOf" => _}, _name, _schema_path) do
-    ":map"
-  end
-
-  defp json_type_to_ecto(%{"anyOf" => _}, _name, _schema_path) do
-    ":map"
-  end
-
-  defp json_type_to_ecto(_prop, _name, _schema_path) do
-    ":map"
-  end
+  defp json_type_to_ecto(%{"oneOf" => _}, _name, _schema_path), do: ":map"
+  defp json_type_to_ecto(%{"allOf" => _}, _name, _schema_path), do: ":map"
+  defp json_type_to_ecto(%{"anyOf" => _}, _name, _schema_path), do: ":map"
+  defp json_type_to_ecto(_prop, _name, _schema_path), do: ":map"
 
   defp json_primitive_type("string"), do: ":string"
   defp json_primitive_type("integer"), do: ":integer"
@@ -202,7 +208,6 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   defp json_primitive_type(_), do: ":map"
 
   defp resolve_ref(ref, schema_path) do
-    # Handle relative refs like "types/buyer.json" or "../ucp.json"
     schema_dir = Path.dirname(schema_path)
 
     ref
@@ -211,12 +216,8 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   end
 
   defp ref_to_module_name(ref, schema_path) do
-    # Resolve the ref to an absolute path
     ref_path = resolve_ref(ref, schema_path)
 
-    # Find the schemas base directory (look for ucp_schemas in path)
-    # e.g., /path/to/priv/ucp_schemas/2026-01-11/shopping/types/buyer.json
-    # -> shopping/types/buyer.json -> Bazaar.Schemas.Generated.Shopping.Types.Buyer
     case find_schemas_base(ref_path) do
       {:ok, relative_path} ->
         relative_path
@@ -233,7 +234,6 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
         |> then(&"Bazaar.Schemas.Generated.#{&1}")
 
       :error ->
-        # Fallback to just the filename
         ref_path
         |> Path.basename(".json")
         |> Macro.camelize()
@@ -242,10 +242,16 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   end
 
   defp find_schemas_base(path) do
-    # Find path after ucp_schemas/VERSION/ directory
     case Regex.run(~r|ucp_schemas/[\d-]+/(.+)$|, path) do
       [_, relative] -> {:ok, relative}
       nil -> :error
+    end
+  end
+
+  defp find_schemas_dir(schema_path) do
+    case Regex.run(~r|^(.+/ucp_schemas)|, Path.expand(schema_path)) do
+      [_, dir] -> dir
+      nil -> Path.dirname(schema_path)
     end
   end
 
@@ -272,12 +278,29 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   end
 
   defp infer_module_name(schema_path) do
-    schema_path
-    |> Path.basename(".json")
-    |> String.replace(~r/[._]/, " ")
-    |> String.split()
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join()
-    |> then(&"Bazaar.Schemas.Generated.#{&1}")
+    case find_schemas_base(Path.expand(schema_path)) do
+      {:ok, relative_path} ->
+        relative_path
+        |> Path.rootname(".json")
+        |> String.split("/")
+        |> Enum.map(fn part ->
+          part
+          |> String.replace(~r/[._]/, " ")
+          |> String.split()
+          |> Enum.map(&String.capitalize/1)
+          |> Enum.join()
+        end)
+        |> Enum.join(".")
+        |> then(&"Bazaar.Schemas.Generated.#{&1}")
+
+      :error ->
+        schema_path
+        |> Path.basename(".json")
+        |> String.replace(~r/[._]/, " ")
+        |> String.split()
+        |> Enum.map(&String.capitalize/1)
+        |> Enum.join()
+        |> then(&"Bazaar.Schemas.Generated.#{&1}")
+    end
   end
 end
