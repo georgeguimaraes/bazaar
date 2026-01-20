@@ -1,4 +1,4 @@
-defmodule Schemax.TypeMapper do
+defmodule Smelter.TypeMapper do
   @moduledoc """
   Maps JSON Schema types to Elixir/Ecto types.
 

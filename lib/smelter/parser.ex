@@ -1,4 +1,4 @@
-defmodule Schemax.Parser do
+defmodule Smelter.Parser do
   @moduledoc """
   Parses JSON Schema files and validates their structure.
 

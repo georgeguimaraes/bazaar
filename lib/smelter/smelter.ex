@@ -1,10 +1,11 @@
-defmodule Schemax do
+defmodule Smelter do
   @moduledoc """
-  Schemax: JSON Schema to Elixir Code Generator
+  Smelter: JSON Schema to Elixir Code Generator
 
-  A robust library for generating Elixir code from JSON Schema definitions.
-  Handles $ref resolution, oneOf/anyOf/allOf composition, nested objects,
-  and generates Schemecto-compatible field definitions.
+  Extracts pure Elixir types from raw JSON Schema ore. A robust library for
+  generating Elixir code from JSON Schema definitions. Handles $ref resolution,
+  oneOf/anyOf/allOf composition, nested objects, and generates Schemecto-compatible
+  field definitions.
 
   ## Features
 
@@ -18,21 +19,21 @@ defmodule Schemax do
   ## Usage
 
       # Parse and resolve a schema
-      {:ok, schema} = Schemax.parse("path/to/schema.json")
+      {:ok, schema} = Smelter.parse("path/to/schema.json")
 
       # Generate Elixir code
-      code = Schemax.generate(schema, module: "MyApp.Schemas.User")
+      code = Smelter.generate(schema, module: "MyApp.Schemas.User")
 
   ## Configuration
 
-  Schemax can be configured with:
+  Smelter can be configured with:
 
   - `:module_prefix` - Base module prefix for generated schemas
   - `:schemas_dir` - Base directory for schema resolution
-  - `:generator` - Code generator module (default: `Schemax.Generator.Schemecto`)
+  - `:generator` - Code generator module (default: `Smelter.Generator.Schemecto`)
   """
 
-  alias Schemax.{Resolver, Generator}
+  alias Smelter.{Resolver, Generator}
 
   @type schema :: map()
   @type opts :: keyword()
@@ -57,8 +58,8 @@ defmodule Schemax do
   ## Options
 
   - `:module` - Full module name for the generated schema
-  - `:module_prefix` - Prefix for inferred module names (default: "Schemax.Generated")
-  - `:generator` - Generator module (default: `Schemax.Generator.Schemecto`)
+  - `:module_prefix` - Prefix for inferred module names (default: "Smelter.Generated")
+  - `:generator` - Generator module (default: `Smelter.Generator.Schemecto`)
   """
   @spec generate(schema(), opts()) :: String.t()
   def generate(schema, opts \\ []) do

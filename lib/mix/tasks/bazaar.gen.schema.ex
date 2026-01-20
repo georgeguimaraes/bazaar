@@ -60,7 +60,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
       schemas_dir: find_schemas_dir(schema_path)
     ]
 
-    case Schemax.compile(schema_path, schemax_opts) do
+    case Smelter.compile(schema_path, schemax_opts) do
       {:ok, output} ->
         case opts[:output] do
           nil ->
@@ -89,9 +89,9 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
     schema_with_path = Map.put(schema, :_source_path, schema_path)
 
-    case Schemax.Resolver.resolve(schema_with_path, schema_path, schemax_opts) do
+    case Smelter.Resolver.resolve(schema_with_path, schema_path, schemax_opts) do
       {:ok, resolved} ->
-        Schemax.Generator.Schemecto.generate(resolved, schemax_opts)
+        Smelter.Generator.Schemecto.generate(resolved, schemax_opts)
 
       {:error, _reason} ->
         # Fallback to legacy generation if resolution fails

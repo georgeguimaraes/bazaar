@@ -1,4 +1,4 @@
-defmodule Schemax.Generator.Schemecto do
+defmodule Smelter.Generator.Schemecto do
   @moduledoc """
   Generates Schemecto-compatible Elixir modules from resolved JSON Schemas.
 
@@ -9,7 +9,7 @@ defmodule Schemax.Generator.Schemecto do
   - Enum type attributes for string enums
   """
 
-  alias Schemax.TypeMapper
+  alias Smelter.TypeMapper
 
   @doc """
   Generates Elixir module code from a resolved schema.
@@ -17,7 +17,7 @@ defmodule Schemax.Generator.Schemecto do
   ## Options
 
   - `:module` - Full module name
-  - `:module_prefix` - Prefix for inferred module names (default: "Schemax.Generated")
+  - `:module_prefix` - Prefix for inferred module names (default: "Smelter.Generated")
   """
   @spec generate(map(), keyword()) :: String.t()
   def generate(schema, opts \\ []) do
@@ -153,7 +153,7 @@ defmodule Schemax.Generator.Schemecto do
 
   # Infer module name from schema
   defp infer_module_name(schema, opts) do
-    prefix = opts[:module_prefix] || "Schemax.Generated"
+    prefix = opts[:module_prefix] || "Smelter.Generated"
 
     name =
       cond do

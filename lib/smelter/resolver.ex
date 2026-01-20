@@ -1,4 +1,4 @@
-defmodule Schemax.Resolver do
+defmodule Smelter.Resolver do
   @moduledoc """
   Resolves JSON Schema references ($ref) and definitions ($defs).
 
@@ -25,7 +25,7 @@ defmodule Schemax.Resolver do
       # original_schema_path tracks where we started - used for relative file refs
       original_schema_path: expanded_path,
       schemas_dir: opts[:schemas_dir] || find_schemas_dir(schema_path),
-      module_prefix: opts[:module_prefix] || "Schemax.Generated",
+      module_prefix: opts[:module_prefix] || "Smelter.Generated",
       cache: %{},
       root_schema: schema
     }
