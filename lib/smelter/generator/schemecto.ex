@@ -45,38 +45,10 @@ defmodule Smelter.Generator.Schemecto do
   end
 
   # Post-process the generated code for better formatting
+  # Only needed for heredoc conversion - parens are fixed at AST level
   defp post_process(code) do
-    code
     # Convert escaped moduledoc strings to heredocs for readability
-    |> convert_moduledoc_to_heredoc()
-    # Remove unnecessary parentheses around function definitions
-    |> remove_function_parens()
-  end
-
-  # Remove extra parentheses that Code.format_string! adds around functions
-  defp remove_function_parens(code) do
-    # Match the pattern: ( \n @doc ... def ... end \n )
-    # Replace with just the content, fixing indentation
-    Regex.replace(
-      ~r/\n  \(\n(    @doc .+?\n    def .+?end)\n  \)/s,
-      code,
-      fn _, content ->
-        # Dedent by 2 spaces
-        dedented =
-          content
-          |> String.split("\n")
-          |> Enum.map(fn line ->
-            if String.starts_with?(line, "    ") do
-              String.slice(line, 2..-1//1)
-            else
-              line
-            end
-          end)
-          |> Enum.join("\n")
-
-        "\n#{dedented}"
-      end
-    )
+    convert_moduledoc_to_heredoc(code)
   end
 
   # Convert @moduledoc "string with \n" to @moduledoc heredoc
@@ -111,6 +83,9 @@ defmodule Smelter.Generator.Schemecto do
     fields_ast = build_fields_ast(fields)
     new_fn_ast = build_new_fn_ast(required_atoms)
 
+    # Build body as flat list - avoid nested blocks that cause extra parens
+    {new_doc, new_def} = new_fn_ast
+
     body =
       [
         moduledoc,
@@ -119,11 +94,10 @@ defmodule Smelter.Generator.Schemecto do
         enum_attr_asts ++
         [
           fields_ast,
-          quote do
-            @doc "Returns the field definitions for this schema."
-            def fields, do: @fields
-          end,
-          new_fn_ast
+          quote(do: @doc("Returns the field definitions for this schema.")),
+          quote(do: def(fields, do: @fields)),
+          new_doc,
+          new_def
         ]
 
     {:defmodule, [context: Elixir],
@@ -222,24 +196,32 @@ defmodule Smelter.Generator.Schemecto do
     {:@, [context: Elixir], [{:fields, [context: Elixir], [field_maps]}]}
   end
 
-  # Build new/1 function
+  # Build new/1 function - returns {doc_ast, def_ast} to keep them separate
   defp build_new_fn_ast([]) do
-    quote do
-      @doc "Creates a new changeset from params."
-      def new(params \\ %{}) do
-        Schemecto.new(@fields, params)
+    doc = quote(do: @doc("Creates a new changeset from params."))
+
+    def_ast =
+      quote do
+        def new(params \\ %{}) do
+          Schemecto.new(@fields, params)
+        end
       end
-    end
+
+    {doc, def_ast}
   end
 
   defp build_new_fn_ast(required_atoms) do
-    quote do
-      @doc "Creates a new changeset from params."
-      def new(params \\ %{}) do
-        Schemecto.new(@fields, params)
-        |> validate_required(unquote(required_atoms))
+    doc = quote(do: @doc("Creates a new changeset from params."))
+
+    def_ast =
+      quote do
+        def new(params \\ %{}) do
+          Schemecto.new(@fields, params)
+          |> validate_required(unquote(required_atoms))
+        end
       end
-    end
+
+    {doc, def_ast}
   end
 
   # Process properties and extract enum definitions
