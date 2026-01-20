@@ -33,7 +33,7 @@ if Code.ensure_loaded?(JSV) do
     - `validate/2` - Generic validation against any UCP schema
     """
 
-    @schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas")
+    @schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-01-11")
 
     @doc """
     Validates data against the UCP checkout response schema.
@@ -54,19 +54,72 @@ if Code.ensure_loaded?(JSV) do
     end
 
     @doc """
+    Validates a UCP discovery profile (the `/.well-known/ucp` response).
+
+    Returns `{:ok, data}` if valid, or `{:error, errors}` with validation errors.
+
+    ## Example
+
+        {:ok, profile} = Bazaar.Validator.validate_profile(discovery_json)
+    """
+    def validate_profile(data) do
+      validate(data, :profile)
+    end
+
+    @doc """
+    Fetches and validates a UCP profile from a remote URL.
+
+    ## Example
+
+        {:ok, profile} = Bazaar.Validator.validate_remote("https://example.com")
+    """
+    def validate_remote(base_url, opts \\ []) do
+      http_client = Keyword.get(opts, :http_client, &default_http_client/1)
+      url = String.trim_trailing(base_url, "/") <> "/.well-known/ucp"
+
+      case http_client.(url) do
+        {:ok, body} when is_binary(body) ->
+          case JSON.decode(body) do
+            {:ok, profile} -> validate_profile(profile)
+            {:error, _} -> {:error, [{:json_decode_error, "Invalid JSON response"}]}
+          end
+
+        {:ok, profile} when is_map(profile) ->
+          validate_profile(profile)
+
+        {:error, reason} ->
+          {:error, [{:fetch_error, reason}]}
+      end
+    end
+
+    defp default_http_client(url) do
+      # Use Req if available, otherwise error
+      if Code.ensure_loaded?(Req) do
+        case Req.get(url) do
+          {:ok, %{status: 200, body: body}} -> {:ok, body}
+          {:ok, %{status: status}} -> {:error, {:http_error, status}}
+          {:error, error} -> {:error, error}
+        end
+      else
+        {:error, :no_http_client}
+      end
+    end
+
+    @doc """
     Validates data against a specific UCP schema.
 
     ## Supported schemas
 
     - `:checkout` - Checkout session response schema
     - `:order` - Order response schema
+    - `:profile` - UCP discovery profile schema
 
     ## Examples
 
         iex> Bazaar.Validator.validate(%{"id" => "123"}, :checkout)
         {:error, [...]}  # Missing required fields
     """
-    def validate(data, schema_name) when schema_name in [:checkout, :order] do
+    def validate(data, schema_name) when schema_name in [:checkout, :order, :profile] do
       case get_root(schema_name) do
         {:ok, root} ->
           case JSV.validate(data, root) do
@@ -84,7 +137,7 @@ if Code.ensure_loaded?(JSV) do
 
     Useful for documentation or custom validation scenarios.
     """
-    def get_schema(schema_name) when schema_name in [:checkout, :order] do
+    def get_schema(schema_name) when schema_name in [:checkout, :order, :profile] do
       schema_path(schema_name)
       |> File.read()
       |> case do
@@ -97,7 +150,7 @@ if Code.ensure_loaded?(JSV) do
     Lists all available UCP schemas bundled with Bazaar.
     """
     def available_schemas do
-      [:checkout, :order]
+      [:checkout, :order, :profile]
     end
 
     # Private functions
@@ -119,6 +172,7 @@ if Code.ensure_loaded?(JSV) do
 
     defp schema_path(:checkout), do: Path.join([@schemas_dir, "shopping", "checkout_resp.json"])
     defp schema_path(:order), do: Path.join([@schemas_dir, "shopping", "order.json"])
+    defp schema_path(:profile), do: Path.join([@schemas_dir, "profile.json"])
 
     defp normalize_errors(%JSV.ValidationError{} = error) do
       JSV.normalize_error(error)
