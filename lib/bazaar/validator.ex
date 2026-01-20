@@ -67,45 +67,6 @@ if Code.ensure_loaded?(JSV) do
     end
 
     @doc """
-    Fetches and validates a UCP profile from a remote URL.
-
-    ## Example
-
-        {:ok, profile} = Bazaar.Validator.validate_remote("https://example.com")
-    """
-    def validate_remote(base_url, opts \\ []) do
-      http_client = Keyword.get(opts, :http_client, &default_http_client/1)
-      url = String.trim_trailing(base_url, "/") <> "/.well-known/ucp"
-
-      case http_client.(url) do
-        {:ok, body} when is_binary(body) ->
-          case JSON.decode(body) do
-            {:ok, profile} -> validate_profile(profile)
-            {:error, _} -> {:error, [{:json_decode_error, "Invalid JSON response"}]}
-          end
-
-        {:ok, profile} when is_map(profile) ->
-          validate_profile(profile)
-
-        {:error, reason} ->
-          {:error, [{:fetch_error, reason}]}
-      end
-    end
-
-    defp default_http_client(url) do
-      # Use Req if available, otherwise error
-      if Code.ensure_loaded?(Req) do
-        case Req.get(url) do
-          {:ok, %{status: 200, body: body}} -> {:ok, body}
-          {:ok, %{status: status}} -> {:error, {:http_error, status}}
-          {:error, error} -> {:error, error}
-        end
-      else
-        {:error, :no_http_client}
-      end
-    end
-
-    @doc """
     Validates data against a specific UCP schema.
 
     ## Supported schemas

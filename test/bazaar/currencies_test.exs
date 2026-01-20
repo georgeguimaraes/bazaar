@@ -142,34 +142,4 @@ defmodule Bazaar.CurrenciesTest do
       end
     end
   end
-
-  describe "integration with CheckoutSession schema" do
-    test "valid currencies are accepted by CheckoutSession" do
-      for currency <- ["USD", "EUR", "GBP", "JPY", "CAD"] do
-        changeset =
-          Bazaar.Schemas.CheckoutSession.new(%{
-            "currency" => currency,
-            "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
-            "payment" => %{}
-          })
-
-        assert changeset.valid?,
-               "Expected currency #{currency} to be accepted"
-      end
-    end
-
-    test "invalid currencies are rejected by CheckoutSession" do
-      changeset =
-        Bazaar.Schemas.CheckoutSession.new(%{
-          "currency" => "INVALID",
-          "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
-          "payment" => %{}
-        })
-
-      refute changeset.valid?
-
-      errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _} -> msg end)
-      assert errors[:currency] == ["is invalid"]
-    end
-  end
 end

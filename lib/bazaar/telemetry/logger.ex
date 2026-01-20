@@ -52,6 +52,7 @@ defmodule Bazaar.Telemetry.Logger do
     [:bazaar, :checkout, :create, :stop],
     [:bazaar, :checkout, :get, :stop],
     [:bazaar, :checkout, :update, :stop],
+    [:bazaar, :checkout, :complete, :stop],
     [:bazaar, :checkout, :cancel, :stop],
     # Order operations
     [:bazaar, :order, :get, :stop],
@@ -144,6 +145,10 @@ defmodule Bazaar.Telemetry.Logger do
   end
 
   defp extract_details("checkout.update", meta) do
+    format_checkout_details(meta)
+  end
+
+  defp extract_details("checkout.complete", meta) do
     format_checkout_details(meta)
   end
 

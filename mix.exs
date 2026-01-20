@@ -36,6 +36,7 @@ defmodule Bazaar.MixProject do
   defp deps do
     [
       {:schemecto, github: "josevalim/schemecto"},
+      {:smelter, path: "../smelter"},
       {:ecto, "~> 3.12"},
       {:jason, "~> 1.4"},
       {:jsv, "~> 0.15", optional: true},

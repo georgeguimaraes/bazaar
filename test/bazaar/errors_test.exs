@@ -5,7 +5,7 @@ defmodule Bazaar.ErrorsTest do
 
   describe "from_changeset/1" do
     test "converts simple validation errors" do
-      changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
 
       result = Errors.from_changeset(changeset)
 
@@ -15,7 +15,7 @@ defmodule Bazaar.ErrorsTest do
     end
 
     test "includes field names in details" do
-      changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
 
       result = Errors.from_changeset(changeset)
 
@@ -25,7 +25,7 @@ defmodule Bazaar.ErrorsTest do
     end
 
     test "includes error messages in details" do
-      changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
 
       result = Errors.from_changeset(changeset)
 
@@ -34,49 +34,74 @@ defmodule Bazaar.ErrorsTest do
     end
 
     test "handles interpolated error messages" do
-      # Create a changeset with a length validation error
-      changeset =
-        Bazaar.Schemas.CheckoutSession.new(%{
-          "currency" => "USD",
-          "line_items" => []
-        })
+      # Create a changeset with a number validation error
+      defmodule TestAmountSchema do
+        import Ecto.Changeset
 
+        @fields [%{name: :amount, type: :integer}]
+
+        def new(params) do
+          Schemecto.new(@fields, params)
+          |> validate_number(:amount, greater_than: 0)
+        end
+      end
+
+      changeset = TestAmountSchema.new(%{"amount" => "-5"})
       result = Errors.from_changeset(changeset)
 
-      line_items_error = Enum.find(result["details"], &(&1["field"] == "line_items"))
-      assert line_items_error["message"] =~ "should have at least"
+      amount_error = Enum.find(result["details"], &(&1["field"] == "amount"))
+      assert amount_error["message"] =~ "greater than"
     end
 
-    test "handles inclusion validation errors" do
-      changeset =
-        Bazaar.Schemas.CheckoutSession.new(%{
-          "currency" => "INVALID",
-          "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
-          "payment" => %{}
-        })
+    test "handles enum validation errors" do
+      # Test with a schema that has enum validation
+      defmodule TestStatusSchema do
+        import Ecto.Changeset
 
+        @status_values [:active, :inactive]
+        @status_type Ecto.ParameterizedType.init(Ecto.Enum, values: @status_values)
+        @fields [%{name: :status, type: @status_type}]
+
+        def new(params) do
+          Schemecto.new(@fields, params)
+          |> validate_required([:status])
+        end
+      end
+
+      changeset = TestStatusSchema.new(%{"status" => "INVALID"})
       result = Errors.from_changeset(changeset)
 
-      currency_error = Enum.find(result["details"], &(&1["field"] == "currency"))
-      assert currency_error["message"] == "is invalid"
+      status_error = Enum.find(result["details"], &(&1["field"] == "status"))
+      assert status_error["message"] == "is invalid"
     end
 
     test "flattens nested errors with dot notation" do
-      # Create a changeset with nested line item errors
-      changeset =
-        Bazaar.Schemas.CheckoutSession.new(%{
-          "currency" => "USD",
-          "line_items" => [
-            %{"quantity" => 1}
-          ],
-          "payment" => %{}
-        })
+      # Create a changeset with nested embedded errors
+      defmodule NestedSchema do
+        import Ecto.Changeset
 
+        @item_fields [%{name: :name, type: :string}]
+
+        def new(params) do
+          fields = [
+            %{
+              name: :items,
+              type: Schemecto.many(@item_fields, with: &validate_name/1)
+            }
+          ]
+
+          Schemecto.new(fields, params)
+        end
+
+        defp validate_name(cs), do: validate_required(cs, [:name])
+      end
+
+      changeset = NestedSchema.new(%{"items" => [%{}]})
       result = Errors.from_changeset(changeset)
 
-      # Should have nested field paths like "line_items.0.item"
+      # Should have nested field paths like "items.0.name"
       fields = Enum.map(result["details"], & &1["field"])
-      assert Enum.any?(fields, &String.contains?(&1, "line_items"))
+      assert Enum.any?(fields, &String.contains?(&1, "items"))
     end
 
     test "handles multiple errors on same field" do
@@ -104,12 +129,19 @@ defmodule Bazaar.ErrorsTest do
     end
 
     test "returns empty details for valid changeset" do
-      changeset =
-        Bazaar.Schemas.CheckoutSession.new(%{
-          "currency" => "USD",
-          "line_items" => [%{"item" => %{"id" => "ABC"}, "quantity" => 1}],
-          "payment" => %{}
-        })
+      # Use a simple custom schema to test valid changeset behavior
+      defmodule ValidSchema do
+        import Ecto.Changeset
+
+        @fields [%{name: :name, type: :string}]
+
+        def new(params) do
+          Schemecto.new(@fields, params)
+          |> validate_required([:name])
+        end
+      end
+
+      changeset = ValidSchema.new(%{"name" => "test"})
 
       # Valid changesets shouldn't normally be passed to from_changeset,
       # but if they are, details should be empty
@@ -284,7 +316,7 @@ defmodule Bazaar.ErrorsTest do
 
   describe "JSON encodability" do
     test "from_changeset result is JSON encodable" do
-      changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
       result = Errors.from_changeset(changeset)
 
       assert is_binary(JSON.encode!(result))

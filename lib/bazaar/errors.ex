@@ -11,7 +11,7 @@ defmodule Bazaar.Errors do
 
   ## Example
 
-      changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+      changeset = Bazaar.Checkout.new(%{})
       Bazaar.Errors.from_changeset(changeset)
       # => %{
       #   "error" => "validation_error",

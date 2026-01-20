@@ -353,7 +353,7 @@ defmodule Bazaar.HandlerTest do
 
       @impl true
       def create_checkout(%{"invalid" => true}, _conn) do
-        changeset = Bazaar.Schemas.CheckoutSession.new(%{})
+        changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
         {:error, changeset}
       end
 

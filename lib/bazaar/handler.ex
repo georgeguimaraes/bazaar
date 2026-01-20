@@ -39,6 +39,7 @@ defmodule Bazaar.Handler do
   - `create_checkout/2` - Create a new checkout session
   - `get_checkout/2` - Retrieve a checkout session
   - `update_checkout/3` - Update a checkout session
+  - `complete_checkout/2` - Complete a checkout session and create an order
   - `cancel_checkout/2` - Cancel a checkout session
 
   ### Orders Capability
@@ -68,6 +69,8 @@ defmodule Bazaar.Handler do
               {:ok, map()} | {:error, :not_found | term()}
   @callback update_checkout(id(), params(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
+  @callback complete_checkout(id(), conn()) ::
+              {:ok, map()} | {:error, :not_found | :invalid_state | term()}
   @callback cancel_checkout(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
 
@@ -92,6 +95,7 @@ defmodule Bazaar.Handler do
     create_checkout: 2,
     get_checkout: 2,
     update_checkout: 3,
+    complete_checkout: 2,
     cancel_checkout: 2,
     # Orders
     get_order: 2,
@@ -120,7 +124,7 @@ defmodule Bazaar.Handler do
 
       @impl Bazaar.Handler
       def fulfillment_config do
-        Bazaar.Schemas.Fulfillment.default_merchant_config()
+        Bazaar.Fulfillment.default_merchant_config()
       end
 
       defoverridable capabilities: 0, business_profile: 0, fulfillment_config: 0

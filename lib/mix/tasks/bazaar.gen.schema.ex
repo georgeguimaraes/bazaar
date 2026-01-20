@@ -23,7 +23,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --module Bazaar.Schemas.Buyer
 
       # Generate to file
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/checkout_resp.json --output lib/bazaar/schemas/generated/checkout.ex
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/checkout_resp.json --output lib/bazaar/schemas/shopping/checkout.ex
   """
 
   use Mix.Task
@@ -56,7 +56,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   defp generate(schema_path, opts) do
     schemax_opts = [
       module: opts[:module] || infer_module_name(schema_path),
-      module_prefix: "Bazaar.Schemas.Generated",
+      module_prefix: "Bazaar.Schemas",
       schemas_dir: find_schemas_dir(schema_path)
     ]
 
@@ -83,7 +83,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   def generate_code(schema, schema_path, opts) do
     schemax_opts = [
       module: opts[:module] || infer_module_name(schema_path),
-      module_prefix: "Bazaar.Schemas.Generated",
+      module_prefix: "Bazaar.Schemas",
       schemas_dir: find_schemas_dir(schema_path)
     ]
 
@@ -231,13 +231,13 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
           |> Enum.join()
         end)
         |> Enum.join(".")
-        |> then(&"Bazaar.Schemas.Generated.#{&1}")
+        |> then(&"Bazaar.Schemas.#{&1}")
 
       :error ->
         ref_path
         |> Path.basename(".json")
         |> Macro.camelize()
-        |> then(&"Bazaar.Schemas.Generated.#{&1}")
+        |> then(&"Bazaar.Schemas.#{&1}")
     end
   end
 
@@ -291,7 +291,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
           |> Enum.join()
         end)
         |> Enum.join(".")
-        |> then(&"Bazaar.Schemas.Generated.#{&1}")
+        |> then(&"Bazaar.Schemas.#{&1}")
 
       :error ->
         schema_path
@@ -300,7 +300,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
         |> String.split()
         |> Enum.map(&String.capitalize/1)
         |> Enum.join()
-        |> then(&"Bazaar.Schemas.Generated.#{&1}")
+        |> then(&"Bazaar.Schemas.#{&1}")
     end
   end
 end

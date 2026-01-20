@@ -27,8 +27,8 @@ defmodule Bazaar.Plugs.ValidateRequest do
   @behaviour Plug
 
   @default_schemas %{
-    create_checkout: Bazaar.Schemas.CheckoutSession,
-    update_checkout: Bazaar.Schemas.CheckoutSession
+    create_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
+    update_checkout: Bazaar.Schemas.Shopping.CheckoutResp
   }
 
   @impl true

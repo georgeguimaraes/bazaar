@@ -24,6 +24,7 @@ defmodule Bazaar.Phoenix.Router do
   | POST | `/checkout-sessions` | Create checkout |
   | GET | `/checkout-sessions/:id` | Get checkout |
   | PATCH | `/checkout-sessions/:id` | Update checkout |
+  | POST | `/checkout-sessions/:id/actions/complete` | Complete checkout |
   | DELETE | `/checkout-sessions/:id` | Cancel checkout |
   | GET | `/orders/:id` | Get order |
   | POST | `/orders/:id/actions/cancel` | Cancel order |
@@ -86,6 +87,13 @@ defmodule Bazaar.Phoenix.Router do
             "/checkout-sessions/:id",
             Bazaar.Phoenix.Controller,
             :update_checkout,
+            assigns: %{bazaar_handler: handler}
+          )
+
+          post(
+            "/checkout-sessions/:id/actions/complete",
+            Bazaar.Phoenix.Controller,
+            :complete_checkout,
             assigns: %{bazaar_handler: handler}
           )
 

@@ -26,8 +26,8 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
     test "uses default schemas when none provided" do
       opts = ValidateRequest.init([])
 
-      assert opts[:create_checkout] == Bazaar.Schemas.CheckoutSession
-      assert opts[:update_checkout] == Bazaar.Schemas.CheckoutSession
+      assert opts[:create_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
+      assert opts[:update_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
     end
 
     test "merges custom schemas with defaults" do
@@ -35,7 +35,7 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
       opts = ValidateRequest.init(schemas: custom_schemas)
 
       assert opts[:create_checkout] == CustomSchema
-      assert opts[:update_checkout] == Bazaar.Schemas.CheckoutSession
+      assert opts[:update_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
     end
 
     test "allows adding new action schemas" do
@@ -96,10 +96,15 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
         conn(:post, "/checkout-sessions")
         |> put_private(:phoenix_action, :create_checkout)
         |> Map.put(:params, %{
+          "ucp" => %{"name" => "dev.ucp.shopping.checkout", "version" => "2026-01-11"},
+          "id" => "checkout_123",
+          "status" => "incomplete",
           "currency" => "USD",
           "line_items" => [
             %{"item" => %{"id" => "PROD-1"}, "quantity" => 1}
           ],
+          "totals" => [%{"type" => "total", "amount" => 1000}],
+          "links" => [%{"type" => "privacy_policy", "url" => "https://example.com/privacy"}],
           "payment" => %{}
         })
         |> ValidateRequest.call(checkout_opts)

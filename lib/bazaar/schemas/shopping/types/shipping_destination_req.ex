@@ -1,0 +1,69 @@
+defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationReq do
+  @moduledoc """
+  Shipping Destination Request
+  
+  Shipping destination.
+  
+  Generated from: shipping_destination_req.json
+  """
+  import Ecto.Changeset
+
+  @fields [
+    %{
+      name: :address_country,
+      type: :string,
+      description:
+        "The country. Recommended to be in 2-letter ISO 3166-1 alpha-2 format, for example \"US\". For backward compatibility, a 3-letter ISO 3166-1 alpha-3 country code such as \"SGP\" or a full country name such as \"Singapore\" can also be used."
+    },
+    %{
+      name: :address_locality,
+      type: :string,
+      description:
+        "The locality in which the street address is, and which is in the region. For example, Mountain View."
+    },
+    %{
+      name: :address_region,
+      type: :string,
+      description:
+        "The region in which the locality is, and which is in the country. Required for applicable countries (i.e. state in US, province in CA). For example, California or another appropriate first-level Administrative division."
+    },
+    %{
+      name: :extended_address,
+      type: :string,
+      description: "An address extension such as an apartment number, C/O or alternative name."
+    },
+    %{
+      name: :first_name,
+      type: :string,
+      description: "Optional. First name of the contact associated with the address."
+    },
+    %{
+      name: :full_name,
+      type: :string,
+      description:
+        "Optional. Full name of the contact associated with the address (if first_name or last_name fields are present they take precedence)."
+    },
+    %{name: :id, type: :string, description: "ID specific to this shipping destination."},
+    %{
+      name: :last_name,
+      type: :string,
+      description: "Optional. Last name of the contact associated with the address."
+    },
+    %{
+      name: :phone_number,
+      type: :string,
+      description: "Optional. Phone number of the contact associated with the address."
+    },
+    %{name: :postal_code, type: :string, description: "The postal code. For example, 94043."},
+    %{name: :street_address, type: :string, description: "The street address."}
+  ]
+  @doc "Returns the field definitions for this schema."
+  def fields do
+    @fields
+  end
+
+  @doc "Creates a new changeset from params."
+  def new(params \\ %{}) do
+    Schemecto.new(@fields, params)
+  end
+end

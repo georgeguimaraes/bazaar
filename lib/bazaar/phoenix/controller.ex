@@ -8,7 +8,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   use Phoenix.Controller, formats: [:json]
 
-  alias Bazaar.Schemas.DiscoveryProfile
+  alias Bazaar.DiscoveryProfile
   alias Bazaar.Telemetry
 
   # Discovery
@@ -117,6 +117,41 @@ defmodule Bazaar.Phoenix.Controller do
         conn
         |> put_status(:unprocessable_entity)
         |> json(Bazaar.Errors.from_changeset(changeset))
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(Bazaar.Errors.from_reason(reason))
+    end
+  end
+
+  def complete_checkout(conn, %{"id" => id}) do
+    handler = conn.assigns.bazaar_handler
+
+    result =
+      Telemetry.span_with_metadata([:bazaar, :checkout, :complete], %{}, fn ->
+        case handler.complete_checkout(id, conn) do
+          {:ok, checkout} = result ->
+            {result, %{checkout_id: id, status: checkout["status"]}}
+
+          error ->
+            {error, %{checkout_id: id}}
+        end
+      end)
+
+    case result do
+      {:ok, checkout} ->
+        json(conn, checkout)
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(Bazaar.Errors.not_found("checkout_session", id))
+
+      {:error, :invalid_state} ->
+        conn
+        |> put_status(:conflict)
+        |> json(Bazaar.Errors.from_reason(:invalid_state))
 
       {:error, reason} ->
         conn
