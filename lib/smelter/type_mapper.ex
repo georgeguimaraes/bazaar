@@ -320,4 +320,70 @@ defmodule Smelter.TypeMapper do
   end
 
   def to_ecto_type(_), do: ":map"
+
+  @doc """
+  Converts a mapped type to an Elixir AST representation.
+  """
+  @spec to_type_ast({ecto_type(), keyword()}) :: Macro.t()
+  def to_type_ast({:string, _opts}), do: :string
+  def to_type_ast({:integer, _opts}), do: :integer
+  def to_type_ast({:float, _opts}), do: :float
+  def to_type_ast({:boolean, _opts}), do: :boolean
+  def to_type_ast({:map, _opts}), do: :map
+  def to_type_ast({:utc_datetime, _opts}), do: :utc_datetime
+  def to_type_ast({:date, _opts}), do: :date
+  def to_type_ast({:time, _opts}), do: :time
+  def to_type_ast({:binary_id, _opts}), do: :binary_id
+  def to_type_ast({{:array, inner}, opts}), do: {:array, to_type_ast({inner, opts})}
+
+  def to_type_ast({:array_of, opts}) do
+    inner_type = opts[:inner_type]
+    _inner_opts = opts[:inner_opts] || []
+
+    case inner_type do
+      type when type in [:string, :integer, :float, :boolean, :map] ->
+        {:array, type}
+
+      :utc_datetime ->
+        {:array, :utc_datetime}
+
+      # Complex types - just use :map for arrays of complex objects
+      _ ->
+        {:array, :map}
+    end
+  end
+
+  def to_type_ast({:ref, opts}) do
+    module = opts[:module]
+    module_ast = module_to_ast(module)
+    cardinality = opts[:cardinality] || :one
+
+    case cardinality do
+      :one ->
+        quote do
+          Schemecto.one(unquote(module_ast).fields(), with: &Function.identity/1)
+        end
+
+      :many ->
+        quote do
+          Schemecto.many(unquote(module_ast).fields(), with: &Function.identity/1)
+        end
+    end
+  end
+
+  def to_type_ast({:union, _opts}), do: :map
+  def to_type_ast({:embedded, _opts}), do: :map
+  def to_type_ast({:enum, _opts}), do: :map
+  def to_type_ast({:const, _opts}), do: :map
+  def to_type_ast(_), do: :map
+
+  # Convert module string to AST
+  defp module_to_ast(module_string) when is_binary(module_string) do
+    parts =
+      module_string
+      |> String.split(".")
+      |> Enum.map(&String.to_atom/1)
+
+    {:__aliases__, [alias: false], parts}
+  end
 end
