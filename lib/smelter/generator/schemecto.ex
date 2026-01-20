@@ -26,15 +26,20 @@ defmodule Smelter.Generator.Schemecto do
     module_name = opts[:module] || infer_module_name(schema, opts)
     module_atom = String.to_atom("Elixir.#{module_name}")
 
-    properties = schema["properties"] || %{}
-    required = schema["required"] || []
+    # Check for union types (oneOf/anyOf at root level)
+    ast =
+      case schema[:_composition] do
+        {strategy, variants} when strategy in [:one_of, :any_of] ->
+          build_union_module_ast(module_atom, schema, strategy, variants, opts)
 
-    # Process properties to get fields and enum definitions
-    {enum_attrs, fields} = process_properties(properties)
-    required_atoms = Enum.map(required, &String.to_atom/1)
-
-    # Build the module AST
-    ast = build_module_ast(module_atom, schema, enum_attrs, fields, required_atoms)
+        _ ->
+          # Regular schema with properties
+          properties = schema["properties"] || %{}
+          required = schema["required"] || []
+          {enum_attrs, fields} = process_properties(properties)
+          required_atoms = Enum.map(required, &String.to_atom/1)
+          build_module_ast(module_atom, schema, enum_attrs, fields, required_atoms)
+      end
 
     # Convert to string and format
     ast
@@ -74,6 +79,238 @@ defmodule Smelter.Generator.Schemecto do
         ~s|@moduledoc """\n  #{indented}\n  """|
       end
     )
+  end
+
+  # Build module AST for union types (oneOf/anyOf)
+  defp build_union_module_ast(module_atom, schema, strategy, variants, opts) do
+    moduledoc = build_moduledoc(schema)
+
+    # Extract variant modules from refs
+    variant_modules =
+      variants
+      |> Enum.filter(&Map.has_key?(&1, :_ref_module))
+      |> Enum.map(& &1[:_ref_module])
+
+    # Detect discriminator field if present
+    discriminator = detect_discriminator(variants)
+
+    # Build variants attribute
+    variants_ast = build_variants_attr(variant_modules, opts)
+
+    # Build cast function that tries each variant
+    {cast_doc, cast_def} = build_union_cast_fn(variant_modules, discriminator, strategy, opts)
+
+    body =
+      [
+        moduledoc,
+        quote(do: import(Ecto.Changeset)),
+        variants_ast,
+        quote(do: @doc("Returns the variant modules for this union type.")),
+        quote(do: def(variants, do: @variants)),
+        cast_doc,
+        cast_def
+      ]
+
+    {:defmodule, [context: Elixir],
+     [
+       {:__aliases__, [alias: false], module_parts(module_atom)},
+       [do: {:__block__, [], body}]
+     ]}
+  end
+
+  # Detect if variants use a discriminator field (const on a common field)
+  defp detect_discriminator(variants) do
+    # First try: check if variants have inline properties with discriminator
+    inline_discriminators =
+      variants
+      |> Enum.map(fn variant ->
+        case variant do
+          %{"properties" => %{"type" => %{"const" => value}}} -> {:type, value}
+          _ -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    cond do
+      # All variants have inline discriminators
+      length(inline_discriminators) == length(variants) and length(variants) > 0 ->
+        {:discriminated, :type, Enum.map(inline_discriminators, fn {:type, v} -> v end)}
+
+      # All variants are refs - try to infer discriminator from module names
+      # This is a heuristic for common patterns like Message{Error,Warning,Info}
+      Enum.all?(variants, &Map.has_key?(&1, :_ref_module)) ->
+        inferred = infer_discriminators_from_refs(variants)
+
+        if inferred do
+          {:discriminated, :type, inferred}
+        else
+          :none
+        end
+
+      true ->
+        :none
+    end
+  end
+
+  # Try to infer discriminator values from ref module names
+  # Works for patterns like MessageError -> "error", MessageWarning -> "warning"
+  defp infer_discriminators_from_refs(variants) do
+    # Need at least 2 variants for discriminator to make sense
+    if length(variants) < 2 do
+      nil
+    else
+      infer_discriminators_from_refs_impl(variants)
+    end
+  end
+
+  defp infer_discriminators_from_refs_impl(variants) do
+    basenames =
+      Enum.map(variants, fn v ->
+        v[:_ref_module] |> String.split(".") |> List.last()
+      end)
+
+    # Find common prefix among all basenames
+    common_prefix = find_common_prefix(basenames)
+
+    # Only use discriminator if we found a meaningful common prefix
+    # (at least 3 chars to avoid false positives)
+    if String.length(common_prefix) >= 3 do
+      values =
+        Enum.map(basenames, fn basename ->
+          suffix = String.replace_prefix(basename, common_prefix, "")
+
+          if suffix == "" do
+            # No suffix means this is the base type, can't discriminate
+            nil
+          else
+            String.downcase(suffix)
+          end
+        end)
+
+      # Only valid if all values are present and unique
+      if Enum.all?(values, & &1) and length(Enum.uniq(values)) == length(values) do
+        values
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  # Find the longest common prefix among strings
+  defp find_common_prefix([]), do: ""
+  defp find_common_prefix([single]), do: single
+
+  defp find_common_prefix([first | rest]) do
+    Enum.reduce(rest, first, fn str, prefix ->
+      common_prefix_of_two(prefix, str)
+    end)
+  end
+
+  defp common_prefix_of_two(a, b) do
+    a_chars = String.graphemes(a)
+    b_chars = String.graphemes(b)
+
+    a_chars
+    |> Enum.zip(b_chars)
+    |> Enum.take_while(fn {c1, c2} -> c1 == c2 end)
+    |> Enum.map(fn {c, _} -> c end)
+    |> Enum.join()
+  end
+
+  # Build @variants module attribute
+  defp build_variants_attr(variant_modules, _opts) do
+    module_asts =
+      Enum.map(variant_modules, fn mod ->
+        parts = mod |> String.split(".") |> Enum.map(&String.to_atom/1)
+        {:__aliases__, [alias: false], parts}
+      end)
+
+    {:@, [context: Elixir], [{:variants, [context: Elixir], [module_asts]}]}
+  end
+
+  # Build cast function for union types
+  defp build_union_cast_fn(variant_modules, discriminator, _strategy, _opts) do
+    doc = quote(do: @doc("Casts params to one of the variant types."))
+
+    def_ast =
+      case discriminator do
+        {:discriminated, field, _values} ->
+          # Generate pattern-matching cast based on discriminator
+          build_discriminated_cast(variant_modules, field)
+
+        :none ->
+          # Try each variant in order
+          build_sequential_cast(variant_modules)
+      end
+
+    {doc, def_ast}
+  end
+
+  # Build cast function that pattern matches on discriminator
+  defp build_discriminated_cast(variant_modules, field) do
+    field_string = Atom.to_string(field)
+
+    clauses =
+      Enum.map(variant_modules, fn mod ->
+        # Extract the const value for this variant by inferring from module name
+        # e.g., "Bazaar.Schemas.Generated.Shopping.Types.MessageError" -> "error"
+        discriminator_value = infer_discriminator_value(mod)
+        mod_ast = module_to_ast(mod)
+
+        quote do
+          %{unquote(field_string) => unquote(discriminator_value)} ->
+            unquote(mod_ast).new(params)
+        end
+      end)
+
+    fallback =
+      quote do
+        _ -> {:error, :unknown_variant}
+      end
+
+    all_clauses = Enum.flat_map(clauses, & &1) ++ fallback
+
+    quote do
+      def cast(params) when is_map(params) do
+        case params do
+          unquote(all_clauses)
+        end
+      end
+    end
+  end
+
+  # Infer discriminator value from module name
+  # e.g., "...MessageError" -> "error", "...MessageWarning" -> "warning"
+  defp infer_discriminator_value(module_name) do
+    module_name
+    |> String.split(".")
+    |> List.last()
+    |> String.replace(~r/^Message/, "")
+    |> String.downcase()
+  end
+
+  # Build sequential cast that tries each variant
+  defp build_sequential_cast(variant_modules) do
+    module_asts = Enum.map(variant_modules, &module_to_ast/1)
+
+    quote do
+      def cast(params) when is_map(params) do
+        Enum.find_value(unquote(module_asts), {:error, :no_matching_variant}, fn mod ->
+          case mod.new(params) do
+            %Ecto.Changeset{valid?: true} = changeset -> {:ok, changeset}
+            _ -> nil
+          end
+        end)
+      end
+    end
+  end
+
+  # Convert module string to AST
+  defp module_to_ast(module_string) when is_binary(module_string) do
+    parts = module_string |> String.split(".") |> Enum.map(&String.to_atom/1)
+    {:__aliases__, [alias: false], parts}
   end
 
   # Build the complete module AST
