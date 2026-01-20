@@ -4,6 +4,9 @@
 
 Bazaar helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling AI shopping agents to interact with your store.
 
+> [!TIP]
+> See [bazaar-merchant](https://github.com/georgeguimaraes/bazaar-merchant) for a complete Phoenix app demonstrating a UCP merchant implementation.
+
 ## What is UCP?
 
 The [Universal Commerce Protocol](https://ucp.dev) is an open standard for **agentic commerce** announced by Google at NRF 2026. It allows AI agents to:
