@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentCredential do
   
   Generated from: payment_credential.json
   """
-  import Ecto.Changeset
-
   @variants [
     Bazaar.Schemas.Shopping.Types.TokenCredentialResp,
     Bazaar.Schemas.Shopping.Types.CardCredential

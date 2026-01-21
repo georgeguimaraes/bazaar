@@ -1,22 +1,27 @@
 # Bazaar 🎪
 
-**Open your store to AI agents.** Elixir SDK for the [Universal Commerce Protocol (UCP)](https://ucp.dev).
+**Open your store to AI agents.** Elixir SDK for [UCP](https://ucp.dev) and [ACP](https://github.com/agentic-commerce-protocol/acp-spec).
 
-Bazaar helps you build UCP-compliant e-commerce APIs in Elixir/Phoenix, enabling AI shopping agents to interact with your store.
+Bazaar helps you build commerce APIs in Elixir/Phoenix that work with both Google Shopping agents (UCP) and OpenAI/Stripe agents (ACP) from a single handler.
 
 > [!TIP]
-> See [bazaar-merchant](https://github.com/georgeguimaraes/bazaar-merchant) for a complete Phoenix app demonstrating a UCP merchant implementation.
+> See [bazaar-merchant](https://github.com/georgeguimaraes/bazaar-merchant) for a complete Phoenix app demonstrating a dual-protocol merchant.
 
-## What is UCP?
+## Supported Protocols
 
-The [Universal Commerce Protocol](https://ucp.dev) is an open standard for **agentic commerce** announced by Google at NRF 2026. It allows AI agents to:
+| Protocol | Used By | Spec |
+|----------|---------|------|
+| **UCP** (Universal Commerce Protocol) | Google Shopping agents | [ucp.dev](https://ucp.dev) |
+| **ACP** (Agentic Commerce Protocol) | OpenAI Operator, Stripe | [GitHub](https://github.com/agentic-commerce-protocol/acp-spec) |
+
+Both protocols enable AI agents to:
 
 - Discover what your store offers
 - Create and manage shopping carts
 - Complete checkouts
 - Track orders
 
-UCP was co-developed with Shopify, Walmart, Etsy, Target, and others.
+UCP was announced by Google at NRF 2026, co-developed with Shopify, Walmart, Etsy, and Target. ACP is backed by OpenAI and Stripe.
 
 ## Features
 
@@ -172,10 +177,11 @@ You should see your store's profile and capabilities.
 New to Bazaar? Check out these guides:
 
 - **[Getting Started](guides/getting-started.md)** - Build your first UCP merchant
+- **[Protocols](guides/protocols.md)** - Support both UCP and ACP
 - **[Handlers](guides/handlers.md)** - Implement commerce logic
 - **[Schemas](guides/schemas.md)** - Validate checkout and order data
 - **[Plugs](guides/plugs.md)** - Add validation, idempotency, and headers
-- **[Testing](guides/testing.md)** - Test your UCP implementation
+- **[Testing](guides/testing.md)** - Test your implementation
 
 ## Core Concepts
 
@@ -336,6 +342,72 @@ defmodule MyApp.Commerce.Handler do
   def handle_webhook(_), do: {:error, :unknown_event}
 end
 ```
+
+## ACP (Agentic Commerce Protocol) Support
+
+Bazaar also supports [ACP](https://github.com/agentic-commerce-protocol/acp-spec), the commerce protocol used by OpenAI's Operator and Stripe. You can serve both UCP and ACP clients from the same handler.
+
+### Internal Format: UCP
+
+Bazaar uses UCP as its internal/canonical format. Your handler always works with UCP field names and status values, regardless of which protocol the client uses:
+
+```
+ACP Request → [transform to UCP] → Your Handler → [transform to ACP] → ACP Response
+UCP Request → Your Handler → UCP Response
+```
+
+This means you write your handler once using UCP conventions (`items`, `street_address`, `incomplete`), and Bazaar automatically translates for ACP clients (`line_items`, `line_one`, `not_ready_for_payment`).
+
+### Dual Protocol Setup
+
+Mount both protocols at different paths:
+
+```elixir
+defmodule MyAppWeb.Router do
+  use Phoenix.Router
+  use Bazaar.Phoenix.Router
+
+  scope "/" do
+    pipe_through :api
+
+    # UCP routes (Google agents)
+    bazaar_routes "/", MyApp.UCPHandler
+
+    # ACP routes (OpenAI/Stripe agents)
+    bazaar_routes "/acp", MyApp.UCPHandler, protocol: :acp
+  end
+end
+```
+
+### Protocol Differences
+
+Bazaar automatically handles the differences between UCP and ACP:
+
+| Aspect | UCP | ACP |
+|--------|-----|-----|
+| URL style | `/checkout-sessions` | `/checkout_sessions` |
+| Update method | `PATCH` | `POST` |
+| Cancel method | `DELETE` | `POST /cancel` |
+| Discovery | `/.well-known/ucp` | None |
+| Status: incomplete | `incomplete` | `not_ready_for_payment` |
+| Status: ready | `ready_for_complete` | `ready_for_payment` |
+| Address: street | `street_address` | `line_one` |
+| Address: city | `address_locality` | `city` |
+| Items key | `items` | `line_items` |
+
+Your handler code stays the same: Bazaar transforms requests and responses automatically.
+
+### ACP Routes
+
+When using `protocol: :acp`, these endpoints are created:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/checkout_sessions` | Create checkout |
+| GET | `/checkout_sessions/:id` | Get checkout |
+| POST | `/checkout_sessions/:id` | Update checkout |
+| POST | `/checkout_sessions/:id/complete` | Complete checkout |
+| POST | `/checkout_sessions/:id/cancel` | Cancel checkout |
 
 ## Related Protocols
 

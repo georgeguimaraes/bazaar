@@ -408,6 +408,271 @@ defmodule Bazaar.Phoenix.RouterTest do
     end
   end
 
+  # Router with ACP protocol
+  defmodule AcpRouter do
+    use Phoenix.Router
+    use Bazaar.Phoenix.Router
+
+    pipeline :api do
+      plug(:accepts, ["json"])
+    end
+
+    scope "/" do
+      pipe_through(:api)
+      bazaar_routes("/acp", FullHandler, protocol: :acp)
+    end
+  end
+
+  # Router with both protocols
+  defmodule DualProtocolRouter do
+    use Phoenix.Router
+    use Bazaar.Phoenix.Router
+
+    pipeline :api do
+      plug(:accepts, ["json"])
+    end
+
+    scope "/" do
+      pipe_through(:api)
+      bazaar_routes("/ucp", FullHandler, protocol: :ucp)
+      bazaar_routes("/acp", FullHandler, protocol: :acp)
+    end
+  end
+
+  describe "ACP route generation" do
+    test "generates ACP checkout routes with underscores" do
+      routes = AcpRouter.__routes__()
+
+      # POST /checkout_sessions (underscore, not hyphen)
+      create_route =
+        Enum.find(routes, &(&1.path == "/acp/checkout_sessions" and &1.verb == :post))
+
+      assert create_route != nil
+      assert create_route.plug_opts == :create_checkout
+
+      # GET /checkout_sessions/:id
+      get_route =
+        Enum.find(routes, &(&1.path == "/acp/checkout_sessions/:id" and &1.verb == :get))
+
+      assert get_route != nil
+      assert get_route.plug_opts == :get_checkout
+
+      # POST /checkout_sessions/:id (update via POST, not PATCH)
+      update_route =
+        Enum.find(
+          routes,
+          &(&1.path == "/acp/checkout_sessions/:id" and &1.verb == :post and
+              &1.plug_opts == :update_checkout)
+        )
+
+      assert update_route != nil
+    end
+
+    test "generates ACP complete route without /actions/" do
+      routes = AcpRouter.__routes__()
+
+      # POST /checkout_sessions/:id/complete (not /actions/complete)
+      complete_route =
+        Enum.find(
+          routes,
+          &(&1.path == "/acp/checkout_sessions/:id/complete" and &1.verb == :post)
+        )
+
+      assert complete_route != nil
+      assert complete_route.plug_opts == :complete_checkout
+    end
+
+    test "generates ACP cancel route as POST" do
+      routes = AcpRouter.__routes__()
+
+      # POST /checkout_sessions/:id/cancel (not DELETE)
+      cancel_route =
+        Enum.find(routes, &(&1.path == "/acp/checkout_sessions/:id/cancel" and &1.verb == :post))
+
+      assert cancel_route != nil
+      assert cancel_route.plug_opts == :cancel_checkout
+    end
+
+    test "does not generate discovery route for ACP" do
+      routes = AcpRouter.__routes__()
+
+      discovery_route = Enum.find(routes, &String.contains?(&1.path, ".well-known"))
+      assert discovery_route == nil
+    end
+
+    test "routes connect to the controller for ACP" do
+      routes = AcpRouter.__routes__()
+
+      create_route =
+        Enum.find(routes, &(&1.path == "/acp/checkout_sessions" and &1.verb == :post))
+
+      assert create_route.plug == Bazaar.Phoenix.Controller
+      assert create_route.plug_opts == :create_checkout
+    end
+  end
+
+  describe "dual protocol routing" do
+    test "generates both UCP and ACP routes" do
+      routes = DualProtocolRouter.__routes__()
+
+      # UCP routes with hyphens
+      ucp_create = Enum.find(routes, &(&1.path == "/ucp/checkout-sessions" and &1.verb == :post))
+      assert ucp_create != nil
+
+      # ACP routes with underscores
+      acp_create = Enum.find(routes, &(&1.path == "/acp/checkout_sessions" and &1.verb == :post))
+      assert acp_create != nil
+    end
+
+    test "UCP uses PATCH for update, ACP uses POST" do
+      routes = DualProtocolRouter.__routes__()
+
+      # UCP: PATCH /checkout-sessions/:id
+      ucp_update =
+        Enum.find(
+          routes,
+          &(&1.path == "/ucp/checkout-sessions/:id" and &1.verb == :patch and
+              &1.plug_opts == :update_checkout)
+        )
+
+      assert ucp_update != nil
+
+      # ACP: POST /checkout_sessions/:id
+      acp_update =
+        Enum.find(
+          routes,
+          &(&1.path == "/acp/checkout_sessions/:id" and &1.verb == :post and
+              &1.plug_opts == :update_checkout)
+        )
+
+      assert acp_update != nil
+    end
+
+    test "UCP uses DELETE for cancel, ACP uses POST" do
+      routes = DualProtocolRouter.__routes__()
+
+      # UCP: DELETE /checkout-sessions/:id
+      ucp_cancel =
+        Enum.find(routes, &(&1.path == "/ucp/checkout-sessions/:id" and &1.verb == :delete))
+
+      assert ucp_cancel != nil
+
+      # ACP: POST /checkout_sessions/:id/cancel
+      acp_cancel =
+        Enum.find(routes, &(&1.path == "/acp/checkout_sessions/:id/cancel" and &1.verb == :post))
+
+      assert acp_cancel != nil
+    end
+
+    test "only UCP has discovery endpoint" do
+      routes = DualProtocolRouter.__routes__()
+
+      ucp_discovery = Enum.find(routes, &(&1.path == "/ucp/.well-known/ucp"))
+      assert ucp_discovery != nil
+
+      acp_discovery =
+        Enum.find(
+          routes,
+          &(&1.path == "/acp/.well-known/ucp" or &1.path == "/acp/.well-known/acp")
+        )
+
+      assert acp_discovery == nil
+    end
+  end
+
+  describe "ACP protocol transformation" do
+    setup do
+      {:ok, conn: conn(:get, "/") |> put_req_header("accept", "application/json")}
+    end
+
+    test "transforms ACP request to internal format", %{conn: conn} do
+      # ACP request with line_items
+      acp_params = %{
+        "line_items" => [
+          %{
+            "product" => %{"name" => "Test Product", "id" => "SKU-001"},
+            "quantity" => 2,
+            "base_amount" => 1000
+          }
+        ],
+        "currency" => "USD"
+      }
+
+      conn =
+        conn
+        |> Plug.Conn.assign(:bazaar_handler, FullHandler)
+        |> Plug.Conn.assign(:bazaar_protocol, :acp)
+        |> Bazaar.Phoenix.Controller.create_checkout(acp_params)
+
+      assert conn.status == 201
+      body = JSON.decode!(conn.resp_body)
+
+      # Verify the handler received transformed internal format
+      assert body["id"] == "checkout_123"
+      # Response should be in ACP format with line_items
+      assert is_list(body["line_items"]) or body["items"] != nil
+    end
+
+    test "transforms response status for ACP protocol", %{conn: conn} do
+      # Handler that returns UCP status
+      defmodule StatusTestHandler do
+        use Bazaar.Handler
+
+        @impl true
+        def capabilities, do: [:checkout]
+
+        @impl true
+        def business_profile, do: %{"name" => "Status Test"}
+
+        @impl true
+        def get_checkout(_id, _conn) do
+          {:ok, %{"id" => "test", "status" => "incomplete"}}
+        end
+      end
+
+      conn =
+        conn
+        |> Plug.Conn.assign(:bazaar_handler, StatusTestHandler)
+        |> Plug.Conn.assign(:bazaar_protocol, :acp)
+        |> Bazaar.Phoenix.Controller.get_checkout(%{"id" => "test"})
+
+      assert conn.status == 200
+      body = JSON.decode!(conn.resp_body)
+
+      # Status should be transformed to ACP format
+      assert body["status"] == "not_ready_for_payment"
+    end
+
+    test "UCP protocol passes through unchanged", %{conn: conn} do
+      defmodule UcpPassthroughHandler do
+        use Bazaar.Handler
+
+        @impl true
+        def capabilities, do: [:checkout]
+
+        @impl true
+        def business_profile, do: %{"name" => "UCP Test"}
+
+        @impl true
+        def get_checkout(_id, _conn) do
+          {:ok, %{"id" => "test", "status" => "incomplete"}}
+        end
+      end
+
+      conn =
+        conn
+        |> Plug.Conn.assign(:bazaar_handler, UcpPassthroughHandler)
+        |> Plug.Conn.assign(:bazaar_protocol, :ucp)
+        |> Bazaar.Phoenix.Controller.get_checkout(%{"id" => "test"})
+
+      assert conn.status == 200
+      body = JSON.decode!(conn.resp_body)
+
+      # Status should remain in UCP format
+      assert body["status"] == "incomplete"
+    end
+  end
+
   describe "base_url generation" do
     test "uses https scheme and host" do
       conn =

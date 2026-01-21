@@ -4,8 +4,6 @@ defmodule Bazaar.Schemas.Capability.Base do
   
   Generated from: capability.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :config,

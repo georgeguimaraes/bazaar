@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Bazaar.Gen.Schemas do
-  @shortdoc "Generates all Schemecto schemas from UCP JSON Schema directory"
+  @shortdoc "Generates all Schemecto schemas from JSON Schema directory"
 
   @moduledoc """
   Generates Schemecto field definitions for all JSON Schema files in a directory.
@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
   ## Options
 
     * `--output-dir` - Output directory (default: lib/bazaar/schemas)
+    * `--prefix` - Module prefix (default: Bazaar.Schemas)
     * `--dry-run` - Show what would be generated without writing files
 
   ## Examples
@@ -22,6 +23,9 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
       # Generate to custom directory
       $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --output-dir lib/generated
 
+      # Generate with custom prefix (for ACP schemas)
+      $ mix bazaar.gen.schemas priv/acp_schemas --prefix Bazaar.Schemas.Acp --output-dir lib/bazaar/schemas/acp
+
       # Preview what would be generated
       $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --dry-run
   """
@@ -29,14 +33,14 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
   use Mix.Task
 
   @default_output_dir "lib/bazaar/schemas"
-  @module_prefix "Bazaar.Schemas"
+  @default_module_prefix "Bazaar.Schemas"
 
   @impl Mix.Task
   def run(args) do
     {opts, args, _} =
       OptionParser.parse(args,
-        strict: [output_dir: :string, dry_run: :boolean],
-        aliases: [o: :output_dir, n: :dry_run]
+        strict: [output_dir: :string, prefix: :string, dry_run: :boolean],
+        aliases: [o: :output_dir, p: :prefix, n: :dry_run]
       )
 
     case args do
@@ -45,7 +49,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
       [] ->
         Mix.shell().error(
-          "Usage: mix bazaar.gen.schemas <schema_dir> [--output-dir path] [--dry-run]"
+          "Usage: mix bazaar.gen.schemas <schema_dir> [--output-dir path] [--prefix Module] [--dry-run]"
         )
 
         exit({:shutdown, 1})
@@ -58,6 +62,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
   defp generate_all(schema_dir, opts) do
     output_dir = opts[:output_dir] || @default_output_dir
+    module_prefix = opts[:prefix] || @default_module_prefix
     dry_run = opts[:dry_run] || false
 
     schema_files =
@@ -79,7 +84,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
     results =
       Enum.map(schema_files, fn schema_path ->
-        generate_one(schema_path, schema_dir, output_dir, dry_run)
+        generate_one(schema_path, schema_dir, output_dir, module_prefix, dry_run)
       end)
 
     successful = Enum.count(results, &match?({:ok, _}, &1))
@@ -96,10 +101,10 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
     end
   end
 
-  defp generate_one(schema_path, schema_dir, output_dir, dry_run) do
+  defp generate_one(schema_path, schema_dir, output_dir, module_prefix, dry_run) do
     relative_path = Path.relative_to(schema_path, schema_dir)
     output_path = schema_to_elixir_path(relative_path, output_dir)
-    module_name = infer_module_name(relative_path)
+    module_name = infer_module_name(relative_path, module_prefix)
 
     case File.read(schema_path) do
       {:ok, content} ->
@@ -117,6 +122,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
                     schema,
                     schema_path,
                     module_name,
+                    module_prefix,
                     output_path,
                     relative_path,
                     dry_run
@@ -140,7 +146,15 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
             # Generate modules for $defs entries
             defs_results =
-              generate_defs(schema, schema_path, schema_dir, output_dir, relative_path, dry_run)
+              generate_defs(
+                schema,
+                schema_path,
+                schema_dir,
+                output_dir,
+                module_prefix,
+                relative_path,
+                dry_run
+              )
 
             results ++ defs_results
 
@@ -159,12 +173,16 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
          schema,
          schema_path,
          module_name,
+         module_prefix,
          output_path,
          relative_path,
          dry_run
        ) do
     code =
-      Mix.Tasks.Bazaar.Gen.Schema.generate_code(schema, schema_path, module: module_name)
+      Mix.Tasks.Bazaar.Gen.Schema.generate_code(schema, schema_path,
+        module: module_name,
+        module_prefix: module_prefix
+      )
 
     if dry_run do
       Mix.shell().info("  #{relative_path} -> #{output_path}")
@@ -177,7 +195,15 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
     {:ok, output_path}
   end
 
-  defp generate_defs(schema, schema_path, _schema_dir, output_dir, relative_path, dry_run) do
+  defp generate_defs(
+         schema,
+         schema_path,
+         _schema_dir,
+         output_dir,
+         module_prefix,
+         relative_path,
+         dry_run
+       ) do
     defs = schema["$defs"] || %{}
 
     Enum.flat_map(defs, fn {def_name, def_schema} ->
@@ -186,7 +212,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
         base_name = Path.rootname(relative_path, ".json")
         def_file_name = Macro.underscore(def_name)
         def_output_path = Path.join([output_dir, base_name, "#{def_file_name}.ex"])
-        def_module_name = infer_def_module_name(relative_path, def_name)
+        def_module_name = infer_def_module_name(relative_path, def_name, module_prefix)
         def_relative = "#{relative_path}#/$defs/#{def_name}"
 
         result =
@@ -195,6 +221,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
             schema,
             schema_path,
             def_module_name,
+            module_prefix,
             def_output_path,
             def_relative,
             dry_run
@@ -213,6 +240,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
          root_schema,
          schema_path,
          module_name,
+         module_prefix,
          output_path,
          relative_path,
          dry_run
@@ -222,7 +250,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
       Smelter.Resolver.resolve(
         def_schema,
         schema_path,
-        module_prefix: @module_prefix,
+        module_prefix: module_prefix,
         root_schema: root_schema
       )
 
@@ -254,17 +282,17 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
     |> then(&Path.join(output_dir, &1))
   end
 
-  defp infer_module_name(relative_path) do
+  defp infer_module_name(relative_path, module_prefix) do
     relative_path
     |> Path.rootname(".json")
     |> String.split("/")
     |> Enum.map(&camelize_part/1)
     |> Enum.join(".")
-    |> then(&"Bazaar.Schemas.#{&1}")
+    |> then(&"#{module_prefix}.#{&1}")
   end
 
-  defp infer_def_module_name(relative_path, def_name) do
-    base_module = infer_module_name(relative_path)
+  defp infer_def_module_name(relative_path, def_name, module_prefix) do
+    base_module = infer_module_name(relative_path, module_prefix)
     def_part = camelize_part(def_name)
     "#{base_module}.#{def_part}"
   end

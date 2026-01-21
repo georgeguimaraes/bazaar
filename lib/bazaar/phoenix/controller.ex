@@ -1,14 +1,24 @@
 defmodule Bazaar.Phoenix.Controller do
   @moduledoc """
-  Phoenix controller that dispatches to your UCP handler.
+  Phoenix controller that dispatches to your UCP/ACP handler.
 
   This controller is used internally by `Bazaar.Phoenix.Router`.
   You don't need to use it directly.
+
+  ## Protocol Transformation
+
+  Bazaar uses UCP as its internal format. Your handler always works with
+  UCP field names and status values. The controller handles transformation:
+
+  - **ACP protocol**: transforms requests from ACP to UCP before calling your
+    handler, and transforms responses from UCP back to ACP
+  - **UCP protocol**: passes requests and responses through unchanged
   """
 
   use Phoenix.Controller, formats: [:json]
 
   alias Bazaar.DiscoveryProfile
+  alias Bazaar.Protocol.Transformer
   alias Bazaar.Telemetry
 
   # Discovery
@@ -29,10 +39,12 @@ defmodule Bazaar.Phoenix.Controller do
 
   def create_checkout(conn, params) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :checkout, :create], %{}, fn ->
-        case handler.create_checkout(params, conn) do
+        case handler.create_checkout(transformed_params, conn) do
           {:ok, checkout} = result ->
             {result, %{checkout_id: checkout["id"], status: checkout["status"]}}
 
@@ -43,9 +55,11 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, checkout} ->
+        {:ok, response} = Transformer.transform_response(checkout, protocol)
+
         conn
         |> put_status(:created)
-        |> json(checkout)
+        |> json(response)
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
@@ -61,6 +75,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   def get_checkout(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :checkout, :get], %{}, fn ->
@@ -75,7 +90,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, checkout} ->
-        json(conn, checkout)
+        {:ok, response} = Transformer.transform_response(checkout, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -91,11 +107,13 @@ defmodule Bazaar.Phoenix.Controller do
 
   def update_checkout(conn, %{"id" => id} = params) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
     update_params = Map.delete(params, "id")
+    {:ok, transformed_params} = Transformer.transform_request(update_params, protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :checkout, :update], %{}, fn ->
-        case handler.update_checkout(id, update_params, conn) do
+        case handler.update_checkout(id, transformed_params, conn) do
           {:ok, checkout} = result ->
             {result, %{checkout_id: id, status: checkout["status"]}}
 
@@ -106,7 +124,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, checkout} ->
-        json(conn, checkout)
+        {:ok, response} = Transformer.transform_response(checkout, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -127,6 +146,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   def complete_checkout(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :checkout, :complete], %{}, fn ->
@@ -141,7 +161,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, checkout} ->
-        json(conn, checkout)
+        {:ok, response} = Transformer.transform_response(checkout, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -162,6 +183,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   def cancel_checkout(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :checkout, :cancel], %{}, fn ->
@@ -176,7 +198,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, checkout} ->
-        json(conn, checkout)
+        {:ok, response} = Transformer.transform_response(checkout, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -194,6 +217,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   def get_order(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :order, :get], %{}, fn ->
@@ -208,7 +232,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, order} ->
-        json(conn, order)
+        {:ok, response} = Transformer.transform_response(order, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -224,6 +249,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   def cancel_order(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :order, :cancel], %{}, fn ->
@@ -238,7 +264,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, order} ->
-        json(conn, order)
+        {:ok, response} = Transformer.transform_response(order, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -256,10 +283,12 @@ defmodule Bazaar.Phoenix.Controller do
 
   def link_identity(conn, params) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :identity, :link], %{}, fn ->
-        case handler.link_identity(params, conn) do
+        case handler.link_identity(transformed_params, conn) do
           {:ok, _result} = result ->
             {result, %{provider: params["provider"]}}
 
@@ -270,7 +299,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, result} ->
-        json(conn, result)
+        {:ok, response} = Transformer.transform_response(result, protocol)
+        json(conn, response)
 
       {:error, reason} ->
         conn
@@ -283,10 +313,12 @@ defmodule Bazaar.Phoenix.Controller do
 
   def list_products(conn, params) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :catalog, :list], %{}, fn ->
-        case handler.list_products(params, conn) do
+        case handler.list_products(transformed_params, conn) do
           {:ok, result} ->
             {result, %{count: length(result["products"] || [])}}
 
@@ -297,7 +329,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, result} ->
-        json(conn, result)
+        {:ok, response} = Transformer.transform_response(result, protocol)
+        json(conn, response)
 
       {:error, reason} ->
         conn
@@ -308,6 +341,7 @@ defmodule Bazaar.Phoenix.Controller do
 
   def get_product(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :catalog, :get], %{}, fn ->
@@ -322,7 +356,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, product} ->
-        json(conn, product)
+        {:ok, response} = Transformer.transform_response(product, protocol)
+        json(conn, response)
 
       {:error, :not_found} ->
         conn
@@ -338,10 +373,12 @@ defmodule Bazaar.Phoenix.Controller do
 
   def search_products(conn, params) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :catalog, :search], %{}, fn ->
-        case handler.search_products(params, conn) do
+        case handler.search_products(transformed_params, conn) do
           {:ok, result} ->
             {result, %{query: params["q"], count: length(result["products"] || [])}}
 
@@ -352,7 +389,8 @@ defmodule Bazaar.Phoenix.Controller do
 
     case result do
       {:ok, result} ->
-        json(conn, result)
+        {:ok, response} = Transformer.transform_response(result, protocol)
+        json(conn, response)
 
       {:error, reason} ->
         conn
@@ -365,10 +403,12 @@ defmodule Bazaar.Phoenix.Controller do
 
   def webhook(conn, params) do
     handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :webhook, :handle], %{}, fn ->
-        case handler.handle_webhook(params) do
+        case handler.handle_webhook(transformed_params) do
           {:ok, _result} = result ->
             {result, %{event_type: params["type"] || params["event_type"]}}
 

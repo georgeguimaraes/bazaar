@@ -4,8 +4,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PostalAddress do
   
   Generated from: postal_address.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :address_country,

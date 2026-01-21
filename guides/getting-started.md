@@ -214,17 +214,39 @@ You should see a validation error response:
 }
 ```
 
+## Adding ACP Support
+
+Want to also support OpenAI Operator and Stripe agents? Add ACP routes alongside UCP:
+
+```elixir
+scope "/", MyStoreWeb do
+  pipe_through :api
+
+  # UCP routes (Google agents)
+  bazaar_routes "/", MyStore.UCPHandler
+
+  # ACP routes (OpenAI/Stripe agents)
+  bazaar_routes "/acp", MyStore.UCPHandler, protocol: :acp
+end
+```
+
+Your handler code stays the same. Bazaar automatically transforms requests and responses between UCP and ACP formats.
+
+See the [Protocols Guide](protocols.md) for details on the differences between UCP and ACP.
+
 ## What's Next?
 
 Now that you have a basic UCP merchant running:
 
 1. **Add persistence**: Store checkouts in a database
 2. **Add orders**: Implement the `:orders` capability
-3. **Add plugs**: Use validation and idempotency plugs
-4. **Handle webhooks**: Process payment notifications
+3. **Add ACP support**: Serve OpenAI/Stripe agents too
+4. **Add plugs**: Use validation and idempotency plugs
+5. **Handle webhooks**: Process payment notifications
 
 Check out these guides:
 
+- [Protocols Guide](protocols.md) - Support both UCP and ACP
 - [Handlers Guide](handlers.md) - Learn all handler callbacks
 - [Schemas Guide](schemas.md) - Understand data validation
 - [Plugs Guide](plugs.md) - Add production-ready features

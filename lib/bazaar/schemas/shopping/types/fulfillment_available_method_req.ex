@@ -6,7 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodReq do
   
   Generated from: fulfillment_available_method_req.json
   """
-  import Ecto.Changeset
   @fields []
   @doc "Returns the field definitions for this schema."
   def fields do

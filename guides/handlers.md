@@ -2,6 +2,14 @@
 
 Handlers are the core of your Bazaar implementation. They define what your store can do and how it responds to requests.
 
+## Internal Format: UCP
+
+Bazaar uses **UCP as its internal format**. Your handler always receives and returns data in UCP format, regardless of which protocol (UCP or ACP) the client uses. Bazaar handles the transformation automatically.
+
+This means you write one handler that works with both Google agents (UCP) and OpenAI/Stripe agents (ACP).
+
+See the [Protocols Guide](protocols.md) for details on field mappings and transformations.
+
 ## Basic Structure
 
 Every handler uses the `Bazaar.Handler` behaviour:

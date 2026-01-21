@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationReq do
   
   Generated from: shipping_destination_req.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :address_country,

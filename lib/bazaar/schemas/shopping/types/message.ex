@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.Message do
   
   Generated from: message.json
   """
-  import Ecto.Changeset
-
   @variants [
     Bazaar.Schemas.Shopping.Types.MessageError,
     Bazaar.Schemas.Shopping.Types.MessageWarning,

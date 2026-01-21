@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.MerchantFulfillmentConfig do
   
   Generated from: merchant_fulfillment_config.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :allows_method_combinations,

@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentDestinationReq do
   
   Generated from: fulfillment_destination_req.json
   """
-  import Ecto.Changeset
-
   @variants [
     Bazaar.Schemas.Shopping.Types.ShippingDestinationReq,
     Bazaar.Schemas.Shopping.Types.RetailLocationReq

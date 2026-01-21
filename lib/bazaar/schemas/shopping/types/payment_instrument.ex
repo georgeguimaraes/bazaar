@@ -6,7 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentInstrument do
   
   Generated from: payment_instrument.json
   """
-  import Ecto.Changeset
   @variants [Bazaar.Schemas.Shopping.Types.CardPaymentInstrument]
   @doc "Returns the variant modules for this union type."
   def variants do

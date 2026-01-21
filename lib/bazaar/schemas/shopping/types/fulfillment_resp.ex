@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentResp do
   
   Generated from: fulfillment_resp.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :available_methods,

@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.AccountInfo do
   
   Generated from: account_info.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :payment_account_reference,

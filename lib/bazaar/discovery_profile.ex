@@ -116,6 +116,14 @@ defmodule Bazaar.DiscoveryProfile do
           "spec" => "#{@ucp_spec_base}/specification/discount/",
           "schema" => "#{@ucp_spec_base}/schemas/shopping/discount.json"
         }
+
+      :catalog ->
+        %{
+          "name" => "dev.ucp.shopping.catalog",
+          "version" => @ucp_version,
+          "spec" => "#{@ucp_spec_base}/specification/catalog/",
+          "schema" => "#{@ucp_spec_base}/schemas/shopping/catalog.json"
+        }
     end)
   end
 

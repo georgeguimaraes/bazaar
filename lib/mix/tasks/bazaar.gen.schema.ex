@@ -32,8 +32,8 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   def run(args) do
     {opts, args, _} =
       OptionParser.parse(args,
-        strict: [module: :string, output: :string],
-        aliases: [m: :module, o: :output]
+        strict: [module: :string, output: :string, prefix: :string],
+        aliases: [m: :module, o: :output, p: :prefix]
       )
 
     case args do
@@ -42,7 +42,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
       [] ->
         Mix.shell().error(
-          "Usage: mix bazaar.gen.schema <schema_path> [--module Module] [--output path]"
+          "Usage: mix bazaar.gen.schema <schema_path> [--module Module] [--prefix Prefix] [--output path]"
         )
 
         exit({:shutdown, 1})
@@ -53,10 +53,14 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
     end
   end
 
+  @default_module_prefix "Bazaar.Schemas"
+
   defp generate(schema_path, opts) do
+    module_prefix = opts[:prefix] || @default_module_prefix
+
     schemax_opts = [
-      module: opts[:module] || infer_module_name(schema_path),
-      module_prefix: "Bazaar.Schemas",
+      module: opts[:module] || infer_module_name(schema_path, module_prefix),
+      module_prefix: module_prefix,
       schemas_dir: find_schemas_dir(schema_path)
     ]
 
@@ -81,9 +85,11 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   # For backwards compatibility - exposed for batch generator
   @doc false
   def generate_code(schema, schema_path, opts) do
+    module_prefix = opts[:module_prefix] || @default_module_prefix
+
     schemax_opts = [
-      module: opts[:module] || infer_module_name(schema_path),
-      module_prefix: "Bazaar.Schemas",
+      module: opts[:module] || infer_module_name(schema_path, module_prefix),
+      module_prefix: module_prefix,
       schemas_dir: find_schemas_dir(schema_path)
     ]
 
@@ -101,7 +107,8 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
   # Legacy generation for compatibility
   defp legacy_generate_code(schema, schema_path, opts) do
-    module_name = opts[:module] || infer_module_name(schema_path)
+    module_prefix = opts[:module_prefix] || @default_module_prefix
+    module_name = opts[:module] || infer_module_name(schema_path, module_prefix)
     title = schema["title"] || "Schema"
     description = schema["description"]
     properties = schema["properties"] || %{}
@@ -215,7 +222,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
     |> then(&Path.expand(&1, schema_dir))
   end
 
-  defp ref_to_module_name(ref, schema_path) do
+  defp ref_to_module_name(ref, schema_path, module_prefix \\ @default_module_prefix) do
     ref_path = resolve_ref(ref, schema_path)
 
     case find_schemas_base(ref_path) do
@@ -231,13 +238,13 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
           |> Enum.join()
         end)
         |> Enum.join(".")
-        |> then(&"Bazaar.Schemas.#{&1}")
+        |> then(&"#{module_prefix}.#{&1}")
 
       :error ->
         ref_path
         |> Path.basename(".json")
         |> Macro.camelize()
-        |> then(&"Bazaar.Schemas.#{&1}")
+        |> then(&"#{module_prefix}.#{&1}")
     end
   end
 
@@ -277,7 +284,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
     "    |> validate_required(#{inspect(required)})"
   end
 
-  defp infer_module_name(schema_path) do
+  defp infer_module_name(schema_path, module_prefix) do
     case find_schemas_base(Path.expand(schema_path)) do
       {:ok, relative_path} ->
         relative_path
@@ -291,7 +298,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
           |> Enum.join()
         end)
         |> Enum.join(".")
-        |> then(&"Bazaar.Schemas.#{&1}")
+        |> then(&"#{module_prefix}.#{&1}")
 
       :error ->
         schema_path
@@ -300,7 +307,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
         |> String.split()
         |> Enum.map(&String.capitalize/1)
         |> Enum.join()
-        |> then(&"Bazaar.Schemas.#{&1}")
+        |> then(&"#{module_prefix}.#{&1}")
     end
   end
 end

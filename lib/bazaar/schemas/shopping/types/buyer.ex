@@ -4,8 +4,6 @@ defmodule Bazaar.Schemas.Shopping.Types.Buyer do
   
   Generated from: buyer.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{name: :email, type: :string, description: "Email of the buyer."},
     %{name: :first_name, type: :string, description: "First name of the buyer."},

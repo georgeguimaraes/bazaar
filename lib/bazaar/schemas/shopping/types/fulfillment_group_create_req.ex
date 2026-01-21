@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentGroupCreateReq do
   
   Generated from: fulfillment_group.create_req.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :selected_option_id,

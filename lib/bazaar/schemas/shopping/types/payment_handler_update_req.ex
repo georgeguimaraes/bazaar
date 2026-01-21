@@ -4,7 +4,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentHandlerUpdateReq do
   
   Generated from: payment_handler.update_req.json
   """
-  import Ecto.Changeset
   @fields []
   @doc "Returns the field definitions for this schema."
   def fields do

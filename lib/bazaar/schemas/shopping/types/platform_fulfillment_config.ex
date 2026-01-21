@@ -6,8 +6,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PlatformFulfillmentConfig do
   
   Generated from: platform_fulfillment_config.json
   """
-  import Ecto.Changeset
-
   @fields [
     %{
       name: :supports_multi_group,
