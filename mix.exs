@@ -62,6 +62,7 @@ defmodule Bazaar.MixProject do
         "README.md",
         "guides/getting-started.md",
         "guides/handlers.md",
+        "guides/protocols.md",
         "guides/schemas.md",
         "guides/plugs.md",
         "guides/testing.md"
