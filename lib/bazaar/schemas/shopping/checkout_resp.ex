@@ -8,11 +8,11 @@ defmodule Bazaar.Schemas.Shopping.CheckoutResp do
   """
   use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.PaymentResp
   alias Bazaar.Schemas.Shopping.Types.Buyer
   alias Bazaar.Schemas.Shopping.Types.LineItemResp
   alias Bazaar.Schemas.Shopping.Types.Link
   alias Bazaar.Schemas.Shopping.Types.OrderConfirmation
-  alias Bazaar.Schemas.Shopping.PaymentResp
   alias Bazaar.Schemas.Shopping.Types.TotalResp
   alias Bazaar.Schemas.Ucp.ResponseCheckout
 

@@ -6,6 +6,10 @@ defmodule Bazaar.Schemas.Shopping.Types.Message do
   
   Generated from: message.json
   """
+  alias Bazaar.Schemas.Shopping.Types.MessageError
+  alias Bazaar.Schemas.Shopping.Types.MessageInfo
+  alias Bazaar.Schemas.Shopping.Types.MessageWarning
+
   @variants [
     Bazaar.Schemas.Shopping.Types.MessageError,
     Bazaar.Schemas.Shopping.Types.MessageWarning,
@@ -19,9 +23,9 @@ defmodule Bazaar.Schemas.Shopping.Types.Message do
   @doc "Casts params to one of the variant types."
   def cast(params) when is_map(params) do
     case params do
-      %{"type" => "error"} -> Bazaar.Schemas.Shopping.Types.MessageError.new(params)
-      %{"type" => "warning"} -> Bazaar.Schemas.Shopping.Types.MessageWarning.new(params)
-      %{"type" => "info"} -> Bazaar.Schemas.Shopping.Types.MessageInfo.new(params)
+      %{"type" => "error"} -> MessageError.new(params)
+      %{"type" => "warning"} -> MessageWarning.new(params)
+      %{"type" => "info"} -> MessageInfo.new(params)
       _ -> {:error, :unknown_variant}
     end
   end

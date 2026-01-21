@@ -95,79 +95,45 @@ defmodule Bazaar.Webhook.Delivery do
   """
   def deliver(order, event_type, webhook_url, webhook_secret, opts \\ []) do
     http_client = Keyword.fetch!(opts, :http_client)
-    max_attempts = Keyword.get(opts, :max_attempts, 5)
-    retry_opts = Keyword.take(opts, [:base_delay, :max_delay])
 
-    do_deliver(
-      order,
-      event_type,
-      webhook_url,
-      webhook_secret,
-      http_client,
-      1,
-      max_attempts,
-      retry_opts,
-      nil
-    )
+    retry_state = %{
+      attempt: 1,
+      max_attempts: Keyword.get(opts, :max_attempts, 5),
+      opts: Keyword.take(opts, [:base_delay, :max_delay]),
+      last_error: nil
+    }
+
+    do_deliver(order, event_type, webhook_url, webhook_secret, http_client, retry_state)
   end
 
-  defp do_deliver(
-         order,
-         event_type,
-         url,
-         secret,
-         http_client,
-         attempt,
-         max_attempts,
-         retry_opts,
-         _last_error
-       )
-       when attempt <= max_attempts do
+  defp do_deliver(order, event_type, url, secret, http_client, retry_state)
+       when retry_state.attempt <= retry_state.max_attempts do
     case Webhook.send(order, event_type, url, secret, http_client: http_client) do
       {:ok, event} ->
         {:ok, event}
 
       {:error, error} ->
-        cond do
-          # Non-retryable error - return immediately
-          not Retry.retryable_error?(error) ->
-            {:error, error}
-
-          # Retryable error but we've hit max attempts
-          attempt >= max_attempts ->
-            {:error, {:max_attempts_reached, attempt, error}}
-
-          # Retryable error with attempts remaining - retry
-          true ->
-            delay = Retry.calculate_delay(attempt, retry_opts)
-            Process.sleep(delay)
-
-            do_deliver(
-              order,
-              event_type,
-              url,
-              secret,
-              http_client,
-              attempt + 1,
-              max_attempts,
-              retry_opts,
-              error
-            )
-        end
+        handle_delivery_error(order, event_type, url, secret, http_client, retry_state, error)
     end
   end
 
-  defp do_deliver(
-         _order,
-         _event_type,
-         _url,
-         _secret,
-         _http_client,
-         attempt,
-         _max_attempts,
-         _retry_opts,
-         last_error
-       ) do
-    {:error, {:max_attempts_reached, attempt - 1, last_error}}
+  defp do_deliver(_order, _event_type, _url, _secret, _http_client, retry_state) do
+    {:error, {:max_attempts_reached, retry_state.attempt - 1, retry_state.last_error}}
+  end
+
+  defp handle_delivery_error(order, event_type, url, secret, http_client, retry_state, error) do
+    cond do
+      not Retry.retryable_error?(error) ->
+        {:error, error}
+
+      retry_state.attempt >= retry_state.max_attempts ->
+        {:error, {:max_attempts_reached, retry_state.attempt, error}}
+
+      true ->
+        delay = Retry.calculate_delay(retry_state.attempt, retry_state.opts)
+        Process.sleep(delay)
+        new_state = %{retry_state | attempt: retry_state.attempt + 1, last_error: error}
+        do_deliver(order, event_type, url, secret, http_client, new_state)
+    end
   end
 end

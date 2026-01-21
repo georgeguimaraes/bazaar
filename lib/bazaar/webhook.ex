@@ -47,9 +47,9 @@ defmodule Bazaar.Webhook do
       end
   """
 
-  alias Bazaar.WebhookEvent
-  alias Bazaar.Webhook.Signature
   alias Bazaar.Telemetry
+  alias Bazaar.Webhook.Signature
+  alias Bazaar.WebhookEvent
 
   @doc """
   Sends a webhook event to a platform.

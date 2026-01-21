@@ -107,159 +107,146 @@ defmodule Bazaar.Phoenix.Router do
     quote bind_quoted: [path: path, handler: handler, opts: opts] do
       protocol = Keyword.get(opts, :protocol, :ucp)
       assigns = %{bazaar_handler: handler, bazaar_protocol: protocol}
+      capabilities = Keyword.get(opts, :only, handler.capabilities())
 
       scope path do
-        # Discovery endpoint (UCP only)
-        if protocol == :ucp and Keyword.get(opts, :discovery, true) do
-          get(
-            "/.well-known/ucp",
-            Bazaar.Phoenix.Controller,
-            :discovery,
-            assigns: assigns
-          )
+        Bazaar.Phoenix.Router.mount_discovery(protocol, assigns, opts)
+        Bazaar.Phoenix.Router.mount_checkout(protocol, assigns, capabilities)
+        Bazaar.Phoenix.Router.mount_ucp_only(protocol, assigns, capabilities, opts)
+      end
+    end
+  end
+
+  @doc false
+  defmacro mount_discovery(protocol, assigns, opts) do
+    quote do
+      if unquote(protocol) == :ucp and Keyword.get(unquote(opts), :discovery, true) do
+        get("/.well-known/ucp", Bazaar.Phoenix.Controller, :discovery, assigns: unquote(assigns))
+      end
+    end
+  end
+
+  @doc false
+  defmacro mount_checkout(protocol, assigns, capabilities) do
+    quote do
+      if :checkout in unquote(capabilities) do
+        case unquote(protocol) do
+          :ucp -> Bazaar.Phoenix.Router.ucp_checkout_routes(unquote(assigns))
+          :acp -> Bazaar.Phoenix.Router.acp_checkout_routes(unquote(assigns))
         end
+      end
+    end
+  end
 
-        capabilities = Keyword.get(opts, :only, handler.capabilities())
+  @doc false
+  defmacro ucp_checkout_routes(assigns) do
+    quote do
+      post("/checkout-sessions", Bazaar.Phoenix.Controller, :create_checkout,
+        assigns: unquote(assigns)
+      )
 
-        # Checkout capability routes
-        if :checkout in capabilities do
-          case protocol do
-            :ucp ->
-              # UCP: hyphenated paths, PATCH for update, DELETE for cancel
-              post(
-                "/checkout-sessions",
-                Bazaar.Phoenix.Controller,
-                :create_checkout,
-                assigns: assigns
-              )
+      get("/checkout-sessions/:id", Bazaar.Phoenix.Controller, :get_checkout,
+        assigns: unquote(assigns)
+      )
 
-              get(
-                "/checkout-sessions/:id",
-                Bazaar.Phoenix.Controller,
-                :get_checkout,
-                assigns: assigns
-              )
+      patch("/checkout-sessions/:id", Bazaar.Phoenix.Controller, :update_checkout,
+        assigns: unquote(assigns)
+      )
 
-              patch(
-                "/checkout-sessions/:id",
-                Bazaar.Phoenix.Controller,
-                :update_checkout,
-                assigns: assigns
-              )
+      post(
+        "/checkout-sessions/:id/actions/complete",
+        Bazaar.Phoenix.Controller,
+        :complete_checkout,
+        assigns: unquote(assigns)
+      )
 
-              post(
-                "/checkout-sessions/:id/actions/complete",
-                Bazaar.Phoenix.Controller,
-                :complete_checkout,
-                assigns: assigns
-              )
+      delete("/checkout-sessions/:id", Bazaar.Phoenix.Controller, :cancel_checkout,
+        assigns: unquote(assigns)
+      )
+    end
+  end
 
-              delete(
-                "/checkout-sessions/:id",
-                Bazaar.Phoenix.Controller,
-                :cancel_checkout,
-                assigns: assigns
-              )
+  @doc false
+  defmacro acp_checkout_routes(assigns) do
+    quote do
+      post("/checkout_sessions", Bazaar.Phoenix.Controller, :create_checkout,
+        assigns: unquote(assigns)
+      )
 
-            :acp ->
-              # ACP: underscored paths, POST for update and cancel
-              post(
-                "/checkout_sessions",
-                Bazaar.Phoenix.Controller,
-                :create_checkout,
-                assigns: assigns
-              )
+      get("/checkout_sessions/:id", Bazaar.Phoenix.Controller, :get_checkout,
+        assigns: unquote(assigns)
+      )
 
-              get(
-                "/checkout_sessions/:id",
-                Bazaar.Phoenix.Controller,
-                :get_checkout,
-                assigns: assigns
-              )
+      post("/checkout_sessions/:id", Bazaar.Phoenix.Controller, :update_checkout,
+        assigns: unquote(assigns)
+      )
 
-              post(
-                "/checkout_sessions/:id",
-                Bazaar.Phoenix.Controller,
-                :update_checkout,
-                assigns: assigns
-              )
+      post("/checkout_sessions/:id/complete", Bazaar.Phoenix.Controller, :complete_checkout,
+        assigns: unquote(assigns)
+      )
 
-              post(
-                "/checkout_sessions/:id/complete",
-                Bazaar.Phoenix.Controller,
-                :complete_checkout,
-                assigns: assigns
-              )
+      post("/checkout_sessions/:id/cancel", Bazaar.Phoenix.Controller, :cancel_checkout,
+        assigns: unquote(assigns)
+      )
+    end
+  end
 
-              post(
-                "/checkout_sessions/:id/cancel",
-                Bazaar.Phoenix.Controller,
-                :cancel_checkout,
-                assigns: assigns
-              )
-          end
-        end
+  @doc false
+  defmacro mount_ucp_only(protocol, assigns, capabilities, opts) do
+    quote do
+      if unquote(protocol) == :ucp do
+        Bazaar.Phoenix.Router.mount_orders(unquote(assigns), unquote(capabilities))
+        Bazaar.Phoenix.Router.mount_identity(unquote(assigns), unquote(capabilities))
+        Bazaar.Phoenix.Router.mount_catalog(unquote(assigns), unquote(capabilities))
+        Bazaar.Phoenix.Router.mount_webhooks(unquote(assigns), unquote(opts))
+      end
+    end
+  end
 
-        # Orders capability routes (UCP only for now)
-        if :orders in capabilities and protocol == :ucp do
-          get(
-            "/orders/:id",
-            Bazaar.Phoenix.Controller,
-            :get_order,
-            assigns: assigns
-          )
+  @doc false
+  defmacro mount_orders(assigns, capabilities) do
+    quote do
+      if :orders in unquote(capabilities) do
+        get("/orders/:id", Bazaar.Phoenix.Controller, :get_order, assigns: unquote(assigns))
 
-          post(
-            "/orders/:id/actions/cancel",
-            Bazaar.Phoenix.Controller,
-            :cancel_order,
-            assigns: assigns
-          )
-        end
+        post("/orders/:id/actions/cancel", Bazaar.Phoenix.Controller, :cancel_order,
+          assigns: unquote(assigns)
+        )
+      end
+    end
+  end
 
-        # Identity capability routes (UCP only for now)
-        if :identity in capabilities and protocol == :ucp do
-          post(
-            "/identity/link",
-            Bazaar.Phoenix.Controller,
-            :link_identity,
-            assigns: assigns
-          )
-        end
+  @doc false
+  defmacro mount_identity(assigns, capabilities) do
+    quote do
+      if :identity in unquote(capabilities) do
+        post("/identity/link", Bazaar.Phoenix.Controller, :link_identity,
+          assigns: unquote(assigns)
+        )
+      end
+    end
+  end
 
-        # Catalog capability routes (UCP only for now)
-        if :catalog in capabilities and protocol == :ucp do
-          get(
-            "/products",
-            Bazaar.Phoenix.Controller,
-            :list_products,
-            assigns: assigns
-          )
+  @doc false
+  defmacro mount_catalog(assigns, capabilities) do
+    quote do
+      if :catalog in unquote(capabilities) do
+        get("/products", Bazaar.Phoenix.Controller, :list_products, assigns: unquote(assigns))
 
-          get(
-            "/products/search",
-            Bazaar.Phoenix.Controller,
-            :search_products,
-            assigns: assigns
-          )
+        get("/products/search", Bazaar.Phoenix.Controller, :search_products,
+          assigns: unquote(assigns)
+        )
 
-          get(
-            "/products/:id",
-            Bazaar.Phoenix.Controller,
-            :get_product,
-            assigns: assigns
-          )
-        end
+        get("/products/:id", Bazaar.Phoenix.Controller, :get_product, assigns: unquote(assigns))
+      end
+    end
+  end
 
-        # Webhook endpoint (UCP only for now)
-        if Keyword.get(opts, :webhooks, true) and protocol == :ucp do
-          post(
-            "/webhooks/ucp",
-            Bazaar.Phoenix.Controller,
-            :webhook,
-            assigns: assigns
-          )
-        end
+  @doc false
+  defmacro mount_webhooks(assigns, opts) do
+    quote do
+      if Keyword.get(unquote(opts), :webhooks, true) do
+        post("/webhooks/ucp", Bazaar.Phoenix.Controller, :webhook, assigns: unquote(assigns))
       end
     end
   end

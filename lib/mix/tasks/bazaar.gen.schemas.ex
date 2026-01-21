@@ -106,66 +106,80 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
     output_path = schema_to_elixir_path(relative_path, output_dir)
     module_name = infer_module_name(relative_path, module_prefix)
 
-    case File.read(schema_path) do
-      {:ok, content} ->
-        case JSON.decode(content) do
-          {:ok, schema} ->
-            results = []
+    with {:ok, content} <- File.read(schema_path),
+         {:ok, schema} <- JSON.decode(content) do
+      root_results =
+        generate_root_schema(
+          schema,
+          schema_path,
+          module_name,
+          module_prefix,
+          output_path,
+          relative_path,
+          dry_run
+        )
 
-            # Generate module for the main schema if it's generatable
-            # Check if main schema is generatable (has properties or composition)
-            # Files with only $defs are processed below for their definitions
-            results =
-              if generatable?(schema) do
-                result =
-                  generate_schema_module(
-                    schema,
-                    schema_path,
-                    module_name,
-                    module_prefix,
-                    output_path,
-                    relative_path,
-                    dry_run
-                  )
+      defs_results =
+        generate_defs(
+          schema,
+          schema_path,
+          schema_dir,
+          output_dir,
+          module_prefix,
+          relative_path,
+          dry_run
+        )
 
-                [result | results]
-              else
-                defs = schema["$defs"] || %{}
-                generatable_defs = Enum.count(defs, fn {_, d} -> generatable?(d) end)
-
-                if generatable_defs > 0 do
-                  Mix.shell().info(
-                    "  Skipped #{relative_path} root (container only, #{generatable_defs} $defs processed below)"
-                  )
-                else
-                  Mix.shell().info("  Skipped #{relative_path} (no properties or composition)")
-                end
-
-                [{:ok, :skipped} | results]
-              end
-
-            # Generate modules for $defs entries
-            defs_results =
-              generate_defs(
-                schema,
-                schema_path,
-                schema_dir,
-                output_dir,
-                module_prefix,
-                relative_path,
-                dry_run
-              )
-
-            results ++ defs_results
-
-          {:error, error} ->
-            Mix.shell().error("  Failed to parse #{relative_path}: #{inspect(error)}")
-            {:error, error}
-        end
+      root_results ++ defs_results
+    else
+      {:error, %JSON.DecodeError{} = error} ->
+        Mix.shell().error("  Failed to parse #{relative_path}: #{inspect(error)}")
+        {:error, error}
 
       {:error, reason} ->
         Mix.shell().error("  Failed to read #{relative_path}: #{inspect(reason)}")
         {:error, reason}
+    end
+  end
+
+  defp generate_root_schema(
+         schema,
+         schema_path,
+         module_name,
+         module_prefix,
+         output_path,
+         relative_path,
+         dry_run
+       ) do
+    if generatable?(schema) do
+      result =
+        generate_schema_module(
+          schema,
+          schema_path,
+          module_name,
+          module_prefix,
+          output_path,
+          relative_path,
+          dry_run
+        )
+
+      [result]
+    else
+      log_skipped_schema(schema, relative_path)
+      [{:ok, :skipped}]
+    end
+  end
+
+  defp log_skipped_schema(schema, relative_path) do
+    defs = schema["$defs"] || %{}
+    generatable_defs = Enum.count(defs, fn {_, d} -> generatable?(d) end)
+
+    if generatable_defs > 0 do
+      Mix.shell().info(
+        "  Skipped #{relative_path} root (container only, #{generatable_defs} $defs processed below)"
+      )
+    else
+      Mix.shell().info("  Skipped #{relative_path} (no properties or composition)")
     end
   end
 

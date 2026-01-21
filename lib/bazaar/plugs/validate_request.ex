@@ -25,8 +25,9 @@ defmodule Bazaar.Plugs.ValidateRequest do
 
   ## Default Schemas
 
-  - `create_checkout` -> `Bazaar.Schemas.Shopping.CheckoutCreateReq`
-  - `update_checkout` -> `Bazaar.Schemas.Shopping.CheckoutUpdateReq`
+  No default schemas are provided. You must configure schemas for actions you want
+  to validate. The UCP spec defines response schemas but not request schemas, so
+  request validation schemas must be defined by your application.
   """
 
   import Plug.Conn
@@ -35,10 +36,7 @@ defmodule Bazaar.Plugs.ValidateRequest do
 
   @behaviour Plug
 
-  @default_schemas %{
-    create_checkout: Bazaar.Schemas.Shopping.CheckoutCreateReq,
-    update_checkout: Bazaar.Schemas.Shopping.CheckoutUpdateReq
-  }
+  @default_schemas %{}
 
   @impl true
   def init(opts) do

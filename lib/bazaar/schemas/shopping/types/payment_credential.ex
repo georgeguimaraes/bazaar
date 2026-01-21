@@ -6,6 +6,9 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentCredential do
   
   Generated from: payment_credential.json
   """
+  alias Bazaar.Schemas.Shopping.Types.CardCredential
+  alias Bazaar.Schemas.Shopping.Types.TokenCredentialResp
+
   @variants [
     Bazaar.Schemas.Shopping.Types.TokenCredentialResp,
     Bazaar.Schemas.Shopping.Types.CardCredential
@@ -18,10 +21,7 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentCredential do
   @doc "Casts params to one of the variant types."
   def cast(params) when is_map(params) do
     Enum.find_value(
-      [
-        Bazaar.Schemas.Shopping.Types.TokenCredentialResp,
-        Bazaar.Schemas.Shopping.Types.CardCredential
-      ],
+      [TokenCredentialResp, CardCredential],
       {:error, :no_matching_variant},
       fn mod ->
         case mod.new(params) do

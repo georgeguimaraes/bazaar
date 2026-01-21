@@ -6,6 +6,7 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentInstrument do
   
   Generated from: payment_instrument.json
   """
+  alias Bazaar.Schemas.Shopping.Types.CardPaymentInstrument
   @variants [Bazaar.Schemas.Shopping.Types.CardPaymentInstrument]
   @doc "Returns the variant modules for this union type."
   def variants do
@@ -14,15 +15,11 @@ defmodule Bazaar.Schemas.Shopping.Types.PaymentInstrument do
 
   @doc "Casts params to one of the variant types."
   def cast(params) when is_map(params) do
-    Enum.find_value(
-      [Bazaar.Schemas.Shopping.Types.CardPaymentInstrument],
-      {:error, :no_matching_variant},
-      fn mod ->
-        case mod.new(params) do
-          %Ecto.Changeset{valid?: true} = changeset -> {:ok, changeset}
-          _ -> nil
-        end
+    Enum.find_value([CardPaymentInstrument], {:error, :no_matching_variant}, fn mod ->
+      case mod.new(params) do
+        %Ecto.Changeset{valid?: true} = changeset -> {:ok, changeset}
+        _ -> nil
       end
-    )
+    end)
   end
 end

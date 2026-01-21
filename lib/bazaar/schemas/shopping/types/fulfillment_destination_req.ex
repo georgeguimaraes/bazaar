@@ -6,6 +6,9 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentDestinationReq do
   
   Generated from: fulfillment_destination_req.json
   """
+  alias Bazaar.Schemas.Shopping.Types.RetailLocationReq
+  alias Bazaar.Schemas.Shopping.Types.ShippingDestinationReq
+
   @variants [
     Bazaar.Schemas.Shopping.Types.ShippingDestinationReq,
     Bazaar.Schemas.Shopping.Types.RetailLocationReq
@@ -18,10 +21,7 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentDestinationReq do
   @doc "Casts params to one of the variant types."
   def cast(params) when is_map(params) do
     Enum.find_value(
-      [
-        Bazaar.Schemas.Shopping.Types.ShippingDestinationReq,
-        Bazaar.Schemas.Shopping.Types.RetailLocationReq
-      ],
+      [ShippingDestinationReq, RetailLocationReq],
       {:error, :no_matching_variant},
       fn mod ->
         case mod.new(params) do
