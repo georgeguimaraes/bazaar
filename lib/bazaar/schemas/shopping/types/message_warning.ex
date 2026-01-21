@@ -4,42 +4,43 @@ defmodule Bazaar.Schemas.Shopping.Types.MessageWarning do
   
   Generated from: message_warning.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
   @content_type_values [:plain, :markdown]
-  @content_type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @content_type_values)
   @type_values [:warning]
-  @type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @type_values)
-  @fields [
-    %{
-      name: :code,
-      type: :string,
-      description:
-        "Warning code. Machine-readable identifier for the warning type (e.g., final_sale, prop65, fulfillment_changed, age_restricted, etc.)."
-    },
-    %{
-      name: :content,
-      type: :string,
-      description: "Human-readable warning message that MUST be displayed."
-    },
-    %{
-      name: :content_type,
-      type: @content_type_type,
-      description: "Content format, default = plain."
-    },
-    %{
-      name: :path,
-      type: :string,
-      description: "JSONPath (RFC 9535) to related field (e.g., $.line_items[0])."
-    },
-    %{name: :type, type: @type_type, description: "Message type discriminator."}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    code:
+      "Warning code. Machine-readable identifier for the warning type (e.g., final_sale, prop65, fulfillment_changed, age_restricted, etc.).",
+    content: "Human-readable warning message that MUST be displayed.",
+    content_type: "Content format, default = plain.",
+    path: "JSONPath (RFC 9535) to related field (e.g., $.line_items[0]).",
+    type: "Message type discriminator."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:type, :code, :content])
+  @primary_key false
+  embedded_schema do
+    field(:code, :string)
+    field(:content, :string)
+    field(:path, :string)
+    field(:content_type, Ecto.Enum, values: @content_type_values)
+    field(:type, Ecto.Enum, values: @type_values)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:code, :content, :path, :content_type, :type])
+    |> validate_required([:type, :code, :content])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

@@ -6,27 +6,39 @@ defmodule Bazaar.Schemas.Shopping.Types.RetailLocationResp do
   
   Generated from: retail_location_resp.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.PostalAddress
 
-  @fields [
-    %{
-      name: :address,
-      type:
-        Schemecto.one(Bazaar.Schemas.Shopping.Types.PostalAddress.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Physical address of the location."
-    },
-    %{name: :id, type: :string, description: "Unique location identifier."},
-    %{name: :name, type: :string, description: "Location name (e.g., store name)."}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    address: "Physical address of the location.",
+    id: "Unique location identifier.",
+    name: "Location name (e.g., store name)."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:id, :name])
+  @primary_key false
+  embedded_schema do
+    field(:id, :string)
+    field(:name, :string)
+    embeds_one(:address, PostalAddress)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:id, :name])
+    |> cast_embed(:address, required: false)
+    |> validate_required([:id, :name])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

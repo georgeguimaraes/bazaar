@@ -58,11 +58,11 @@ defmodule Bazaar.OrderTest do
   end
 
   describe "delegation to generated schema" do
-    test "fields/0 returns field definitions" do
-      fields = Order.fields()
+    test "embedded_schema has expected fields" do
+      alias Bazaar.Schemas.Shopping.Order, as: OrderSchema
 
-      assert is_list(fields)
-      field_names = Enum.map(fields, & &1.name)
+      field_names = OrderSchema.__schema__(:fields)
+
       assert :id in field_names
       assert :checkout_id in field_names
     end

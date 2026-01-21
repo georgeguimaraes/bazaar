@@ -6,40 +6,41 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp do
   
   Generated from: fulfillment_available_method_resp.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
   @type_values [:shipping, :pickup]
-  @type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @type_values)
-  @fields [
-    %{
-      name: :description,
-      type: :string,
-      description:
-        "Human-readable availability info (e.g., 'Available for pickup at Downtown Store today')."
-    },
-    %{
-      name: :fulfillable_on,
-      type: :string,
-      description:
-        "'now' for immediate availability, or ISO 8601 date for future (preorders, transfers)."
-    },
-    %{
-      name: :line_item_ids,
-      type: {:array, :string},
-      description: "Line items available for this fulfillment method."
-    },
-    %{
-      name: :type,
-      type: @type_type,
-      description: "Fulfillment method type this availability applies to."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    description:
+      "Human-readable availability info (e.g., 'Available for pickup at Downtown Store today').",
+    fulfillable_on:
+      "'now' for immediate availability, or ISO 8601 date for future (preorders, transfers).",
+    line_item_ids: "Line items available for this fulfillment method.",
+    type: "Fulfillment method type this availability applies to."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:type, :line_item_ids])
+  @primary_key false
+  embedded_schema do
+    field(:description, :string)
+    field(:fulfillable_on, :string)
+    field(:line_item_ids, {:array, :map})
+    field(:type, Ecto.Enum, values: @type_values)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:description, :fulfillable_on, :line_item_ids, :type])
+    |> validate_required([:type, :line_item_ids])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

@@ -6,44 +6,45 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentMethodCreateReq do
   
   Generated from: fulfillment_method.create_req.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.FulfillmentGroupCreateReq
   @type_values [:shipping, :pickup]
-  @type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @type_values)
-  @fields [
-    %{
-      name: :destinations,
-      type: {:array, :map},
-      description:
-        "Available destinations. For shipping: addresses. For pickup: retail locations."
-    },
-    %{
-      name: :groups,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.FulfillmentGroupCreateReq.fields(),
-          with: &Function.identity/1
-        ),
-      description:
-        "Fulfillment groups for selecting options. Agent sets selected_option_id on groups to choose shipping method."
-    },
-    %{
-      name: :line_item_ids,
-      type: {:array, :string},
-      description: "Line item IDs fulfilled via this method."
-    },
-    %{
-      name: :selected_destination_id,
-      type: :string,
-      description: "ID of the selected destination."
-    },
-    %{name: :type, type: @type_type, description: "Fulfillment method type."}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    destinations:
+      "Available destinations. For shipping: addresses. For pickup: retail locations.",
+    groups:
+      "Fulfillment groups for selecting options. Agent sets selected_option_id on groups to choose shipping method.",
+    line_item_ids: "Line item IDs fulfilled via this method.",
+    selected_destination_id: "ID of the selected destination.",
+    type: "Fulfillment method type."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:type])
+  @primary_key false
+  embedded_schema do
+    field(:destinations, {:array, :map})
+    field(:line_item_ids, {:array, :map})
+    field(:selected_destination_id, :string)
+    field(:type, Ecto.Enum, values: @type_values)
+    embeds_many(:groups, FulfillmentGroupCreateReq)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:destinations, :line_item_ids, :selected_destination_id, :type])
+    |> cast_embed(:groups, required: false)
+    |> validate_required([:type])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

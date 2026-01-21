@@ -6,47 +6,62 @@ defmodule Bazaar.Schemas.Shopping.Types.CardCredential do
   
   Generated from: card_credential.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
   @card_number_type_values [:fpan, :network_token, :dpan]
-  @card_number_type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @card_number_type_values)
   @type_values [:card]
-  @type_type Ecto.ParameterizedType.init(Ecto.Enum, values: @type_values)
-  @fields [
-    %{
-      name: :card_number_type,
-      type: @card_number_type_type,
-      description:
-        "The type of card number. Network tokens are preferred with fallback to FPAN. See PCI Scope for more details."
-    },
-    %{name: :cryptogram, type: :string, description: "Cryptogram provided with network tokens."},
-    %{name: :cvc, type: :string, description: "Card CVC number."},
-    %{
-      name: :eci_value,
-      type: :string,
-      description:
-        "Electronic Commerce Indicator / Security Level Indicator provided with network tokens."
-    },
-    %{
-      name: :expiry_month,
-      type: :integer,
-      description: "The month of the card's expiration date (1-12)."
-    },
-    %{name: :expiry_year, type: :integer, description: "The year of the card's expiration date."},
-    %{name: :name, type: :string, description: "Cardholder name."},
-    %{name: :number, type: :string, description: "Card number."},
-    %{
-      name: :type,
-      type: @type_type,
-      description: "The credential type identifier for card credentials."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    card_number_type:
+      "The type of card number. Network tokens are preferred with fallback to FPAN. See PCI Scope for more details.",
+    cryptogram: "Cryptogram provided with network tokens.",
+    cvc: "Card CVC number.",
+    eci_value:
+      "Electronic Commerce Indicator / Security Level Indicator provided with network tokens.",
+    expiry_month: "The month of the card's expiration date (1-12).",
+    expiry_year: "The year of the card's expiration date.",
+    name: "Cardholder name.",
+    number: "Card number.",
+    type: "The credential type identifier for card credentials."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:type, :card_number_type])
+  @primary_key false
+  embedded_schema do
+    field(:cryptogram, :string)
+    field(:cvc, :string)
+    field(:eci_value, :string)
+    field(:expiry_month, :integer)
+    field(:expiry_year, :integer)
+    field(:name, :string)
+    field(:number, :string)
+    field(:card_number_type, Ecto.Enum, values: @card_number_type_values)
+    field(:type, Ecto.Enum, values: @type_values)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [
+      :cryptogram,
+      :cvc,
+      :eci_value,
+      :expiry_month,
+      :expiry_year,
+      :name,
+      :number,
+      :card_number_type,
+      :type
+    ])
+    |> validate_required([:type, :card_number_type])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

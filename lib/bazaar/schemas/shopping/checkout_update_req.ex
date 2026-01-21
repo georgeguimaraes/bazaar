@@ -5,44 +5,32 @@ defmodule Bazaar.Schemas.Shopping.CheckoutUpdateReq do
   Composite schema for updating an existing checkout session.
   All fields are optional for partial updates.
   """
+  use Ecto.Schema
+  import Ecto.Changeset
 
+  alias Bazaar.Schemas.Shopping.Types.Buyer
+  alias Bazaar.Schemas.Shopping.Types.FulfillmentReq
   alias Bazaar.Schemas.Shopping.Types.LineItemUpdateReq
+  alias Bazaar.Schemas.Shopping.Types.PaymentHandlerUpdateReq
 
-  @fields [
-    %{
-      name: :line_items,
-      type: Schemecto.many(LineItemUpdateReq.fields(), with: &Function.identity/1),
-      description: "List of line items to update in the checkout."
-    },
-    %{
-      name: :buyer,
-      type:
-        Schemecto.one(Bazaar.Schemas.Shopping.Types.Buyer.fields(), with: &Function.identity/1),
-      description: "Updated buyer information."
-    },
-    %{
-      name: :payment,
-      type:
-        Schemecto.one(Bazaar.Schemas.Shopping.Types.PaymentHandlerUpdateReq.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Payment information update."
-    },
-    %{
-      name: :fulfillment,
-      type:
-        Schemecto.one(Bazaar.Schemas.Shopping.Types.FulfillmentReq.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Fulfillment information update."
-    }
-  ]
+  @primary_key false
+  embedded_schema do
+    embeds_one(:buyer, Buyer)
+    embeds_one(:fulfillment, FulfillmentReq)
+    embeds_many(:line_items, LineItemUpdateReq)
+    embeds_one(:payment, PaymentHandlerUpdateReq)
+  end
 
-  @doc "Returns the field definitions for this schema."
-  def fields, do: @fields
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [])
+    |> cast_embed(:buyer)
+    |> cast_embed(:fulfillment)
+    |> cast_embed(:line_items)
+    |> cast_embed(:payment)
+  end
 
   @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params)
-  end
+  def new(params \\ %{}), do: changeset(params)
 end

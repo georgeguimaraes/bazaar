@@ -6,47 +6,54 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentOptionResp do
   
   Generated from: fulfillment_option_resp.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.TotalResp
 
-  @fields [
-    %{name: :carrier, type: :string, description: "Carrier name (for shipping)."},
-    %{
-      name: :description,
-      type: :string,
-      description: "Complete context for buyer decision (e.g., 'Arrives Dec 12-15 via FedEx')."
-    },
-    %{
-      name: :earliest_fulfillment_time,
-      type: :utc_datetime,
-      description: "Earliest fulfillment date."
-    },
-    %{name: :id, type: :string, description: "Unique fulfillment option identifier."},
-    %{
-      name: :latest_fulfillment_time,
-      type: :utc_datetime,
-      description: "Latest fulfillment date."
-    },
-    %{
-      name: :title,
-      type: :string,
-      description: "Short label (e.g., 'Express Shipping', 'Curbside Pickup')."
-    },
-    %{
-      name: :totals,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.TotalResp.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Fulfillment option totals breakdown."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    carrier: "Carrier name (for shipping).",
+    description: "Complete context for buyer decision (e.g., 'Arrives Dec 12-15 via FedEx').",
+    earliest_fulfillment_time: "Earliest fulfillment date.",
+    id: "Unique fulfillment option identifier.",
+    latest_fulfillment_time: "Latest fulfillment date.",
+    title: "Short label (e.g., 'Express Shipping', 'Curbside Pickup').",
+    totals: "Fulfillment option totals breakdown."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:id, :title, :totals])
+  @primary_key false
+  embedded_schema do
+    field(:carrier, :string)
+    field(:description, :string)
+    field(:earliest_fulfillment_time, :utc_datetime)
+    field(:id, :string)
+    field(:latest_fulfillment_time, :utc_datetime)
+    field(:title, :string)
+    embeds_many(:totals, TotalResp)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [
+      :carrier,
+      :description,
+      :earliest_fulfillment_time,
+      :id,
+      :latest_fulfillment_time,
+      :title
+    ])
+    |> cast_embed(:totals, required: true)
+    |> validate_required([:id, :title])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

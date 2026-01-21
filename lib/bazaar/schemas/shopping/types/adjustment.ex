@@ -6,48 +6,47 @@ defmodule Bazaar.Schemas.Shopping.Types.Adjustment do
   
   Generated from: adjustment.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
   @status_values [:pending, :completed, :failed]
-  @status_type Ecto.ParameterizedType.init(Ecto.Enum, values: @status_values)
-  @fields [
-    %{
-      name: :amount,
-      type: :integer,
-      description:
-        "Amount in minor units (cents) for refunds, credits, price adjustments (optional)."
-    },
-    %{
-      name: :description,
-      type: :string,
-      description:
-        "Human-readable reason or description (e.g., 'Defective item', 'Customer requested')."
-    },
-    %{name: :id, type: :string, description: "Adjustment event identifier."},
-    %{
-      name: :line_items,
-      type: {:array, :map},
-      description: "Which line items and quantities are affected (optional)."
-    },
-    %{
-      name: :occurred_at,
-      type: :utc_datetime,
-      description: "RFC 3339 timestamp when this adjustment occurred."
-    },
-    %{name: :status, type: @status_type, description: "Adjustment status."},
-    %{
-      name: :type,
-      type: :string,
-      description:
-        "Type of adjustment (open string). Typically money-related like: refund, return, credit, price_adjustment, dispute, cancellation. Can be any value that makes sense for the merchant's business."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    amount: "Amount in minor units (cents) for refunds, credits, price adjustments (optional).",
+    description:
+      "Human-readable reason or description (e.g., 'Defective item', 'Customer requested').",
+    id: "Adjustment event identifier.",
+    line_items: "Which line items and quantities are affected (optional).",
+    occurred_at: "RFC 3339 timestamp when this adjustment occurred.",
+    status: "Adjustment status.",
+    type:
+      "Type of adjustment (open string). Typically money-related like: refund, return, credit, price_adjustment, dispute, cancellation. Can be any value that makes sense for the merchant's business."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:id, :type, :occurred_at, :status])
+  @primary_key false
+  embedded_schema do
+    field(:amount, :integer)
+    field(:description, :string)
+    field(:id, :string)
+    field(:line_items, {:array, :map})
+    field(:occurred_at, :utc_datetime)
+    field(:type, :string)
+    field(:status, Ecto.Enum, values: @status_values)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:amount, :description, :id, :line_items, :occurred_at, :type, :status])
+    |> validate_required([:id, :type, :occurred_at, :status])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

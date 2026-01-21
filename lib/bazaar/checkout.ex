@@ -17,8 +17,8 @@ defmodule Bazaar.Checkout do
   alias Bazaar.Schemas.Shopping.CheckoutResp
 
   # Delegate schema functions to the generated module
-  defdelegate fields, to: CheckoutResp
   defdelegate new(params \\ %{}), to: CheckoutResp
+  defdelegate changeset(params), to: CheckoutResp
 
   @doc """
   Converts an amount in major units (dollars) to minor units (cents).

@@ -125,7 +125,7 @@ defmodule Bazaar.ErrorsTest do
         result["details"]
         |> Enum.filter(&(&1["field"] == "value"))
 
-      assert length(value_errors) >= 1
+      assert value_errors != []
     end
 
     test "returns empty details for valid changeset" do

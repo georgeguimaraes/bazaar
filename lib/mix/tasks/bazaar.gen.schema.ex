@@ -1,23 +1,26 @@
 defmodule Mix.Tasks.Bazaar.Gen.Schema do
-  @shortdoc "Generates Schemecto field definitions from UCP JSON Schema"
+  @shortdoc "Generates Elixir schema from UCP JSON Schema"
 
   @moduledoc """
-  Generates Schemecto field definitions from UCP JSON Schema files.
+  Generates Elixir schema modules from UCP JSON Schema files.
 
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json
 
-  This will output Elixir code with Schemecto field definitions that can be
-  copied into your schema modules.
+  This will output Elixir code that can be copied into your schema modules.
 
   ## Options
 
     * `--module` - Module name for the generated schema (optional)
     * `--output` - Output file path (optional, defaults to stdout)
+    * `--format` - Output format: `schemecto` (default) or `ecto_schema`
 
   ## Examples
 
-      # Generate to stdout
+      # Generate to stdout (Schemecto format)
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/total_resp.json
+
+      # Generate with Ecto.Schema format
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --format ecto_schema
 
       # Generate with module name
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --module Bazaar.Schemas.Buyer
@@ -32,8 +35,8 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   def run(args) do
     {opts, args, _} =
       OptionParser.parse(args,
-        strict: [module: :string, output: :string, prefix: :string],
-        aliases: [m: :module, o: :output, p: :prefix]
+        strict: [module: :string, output: :string, prefix: :string, format: :string],
+        aliases: [m: :module, o: :output, p: :prefix, f: :format]
       )
 
     case args do
@@ -42,7 +45,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
       [] ->
         Mix.shell().error(
-          "Usage: mix bazaar.gen.schema <schema_path> [--module Module] [--prefix Prefix] [--output path]"
+          "Usage: mix bazaar.gen.schema <schema_path> [--module Module] [--prefix Prefix] [--output path] [--format schemecto|ecto_schema]"
         )
 
         exit({:shutdown, 1})
@@ -55,13 +58,24 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
   @default_module_prefix "Bazaar.Schemas"
 
+  defp parse_format(nil), do: :schemecto
+  defp parse_format("schemecto"), do: :schemecto
+  defp parse_format("ecto_schema"), do: :ecto_schema
+
+  defp parse_format(other) do
+    Mix.shell().error("Unknown format: #{other}. Use 'schemecto' or 'ecto_schema'")
+    exit({:shutdown, 1})
+  end
+
   defp generate(schema_path, opts) do
     module_prefix = opts[:prefix] || @default_module_prefix
+    format = parse_format(opts[:format])
 
     schemax_opts = [
       module: opts[:module] || infer_module_name(schema_path, module_prefix),
       module_prefix: module_prefix,
-      schemas_dir: find_schemas_dir(schema_path)
+      schemas_dir: find_schemas_dir(schema_path),
+      format: format
     ]
 
     case Smelter.compile(schema_path, schemax_opts) do
@@ -86,18 +100,20 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   @doc false
   def generate_code(schema, schema_path, opts) do
     module_prefix = opts[:module_prefix] || @default_module_prefix
+    format = opts[:format] || :schemecto
 
     schemax_opts = [
       module: opts[:module] || infer_module_name(schema_path, module_prefix),
       module_prefix: module_prefix,
-      schemas_dir: find_schemas_dir(schema_path)
+      schemas_dir: find_schemas_dir(schema_path),
+      format: format
     ]
 
     schema_with_path = Map.put(schema, :_source_path, schema_path)
 
     case Smelter.Resolver.resolve(schema_with_path, schema_path, schemax_opts) do
       {:ok, resolved} ->
-        Smelter.Generator.Schemecto.generate(resolved, schemax_opts)
+        Smelter.Generator.generate(resolved, schemax_opts)
 
       {:error, _reason} ->
         # Fallback to legacy generation if resolution fails
@@ -129,7 +145,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
     #{generate_enum_types(properties)}
       @fields [
-    #{fields |> Enum.map(&"    #{&1}") |> Enum.join(",\n")}
+    #{Enum.map_join(fields, ",\n", &"    #{&1}")}
       ]
 
       @doc "Returns the field definitions for this schema."
@@ -227,18 +243,13 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
     case find_schemas_base(ref_path) do
       {:ok, relative_path} ->
-        relative_path
-        |> Path.rootname(".json")
-        |> String.split("/")
-        |> Enum.map(fn part ->
-          part
-          |> String.replace(~r/[._]/, " ")
-          |> String.split()
-          |> Enum.map(&String.capitalize/1)
-          |> Enum.join()
-        end)
-        |> Enum.join(".")
-        |> then(&"#{module_prefix}.#{&1}")
+        parts =
+          relative_path
+          |> Path.rootname(".json")
+          |> String.split("/")
+          |> Enum.map_join(".", &camelize_part/1)
+
+        "#{module_prefix}.#{parts}"
 
       :error ->
         ref_path
@@ -267,7 +278,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
     |> Enum.filter(fn {_name, prop} ->
       prop["type"] == "string" && prop["enum"]
     end)
-    |> Enum.map(fn {name, prop} ->
+    |> Enum.map_join("\n", fn {name, prop} ->
       values = prop["enum"] |> Enum.map(&String.to_atom/1) |> inspect()
 
       """
@@ -275,7 +286,6 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
         @#{name}_type Ecto.ParameterizedType.init(Ecto.Enum, values: @#{name}_values)
       """
     end)
-    |> Enum.join("\n")
   end
 
   defp generate_required_validation([]), do: ""
@@ -287,27 +297,24 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   defp infer_module_name(schema_path, module_prefix) do
     case find_schemas_base(Path.expand(schema_path)) do
       {:ok, relative_path} ->
-        relative_path
-        |> Path.rootname(".json")
-        |> String.split("/")
-        |> Enum.map(fn part ->
-          part
-          |> String.replace(~r/[._]/, " ")
-          |> String.split()
-          |> Enum.map(&String.capitalize/1)
-          |> Enum.join()
-        end)
-        |> Enum.join(".")
-        |> then(&"#{module_prefix}.#{&1}")
+        parts =
+          relative_path
+          |> Path.rootname(".json")
+          |> String.split("/")
+          |> Enum.map_join(".", &camelize_part/1)
+
+        "#{module_prefix}.#{parts}"
 
       :error ->
-        schema_path
-        |> Path.basename(".json")
-        |> String.replace(~r/[._]/, " ")
-        |> String.split()
-        |> Enum.map(&String.capitalize/1)
-        |> Enum.join()
-        |> then(&"#{module_prefix}.#{&1}")
+        base = camelize_part(Path.basename(schema_path, ".json"))
+        "#{module_prefix}.#{base}"
     end
+  end
+
+  defp camelize_part(part) do
+    part
+    |> String.replace(~r/[._]/, " ")
+    |> String.split()
+    |> Enum.map_join(&String.capitalize/1)
   end
 end

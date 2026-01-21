@@ -9,8 +9,8 @@ defmodule Bazaar.Order do
   alias Bazaar.Schemas.Shopping.Order, as: OrderSchema
 
   # Delegate schema functions to the generated module
-  defdelegate fields, to: OrderSchema
   defdelegate new(params \\ %{}), to: OrderSchema
+  defdelegate changeset(params), to: OrderSchema
 
   @doc """
   Creates an order from a completed checkout session.

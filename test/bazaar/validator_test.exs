@@ -71,9 +71,7 @@ defmodule Bazaar.ValidatorTest do
           assert true
 
         {:error, errors} ->
-          # Log errors for debugging
-          IO.inspect(errors, label: "Validation errors")
-          flunk("Expected valid checkout but got errors")
+          flunk("Expected valid checkout but got errors: #{inspect(errors)}")
       end
     end
 
@@ -145,8 +143,7 @@ defmodule Bazaar.ValidatorTest do
           assert true
 
         {:error, errors} ->
-          IO.inspect(errors, label: "Order validation errors")
-          flunk("Expected valid order but got errors")
+          flunk("Expected valid order but got errors: #{inspect(errors)}")
       end
     end
 

@@ -6,24 +6,37 @@ defmodule Bazaar.Schemas.Ucp.ResponseOrder do
   
   Generated from: ucp.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Capability.Response
 
-  @fields [
-    %{
-      name: :capabilities,
-      type:
-        Schemecto.many(Bazaar.Schemas.Capability.Response.fields(), with: &Function.identity/1),
-      description: "Active capabilities for this response."
-    },
-    %{name: :version, type: :string, description: "UCP protocol version in YYYY-MM-DD format."}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    capabilities: "Active capabilities for this response.",
+    version: "UCP protocol version in YYYY-MM-DD format."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:version, :capabilities])
+  @primary_key false
+  embedded_schema do
+    field(:version, :string)
+    embeds_many(:capabilities, Response)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:version])
+    |> cast_embed(:capabilities, required: true)
+    |> validate_required([:version])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

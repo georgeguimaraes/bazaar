@@ -127,7 +127,7 @@ defmodule Bazaar.DiscoveryProfile do
     end)
   end
 
-  defp build_payment(handlers) when is_list(handlers) and length(handlers) > 0 do
+  defp build_payment([_ | _] = handlers) do
     %{
       "handlers" =>
         Enum.map(handlers, fn handler ->

@@ -80,9 +80,8 @@ defmodule Bazaar.Webhook.Signature do
   """
   def verify(signature, payload, secret)
       when is_binary(signature) and is_map(payload) and is_binary(secret) do
-    with {:ok, {header_b64, sig_b64}} <- parse_detached_jwt(signature),
-         :ok <- verify_signature(header_b64, payload, sig_b64, secret) do
-      :ok
+    with {:ok, {header_b64, sig_b64}} <- parse_detached_jwt(signature) do
+      verify_signature(header_b64, payload, sig_b64, secret)
     end
   end
 

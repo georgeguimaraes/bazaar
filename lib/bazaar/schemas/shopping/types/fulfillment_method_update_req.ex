@@ -6,43 +6,45 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentMethodUpdateReq do
   
   Generated from: fulfillment_method.update_req.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.FulfillmentGroupUpdateReq
 
-  @fields [
-    %{
-      name: :destinations,
-      type: {:array, :map},
-      description:
-        "Available destinations. For shipping: addresses. For pickup: retail locations."
-    },
-    %{
-      name: :groups,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.FulfillmentGroupUpdateReq.fields(),
-          with: &Function.identity/1
-        ),
-      description:
-        "Fulfillment groups for selecting options. Agent sets selected_option_id on groups to choose shipping method."
-    },
-    %{name: :id, type: :string, description: "Unique fulfillment method identifier."},
-    %{
-      name: :line_item_ids,
-      type: {:array, :string},
-      description: "Line item IDs fulfilled via this method."
-    },
-    %{
-      name: :selected_destination_id,
-      type: :string,
-      description: "ID of the selected destination."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    destinations:
+      "Available destinations. For shipping: addresses. For pickup: retail locations.",
+    groups:
+      "Fulfillment groups for selecting options. Agent sets selected_option_id on groups to choose shipping method.",
+    id: "Unique fulfillment method identifier.",
+    line_item_ids: "Line item IDs fulfilled via this method.",
+    selected_destination_id: "ID of the selected destination."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:id, :line_item_ids])
+  @primary_key false
+  embedded_schema do
+    field(:destinations, {:array, :map})
+    field(:id, :string)
+    field(:line_item_ids, {:array, :map})
+    field(:selected_destination_id, :string)
+    embeds_many(:groups, FulfillmentGroupUpdateReq)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:destinations, :id, :line_item_ids, :selected_destination_id])
+    |> cast_embed(:groups, required: false)
+    |> validate_required([:id, :line_item_ids])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

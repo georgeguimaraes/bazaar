@@ -82,10 +82,10 @@ defmodule Bazaar.Plugs.ValidateResponse do
   end
 
   defp validate_response(conn, %{schemas: schemas, strict: strict}) do
-    action = Phoenix.Controller.action_name(conn)
+    action = conn.private[:phoenix_action]
 
-    # Only validate successful responses (2xx status codes)
-    if conn.status in 200..299 do
+    # Only validate successful responses (2xx status codes) with a known action
+    if action && conn.status in 200..299 do
       case Map.fetch(schemas, action) do
         {:ok, schema_module} ->
           do_validate(conn, schema_module, action, strict)

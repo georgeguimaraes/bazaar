@@ -65,7 +65,7 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
         |> ValidateResponse.call(opts)
 
       # The callback should be registered in private.before_send
-      assert length(conn.private[:before_send] || []) > 0
+      assert (conn.private[:before_send] || []) != []
     end
 
     test "does nothing when disabled" do

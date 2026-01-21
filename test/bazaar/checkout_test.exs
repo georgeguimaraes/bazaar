@@ -7,7 +7,7 @@ defmodule Bazaar.CheckoutTest do
     test "converts float dollars to cents" do
       assert Checkout.to_minor_units(19.99) == 1999
       assert Checkout.to_minor_units(0.01) == 1
-      assert Checkout.to_minor_units(100.00) == 10000
+      assert Checkout.to_minor_units(100.00) == 10_000
     end
 
     test "converts integer dollars to cents" do
@@ -19,7 +19,7 @@ defmodule Bazaar.CheckoutTest do
     test "converts Decimal to cents" do
       assert Checkout.to_minor_units(Decimal.new("19.99")) == 1999
       assert Checkout.to_minor_units(Decimal.new("0.01")) == 1
-      assert Checkout.to_minor_units(Decimal.new("100.50")) == 10050
+      assert Checkout.to_minor_units(Decimal.new("100.50")) == 10_050
     end
 
     test "handles rounding correctly" do
@@ -33,7 +33,7 @@ defmodule Bazaar.CheckoutTest do
     test "converts cents to dollars" do
       assert Checkout.to_major_units(1999) == 19.99
       assert Checkout.to_major_units(1) == 0.01
-      assert Checkout.to_major_units(10000) == 100.0
+      assert Checkout.to_major_units(10_000) == 100.0
     end
 
     test "handles zero" do
@@ -42,14 +42,15 @@ defmodule Bazaar.CheckoutTest do
   end
 
   describe "delegation to generated schema" do
-    test "fields/0 returns field definitions" do
-      fields = Checkout.fields()
+    test "embedded_schema has expected fields" do
+      alias Bazaar.Schemas.Shopping.CheckoutResp
 
-      assert is_list(fields)
-      field_names = Enum.map(fields, & &1.name)
+      field_names = CheckoutResp.__schema__(:fields)
+      embed_names = CheckoutResp.__schema__(:embeds)
+
       assert :currency in field_names
-      assert :line_items in field_names
       assert :status in field_names
+      assert :line_items in embed_names
     end
 
     test "new/1 creates a changeset" do

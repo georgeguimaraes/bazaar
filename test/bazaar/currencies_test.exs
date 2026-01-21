@@ -8,7 +8,7 @@ defmodule Bazaar.CurrenciesTest do
       codes = Currencies.codes()
 
       assert is_list(codes)
-      assert length(codes) > 0
+      assert codes != []
     end
 
     test "includes major world currencies" do

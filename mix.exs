@@ -42,7 +42,8 @@ defmodule Bazaar.MixProject do
       {:jsv, "~> 0.15", optional: true},
       {:plug, "~> 1.16", optional: true},
       {:phoenix, "~> 1.7", optional: true},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 

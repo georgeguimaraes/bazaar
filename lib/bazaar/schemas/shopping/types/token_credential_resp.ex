@@ -6,22 +6,31 @@ defmodule Bazaar.Schemas.Shopping.Types.TokenCredentialResp do
   
   Generated from: token_credential_resp.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
-  @fields [
-    %{
-      name: :type,
-      type: :string,
-      description: "The specific type of token produced by the handler (e.g., 'stripe_token')."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    type: "The specific type of token produced by the handler (e.g., 'stripe_token')."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:type])
+  @primary_key false
+  embedded_schema do
+    field(:type, :string)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct |> cast(params, [:type]) |> validate_required([:type])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

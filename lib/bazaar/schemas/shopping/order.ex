@@ -6,71 +6,56 @@ defmodule Bazaar.Schemas.Shopping.Order do
   
   Generated from: order.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.Adjustment
+  alias Bazaar.Schemas.Shopping.Types.OrderLineItem
+  alias Bazaar.Schemas.Shopping.Types.TotalResp
+  alias Bazaar.Schemas.Ucp.ResponseOrder
 
-  @fields [
-    %{
-      name: :adjustments,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.Adjustment.fields(),
-          with: &Function.identity/1
-        ),
-      description:
-        "Append-only event log of money movements (refunds, returns, credits, disputes, cancellations, etc.) that exist independently of fulfillment."
-    },
-    %{
-      name: :checkout_id,
-      type: :string,
-      description: "Associated checkout ID for reconciliation."
-    },
-    %{
-      name: :fulfillment,
-      type: :map,
-      description: "Fulfillment data: buyer expectations and what actually happened."
-    },
-    %{name: :id, type: :string, description: "Unique order identifier."},
-    %{
-      name: :line_items,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.OrderLineItem.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Immutable line items — source of truth for what was ordered."
-    },
-    %{
-      name: :permalink_url,
-      type: :string,
-      description: "Permalink to access the order on merchant site."
-    },
-    %{
-      name: :totals,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.TotalResp.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Different totals for the order."
-    },
-    %{
-      name: :ucp,
-      type: Schemecto.one(Bazaar.Schemas.Ucp.ResponseOrder.fields(), with: &Function.identity/1)
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    adjustments:
+      "Append-only event log of money movements (refunds, returns, credits, disputes, cancellations, etc.) that exist independently of fulfillment.",
+    checkout_id: "Associated checkout ID for reconciliation.",
+    fulfillment: "Fulfillment data: buyer expectations and what actually happened.",
+    id: "Unique order identifier.",
+    line_items: "Immutable line items — source of truth for what was ordered.",
+    permalink_url: "Permalink to access the order on merchant site.",
+    totals: "Different totals for the order.",
+    ucp: nil
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params)
-    |> validate_required([
-      :ucp,
-      :id,
-      :checkout_id,
-      :permalink_url,
-      :line_items,
-      :fulfillment,
-      :totals
-    ])
+  @primary_key false
+  embedded_schema do
+    field(:checkout_id, :string)
+    field(:fulfillment, :map)
+    field(:id, :string)
+    field(:permalink_url, :string)
+    embeds_many(:adjustments, Adjustment)
+    embeds_many(:line_items, OrderLineItem)
+    embeds_many(:totals, TotalResp)
+    embeds_one(:ucp, ResponseOrder)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:checkout_id, :fulfillment, :id, :permalink_url])
+    |> cast_embed(:adjustments, required: false)
+    |> cast_embed(:line_items, required: true)
+    |> cast_embed(:totals, required: true)
+    |> cast_embed(:ucp, required: true)
+    |> validate_required([:id, :checkout_id, :permalink_url, :fulfillment])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

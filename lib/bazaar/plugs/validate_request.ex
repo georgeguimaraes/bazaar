@@ -55,22 +55,24 @@ defmodule Bazaar.Plugs.ValidateRequest do
   def call(conn, %{enabled: false}), do: conn
 
   def call(conn, %{schemas: schemas}) do
-    action = Phoenix.Controller.action_name(conn)
+    # Phoenix.Controller.action_name requires :phoenix_action to be set
+    # which happens after the router matches but before the controller runs
+    action = conn.private[:phoenix_action]
 
-    case Map.fetch(schemas, action) do
-      {:ok, schema_module} ->
-        Telemetry.span_with_metadata(
-          [:bazaar, :plug, :validate_request],
-          %{action: action, schema: schema_module},
-          fn ->
-            validate_with_schema(conn, schema_module, action)
-          end
-        )
-
-      :error ->
-        # No schema for this action, pass through
-        conn
+    with {:ok, action} when is_atom(action) <- {:ok, action},
+         {:ok, schema_module} <- Map.fetch(schemas, action) do
+      do_validate(conn, schema_module, action)
+    else
+      _ -> conn
     end
+  end
+
+  defp do_validate(conn, schema_module, action) do
+    Telemetry.span_with_metadata(
+      [:bazaar, :plug, :validate_request],
+      %{action: action, schema: schema_module},
+      fn -> validate_with_schema(conn, schema_module, action) end
+    )
   end
 
   defp validate_with_schema(conn, schema_module, action) do

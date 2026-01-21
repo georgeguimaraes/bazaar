@@ -6,41 +6,45 @@ defmodule Bazaar.Schemas.Capability.Discovery do
   
   Generated from: capability.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
-  @fields [
-    %{
-      name: :config,
-      type: :map,
-      description: "Capability-specific configuration (structure defined by each capability)."
-    },
-    %{
-      name: :extends,
-      type: :string,
-      description:
-        "Parent capability this extends. Present for extensions, absent for root capabilities."
-    },
-    %{
-      name: :name,
-      type: :string,
-      description:
-        "Stable capability identifier in reverse-domain notation (e.g., dev.ucp.shopping.checkout). Used in capability negotiation."
-    },
-    %{
-      name: :schema,
-      type: :string,
-      description: "URL to JSON Schema for this capability's payload."
-    },
-    %{name: :spec, type: :string, description: "URL to human-readable specification document."},
-    %{name: :version, type: :string, description: "Capability version in YYYY-MM-DD format."}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    config: "Capability-specific configuration (structure defined by each capability).",
+    extends:
+      "Parent capability this extends. Present for extensions, absent for root capabilities.",
+    name:
+      "Stable capability identifier in reverse-domain notation (e.g., dev.ucp.shopping.checkout). Used in capability negotiation.",
+    schema: "URL to JSON Schema for this capability's payload.",
+    spec: "URL to human-readable specification document.",
+    version: "Capability version in YYYY-MM-DD format."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:name, :version, :spec, :schema])
+  @primary_key false
+  embedded_schema do
+    field(:config, :map)
+    field(:extends, :string)
+    field(:name, :string)
+    field(:schema, :string)
+    field(:spec, :string)
+    field(:version, :string)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:config, :extends, :name, :schema, :spec, :version])
+    |> validate_required([:name, :version, :spec, :schema])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

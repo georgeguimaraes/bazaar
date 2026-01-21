@@ -6,37 +6,45 @@ defmodule Bazaar.Schemas.Shopping.Types.LineItemResp do
   
   Generated from: line_item_resp.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.ItemResp
+  alias Bazaar.Schemas.Shopping.Types.TotalResp
 
-  @fields [
-    %{name: :id, type: :string},
-    %{
-      name: :item,
-      type:
-        Schemecto.one(Bazaar.Schemas.Shopping.Types.ItemResp.fields(), with: &Function.identity/1)
-    },
-    %{
-      name: :parent_id,
-      type: :string,
-      description: "Parent line item identifier for any nested structures."
-    },
-    %{name: :quantity, type: :integer, description: "Quantity of the item being purchased."},
-    %{
-      name: :totals,
-      type:
-        Schemecto.many(Bazaar.Schemas.Shopping.Types.TotalResp.fields(),
-          with: &Function.identity/1
-        ),
-      description: "Line item totals breakdown."
-    }
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    id: nil,
+    item: nil,
+    parent_id: "Parent line item identifier for any nested structures.",
+    quantity: "Quantity of the item being purchased.",
+    totals: "Line item totals breakdown."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:id, :item, :quantity, :totals])
+  @primary_key false
+  embedded_schema do
+    field(:id, :string)
+    field(:parent_id, :string)
+    field(:quantity, :integer)
+    embeds_one(:item, ItemResp)
+    embeds_many(:totals, TotalResp)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:id, :parent_id, :quantity])
+    |> cast_embed(:item, required: true)
+    |> cast_embed(:totals, required: true)
+    |> validate_required([:id, :quantity])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

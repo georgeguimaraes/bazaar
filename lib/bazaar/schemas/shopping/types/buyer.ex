@@ -4,25 +4,40 @@ defmodule Bazaar.Schemas.Shopping.Types.Buyer do
   
   Generated from: buyer.json
   """
-  @fields [
-    %{name: :email, type: :string, description: "Email of the buyer."},
-    %{name: :first_name, type: :string, description: "First name of the buyer."},
-    %{
-      name: :full_name,
-      type: :string,
-      description:
-        "Optional, buyer's full name (if first_name or last_name fields are present they take precedence)."
-    },
-    %{name: :last_name, type: :string, description: "Last name of the buyer."},
-    %{name: :phone_number, type: :string, description: "E.164 standard."}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @field_descriptions %{
+    email: "Email of the buyer.",
+    first_name: "First name of the buyer.",
+    full_name:
+      "Optional, buyer's full name (if first_name or last_name fields are present they take precedence).",
+    last_name: "Last name of the buyer.",
+    phone_number: "E.164 standard."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params)
+  @primary_key false
+  embedded_schema do
+    field(:email, :string)
+    field(:first_name, :string)
+    field(:full_name, :string)
+    field(:last_name, :string)
+    field(:phone_number, :string)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct |> cast(params, [:email, :first_name, :full_name, :last_name, :phone_number])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

@@ -5,38 +5,31 @@ defmodule Bazaar.Schemas.Shopping.CheckoutCreateReq do
   Composite schema for creating a new checkout session.
   Validates the incoming request before processing.
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
+  alias Bazaar.Schemas.Shopping.Types.Buyer
   alias Bazaar.Schemas.Shopping.Types.LineItemCreateReq
 
-  @fields [
-    %{
-      name: :line_items,
-      type: Schemecto.many(LineItemCreateReq.fields(), with: &Function.identity/1),
-      description: "List of line items to add to the checkout."
-    },
-    %{
-      name: :currency,
-      type: :string,
-      description: "ISO 4217 currency code for the checkout."
-    },
-    %{
-      name: :buyer,
-      type:
-        Schemecto.one(Bazaar.Schemas.Shopping.Types.Buyer.fields(), with: &Function.identity/1),
-      description: "Optional buyer information."
-    }
-  ]
+  @primary_key false
+  embedded_schema do
+    field(:currency, :string)
+    embeds_one(:buyer, Buyer)
+    embeds_many(:line_items, LineItemCreateReq)
+  end
 
-  @doc "Returns the field definitions for this schema."
-  def fields, do: @fields
-
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params)
-    |> validate_required([:line_items, :currency])
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:currency])
+    |> cast_embed(:buyer)
+    |> cast_embed(:line_items, required: true)
+    |> validate_required([:currency])
     |> validate_line_items_not_empty()
   end
+
+  @doc "Creates a new changeset from params."
+  def new(params \\ %{}), do: changeset(params)
 
   defp validate_line_items_not_empty(changeset) do
     case get_field(changeset, :line_items) do

@@ -6,24 +6,35 @@ defmodule Bazaar.Schemas.Profile do
   
   Generated from: profile.json
   """
+  use Ecto.Schema
   import Ecto.Changeset
 
-  @fields [
-    %{name: :payment, type: :map, description: "Payment configuration"},
-    %{
-      name: :signing_keys,
-      type: {:array, :map},
-      description: "JWK public keys for signature verification"
-    },
-    %{name: :ucp, type: :map}
-  ]
-  @doc "Returns the field definitions for this schema."
-  def fields do
-    @fields
+  @field_descriptions %{
+    payment: "Payment configuration",
+    signing_keys: "JWK public keys for signature verification",
+    ucp: nil
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Creates a new changeset from params."
-  def new(params \\ %{}) do
-    Schemecto.new(@fields, params) |> validate_required([:ucp])
+  @primary_key false
+  embedded_schema do
+    field(:payment, :map)
+    field(:signing_keys, {:array, :map})
+    field(:ucp, :map)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct |> cast(params, [:payment, :signing_keys, :ucp]) |> validate_required([:ucp])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end
