@@ -26,23 +26,30 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
     test "uses default schemas when none provided" do
       opts = ValidateRequest.init([])
 
-      assert opts[:create_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
-      assert opts[:update_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
+      assert opts.schemas[:create_checkout] == Bazaar.Schemas.Shopping.CheckoutCreateReq
+      assert opts.schemas[:update_checkout] == Bazaar.Schemas.Shopping.CheckoutUpdateReq
+      assert opts.enabled == true
     end
 
     test "merges custom schemas with defaults" do
       custom_schemas = %{create_checkout: CustomSchema}
       opts = ValidateRequest.init(schemas: custom_schemas)
 
-      assert opts[:create_checkout] == CustomSchema
-      assert opts[:update_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
+      assert opts.schemas[:create_checkout] == CustomSchema
+      assert opts.schemas[:update_checkout] == Bazaar.Schemas.Shopping.CheckoutUpdateReq
     end
 
     test "allows adding new action schemas" do
       custom_schemas = %{custom_action: CustomSchema}
       opts = ValidateRequest.init(schemas: custom_schemas)
 
-      assert opts[:custom_action] == CustomSchema
+      assert opts.schemas[:custom_action] == CustomSchema
+    end
+
+    test "supports enabled option" do
+      opts = ValidateRequest.init(enabled: false)
+
+      assert opts.enabled == false
     end
   end
 
@@ -89,23 +96,17 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
       assert is_list(body["details"])
     end
 
-    test "validates with checkout schema", %{opts: _opts} do
+    test "validates with checkout create request schema", %{opts: _opts} do
       checkout_opts = ValidateRequest.init([])
 
       conn =
         conn(:post, "/checkout-sessions")
         |> put_private(:phoenix_action, :create_checkout)
         |> Map.put(:params, %{
-          "ucp" => %{"name" => "dev.ucp.shopping.checkout", "version" => "2026-01-11"},
-          "id" => "checkout_123",
-          "status" => "incomplete",
           "currency" => "USD",
           "line_items" => [
             %{"item" => %{"id" => "PROD-1"}, "quantity" => 1}
-          ],
-          "totals" => [%{"type" => "total", "amount" => 1000}],
-          "links" => [%{"type" => "privacy_policy", "url" => "https://example.com/privacy"}],
-          "payment" => %{}
+          ]
         })
         |> ValidateRequest.call(checkout_opts)
 
@@ -114,17 +115,44 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
       assert conn.assigns[:bazaar_data].currency == "USD"
     end
 
-    test "rejects invalid checkout", %{opts: _opts} do
+    test "rejects checkout create without required fields", %{opts: _opts} do
+      checkout_opts = ValidateRequest.init([])
+
+      # Missing line_items and currency
+      conn =
+        conn(:post, "/checkout-sessions")
+        |> put_private(:phoenix_action, :create_checkout)
+        |> Map.put(:params, %{})
+        |> ValidateRequest.call(checkout_opts)
+
+      assert conn.halted
+      assert conn.status == 422
+    end
+
+    test "rejects checkout create with empty line_items", %{opts: _opts} do
       checkout_opts = ValidateRequest.init([])
 
       conn =
         conn(:post, "/checkout-sessions")
         |> put_private(:phoenix_action, :create_checkout)
-        |> Map.put(:params, %{"currency" => "INVALID"})
+        |> Map.put(:params, %{"currency" => "USD", "line_items" => []})
         |> ValidateRequest.call(checkout_opts)
 
       assert conn.halted
       assert conn.status == 422
+    end
+
+    test "skips validation when disabled", %{opts: _opts} do
+      disabled_opts = ValidateRequest.init(enabled: false)
+
+      conn =
+        conn(:post, "/checkout-sessions")
+        |> put_private(:phoenix_action, :create_checkout)
+        |> Map.put(:params, %{})
+        |> ValidateRequest.call(disabled_opts)
+
+      refute conn.halted
+      refute conn.assigns[:bazaar_validated]
     end
   end
 end

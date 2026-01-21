@@ -8,8 +8,18 @@ defmodule Bazaar.Phoenix.Router do
         use Phoenix.Router
         use Bazaar.Phoenix.Router
 
+        pipeline :api do
+          plug :accepts, ["json"]
+        end
+
+        # Optional: Add schema validation
+        pipeline :bazaar_validated do
+          plug Bazaar.Plugs.ValidateRequest
+          plug Bazaar.Plugs.ValidateResponse
+        end
+
         scope "/" do
-          pipe_through :api
+          pipe_through [:api, :bazaar_validated]
 
           # UCP protocol (default)
           bazaar_routes "/", MyApp.Commerce.Handler
@@ -18,6 +28,17 @@ defmodule Bazaar.Phoenix.Router do
           bazaar_routes "/acp", MyApp.Commerce.Handler, protocol: :acp
         end
       end
+
+  ## Schema Validation
+
+  Bazaar includes plugs for validating requests and responses against
+  Smelter-generated Ecto schemas:
+
+  - `Bazaar.Plugs.ValidateRequest` - Validates incoming request bodies
+  - `Bazaar.Plugs.ValidateResponse` - Validates outgoing response bodies
+
+  Both plugs are optional but recommended for catching schema violations
+  early in development.
 
   ## Generated Routes (UCP)
 
@@ -56,7 +77,9 @@ defmodule Bazaar.Phoenix.Router do
         protocol: :ucp,               # Protocol: :ucp (default) or :acp
         only: [:checkout, :orders],   # Limit capabilities
         discovery: true,              # Include discovery endpoint (UCP only)
-        webhooks: true                # Include webhook endpoint
+        webhooks: true,               # Include webhook endpoint
+        validate_requests: true,      # Enable request validation (requires plug in pipeline)
+        validate_responses: true      # Enable response validation (requires plug in pipeline)
   """
 
   defmacro __using__(_opts) do
