@@ -36,17 +36,22 @@ defmodule Bazaar.ErrorsTest do
     test "handles interpolated error messages" do
       # Create a changeset with a number validation error
       defmodule TestAmountSchema do
+        use Ecto.Schema
         import Ecto.Changeset
 
-        @fields [%{name: :amount, type: :integer}]
+        @primary_key false
+        embedded_schema do
+          field(:amount, :integer)
+        end
 
-        def new(params) do
-          Schemecto.new(@fields, params)
+        def changeset(struct \\ %__MODULE__{}, params) do
+          struct
+          |> cast(params, [:amount])
           |> validate_number(:amount, greater_than: 0)
         end
       end
 
-      changeset = TestAmountSchema.new(%{"amount" => "-5"})
+      changeset = TestAmountSchema.changeset(%{"amount" => "-5"})
       result = Errors.from_changeset(changeset)
 
       amount_error = Enum.find(result["details"], &(&1["field"] == "amount"))
@@ -56,19 +61,22 @@ defmodule Bazaar.ErrorsTest do
     test "handles enum validation errors" do
       # Test with a schema that has enum validation
       defmodule TestStatusSchema do
+        use Ecto.Schema
         import Ecto.Changeset
 
-        @status_values [:active, :inactive]
-        @status_type Ecto.ParameterizedType.init(Ecto.Enum, values: @status_values)
-        @fields [%{name: :status, type: @status_type}]
+        @primary_key false
+        embedded_schema do
+          field(:status, Ecto.Enum, values: [:active, :inactive])
+        end
 
-        def new(params) do
-          Schemecto.new(@fields, params)
+        def changeset(struct \\ %__MODULE__{}, params) do
+          struct
+          |> cast(params, [:status])
           |> validate_required([:status])
         end
       end
 
-      changeset = TestStatusSchema.new(%{"status" => "INVALID"})
+      changeset = TestStatusSchema.changeset(%{"status" => "INVALID"})
       result = Errors.from_changeset(changeset)
 
       status_error = Enum.find(result["details"], &(&1["field"] == "status"))
@@ -77,26 +85,39 @@ defmodule Bazaar.ErrorsTest do
 
     test "flattens nested errors with dot notation" do
       # Create a changeset with nested embedded errors
-      defmodule NestedSchema do
+      defmodule NestedItemSchema do
+        use Ecto.Schema
         import Ecto.Changeset
 
-        @item_fields [%{name: :name, type: :string}]
-
-        def new(params) do
-          fields = [
-            %{
-              name: :items,
-              type: Schemecto.many(@item_fields, with: &validate_name/1)
-            }
-          ]
-
-          Schemecto.new(fields, params)
+        @primary_key false
+        embedded_schema do
+          field(:name, :string)
         end
 
-        defp validate_name(cs), do: validate_required(cs, [:name])
+        def changeset(struct \\ %__MODULE__{}, params) do
+          struct
+          |> cast(params, [:name])
+          |> validate_required([:name])
+        end
       end
 
-      changeset = NestedSchema.new(%{"items" => [%{}]})
+      defmodule NestedSchema do
+        use Ecto.Schema
+        import Ecto.Changeset
+
+        @primary_key false
+        embedded_schema do
+          embeds_many(:items, Bazaar.ErrorsTest.NestedItemSchema)
+        end
+
+        def changeset(struct \\ %__MODULE__{}, params) do
+          struct
+          |> cast(params, [])
+          |> cast_embed(:items, with: &Bazaar.ErrorsTest.NestedItemSchema.changeset/2)
+        end
+      end
+
+      changeset = NestedSchema.changeset(%{"items" => [%{}]})
       result = Errors.from_changeset(changeset)
 
       # Should have nested field paths like "items.0.name"
@@ -107,18 +128,23 @@ defmodule Bazaar.ErrorsTest do
     test "handles multiple errors on same field" do
       # This test uses a custom schema to generate multiple errors
       defmodule MultiErrorSchema do
+        use Ecto.Schema
         import Ecto.Changeset
 
-        @fields [%{name: :value, type: :integer}]
+        @primary_key false
+        embedded_schema do
+          field(:value, :integer)
+        end
 
-        def new(params) do
-          Schemecto.new(@fields, params)
+        def changeset(struct \\ %__MODULE__{}, params) do
+          struct
+          |> cast(params, [:value])
           |> validate_required([:value])
           |> validate_number(:value, greater_than: 0, less_than: 100)
         end
       end
 
-      changeset = MultiErrorSchema.new(%{"value" => "-50"})
+      changeset = MultiErrorSchema.changeset(%{"value" => "-50"})
       result = Errors.from_changeset(changeset)
 
       value_errors =
@@ -131,17 +157,22 @@ defmodule Bazaar.ErrorsTest do
     test "returns empty details for valid changeset" do
       # Use a simple custom schema to test valid changeset behavior
       defmodule ValidSchema do
+        use Ecto.Schema
         import Ecto.Changeset
 
-        @fields [%{name: :name, type: :string}]
+        @primary_key false
+        embedded_schema do
+          field(:name, :string)
+        end
 
-        def new(params) do
-          Schemecto.new(@fields, params)
+        def changeset(struct \\ %__MODULE__{}, params) do
+          struct
+          |> cast(params, [:name])
           |> validate_required([:name])
         end
       end
 
-      changeset = ValidSchema.new(%{"name" => "test"})
+      changeset = ValidSchema.changeset(%{"name" => "test"})
 
       # Valid changesets shouldn't normally be passed to from_changeset,
       # but if they are, details should be empty

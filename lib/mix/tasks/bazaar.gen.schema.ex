@@ -12,15 +12,15 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
 
     * `--module` - Module name for the generated schema (optional)
     * `--output` - Output file path (optional, defaults to stdout)
-    * `--format` - Output format: `schemecto` (default) or `ecto_schema`
+    * `--format` - Output format: `ecto_schema` (default) or `schemecto`
 
   ## Examples
 
-      # Generate to stdout (Schemecto format)
+      # Generate to stdout (Ecto.Schema format)
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/total_resp.json
 
-      # Generate with Ecto.Schema format
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --format ecto_schema
+      # Generate with Schemecto format
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --format schemecto
 
       # Generate with module name
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --module Bazaar.Schemas.Buyer

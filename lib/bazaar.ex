@@ -7,7 +7,7 @@ defmodule Bazaar do
   Bazaar provides everything you need to build UCP-compliant merchant
   implementations in Elixir/Phoenix:
 
-  - **Schemas**: Validated data structures using Schemecto
+  - **Schemas**: Validated data structures using Ecto.Schema
   - **Phoenix Integration**: Router macros and plugs
   - **Handler Behaviour**: Define your commerce logic
   - **Discovery**: Auto-generated `/.well-known/ucp` endpoints

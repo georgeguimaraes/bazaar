@@ -13,16 +13,16 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
     * `--output-dir` - Output directory (default: lib/bazaar/schemas)
     * `--prefix` - Module prefix (default: Bazaar.Schemas)
-    * `--format` - Output format: `schemecto` (default) or `ecto_schema`
+    * `--format` - Output format: `ecto_schema` (default) or `schemecto`
     * `--dry-run` - Show what would be generated without writing files
 
   ## Examples
 
-      # Generate all schemas (Schemecto format)
+      # Generate all schemas (Ecto.Schema format)
       $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
 
-      # Generate with Ecto.Schema format
-      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --format ecto_schema
+      # Generate with Schemecto format
+      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --format schemecto
 
       # Generate to custom directory
       $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --output-dir lib/generated

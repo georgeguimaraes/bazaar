@@ -8,18 +8,23 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
 
   # Custom schema for testing
   defmodule CustomSchema do
+    use Ecto.Schema
     import Ecto.Changeset
 
-    @fields [
-      %{name: :name, type: :string},
-      %{name: :amount, type: :integer}
-    ]
+    @primary_key false
+    embedded_schema do
+      field(:name, :string)
+      field(:amount, :integer)
+    end
 
-    def new(params) do
-      Schemecto.new(@fields, params)
+    def changeset(struct \\ %__MODULE__{}, params) do
+      struct
+      |> cast(params, [:name, :amount])
       |> validate_required([:name, :amount])
       |> validate_number(:amount, greater_than: 0)
     end
+
+    def new(params), do: changeset(params)
   end
 
   describe "init/1" do

@@ -8,17 +8,22 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
 
   # Custom schema for testing
   defmodule CustomResponseSchema do
+    use Ecto.Schema
     import Ecto.Changeset
 
-    @fields [
-      %{name: :id, type: :string},
-      %{name: :status, type: :string}
-    ]
+    @primary_key false
+    embedded_schema do
+      field(:id, :string)
+      field(:status, :string)
+    end
 
-    def new(params) do
-      Schemecto.new(@fields, params)
+    def changeset(struct \\ %__MODULE__{}, params) do
+      struct
+      |> cast(params, [:id, :status])
       |> validate_required([:id, :status])
     end
+
+    def new(params), do: changeset(params)
   end
 
   describe "init/1" do
