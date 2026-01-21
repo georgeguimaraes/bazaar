@@ -320,7 +320,7 @@ defmodule Bazaar.Phoenix.Controller do
       Telemetry.span_with_metadata([:bazaar, :catalog, :list], %{}, fn ->
         case handler.list_products(transformed_params, conn) do
           {:ok, result} ->
-            {result, %{count: length(result["products"] || [])}}
+            {{:ok, result}, %{count: length(result["products"] || [])}}
 
           error ->
             {error, %{}}
@@ -380,7 +380,7 @@ defmodule Bazaar.Phoenix.Controller do
       Telemetry.span_with_metadata([:bazaar, :catalog, :search], %{}, fn ->
         case handler.search_products(transformed_params, conn) do
           {:ok, result} ->
-            {result, %{query: params["q"], count: length(result["products"] || [])}}
+            {{:ok, result}, %{query: params["q"], count: length(result["products"] || [])}}
 
           error ->
             {error, %{query: params["q"]}}
