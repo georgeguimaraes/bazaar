@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.Adjustment do
   @moduledoc """
   Adjustment
-  
+
   Append-only event that exists independently of fulfillment. Typically represents money movements but can be any post-order change. Polymorphic type that can optionally reference line items.
-  
+
   Generated from: adjustment.json
   """
   use Ecto.Schema

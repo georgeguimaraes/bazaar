@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.MessageInfo do
   @moduledoc """
   Message Info
-  
+
   Generated from: message_info.json
   """
   use Ecto.Schema

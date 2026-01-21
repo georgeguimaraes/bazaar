@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Order.PlatformConfig do
   @moduledoc """
   Platform Order Config
-  
+
   Platform's order capability configuration.
-  
+
   Generated from: order.json
   """
   use Ecto.Schema

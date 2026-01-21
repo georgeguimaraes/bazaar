@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.Expectation do
   @moduledoc """
   Expectation
-  
+
   Buyer-facing fulfillment expectation representing logical groupings of items (e.g., 'package'). Can be split, merged, or adjusted post-order to set buyer expectations for when/how items arrive.
-  
+
   Generated from: expectation.json
   """
   use Ecto.Schema

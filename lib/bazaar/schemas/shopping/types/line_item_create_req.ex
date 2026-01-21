@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.LineItemCreateReq do
   @moduledoc """
   Line Item Create Request
-  
+
   Line item object. Expected to use the currency of the parent object.
-  
+
   Generated from: line_item.create_req.json
   """
   use Ecto.Schema

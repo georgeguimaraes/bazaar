@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.PlatformFulfillmentConfig do
   @moduledoc """
   Platform Fulfillment Config
-  
+
   Platform's fulfillment configuration.
-  
+
   Generated from: platform_fulfillment_config.json
   """
   use Ecto.Schema

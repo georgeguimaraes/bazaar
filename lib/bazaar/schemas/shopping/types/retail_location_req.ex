@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.RetailLocationReq do
   @moduledoc """
   Retail Location Request
-  
+
   A pickup location (retail store, locker, etc.).
-  
+
   Generated from: retail_location_req.json
   """
   use Ecto.Schema

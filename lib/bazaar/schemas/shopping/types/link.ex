@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.Link do
   @moduledoc """
   Link
-  
+
   Generated from: link.json
   """
   use Ecto.Schema

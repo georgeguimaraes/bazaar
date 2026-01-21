@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.Buyer do
   @moduledoc """
   Buyer
-  
+
   Generated from: buyer.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.CardPaymentInstrument do
   @moduledoc """
   Card Payment Instrument
-  
+
   A basic card payment instrument with visible card details. Can be inherited by a handler's instrument schema to define handler-specific display details or more complex credential structures.
-  
+
   Generated from: card_payment_instrument.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.PaymentIdentity do
   @moduledoc """
   Payment Identity
-  
+
   Identity of a participant for token binding. The access_token uniquely identifies the participant who tokens should be bound to.
-  
+
   Generated from: payment_identity.json
   """
   use Ecto.Schema

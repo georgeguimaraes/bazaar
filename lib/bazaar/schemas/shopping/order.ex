@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Order do
   @moduledoc """
   Order
-  
+
   Order schema with immutable line items, buyer-facing fulfillment expectations, and append-only event logs.
-  
+
   Generated from: order.json
   """
   use Ecto.Schema

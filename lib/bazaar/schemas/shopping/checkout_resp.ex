@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.CheckoutResp do
   @moduledoc """
   Checkout Response
-  
+
   Base checkout schema. Extensions compose onto this using allOf.
-  
+
   Generated from: checkout_resp.json
   """
   use Ecto.Schema

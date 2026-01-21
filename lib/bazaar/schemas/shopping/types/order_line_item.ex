@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.OrderLineItem do
   @moduledoc """
   Order Line Item
-  
+
   Generated from: order_line_item.json
   """
   use Ecto.Schema

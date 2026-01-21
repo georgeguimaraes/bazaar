@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentMethodUpdateReq do
   @moduledoc """
   Fulfillment Method Update Request
-  
+
   A fulfillment method (shipping or pickup) with destinations and groups.
-  
+
   Generated from: fulfillment_method.update_req.json
   """
   use Ecto.Schema

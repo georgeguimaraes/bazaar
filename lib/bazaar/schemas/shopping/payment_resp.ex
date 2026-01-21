@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.PaymentResp do
   @moduledoc """
   Payment Response
-  
+
   Payment configuration containing handlers.
-  
+
   Generated from: payment_resp.json
   """
   use Ecto.Schema

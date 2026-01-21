@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.OrderConfirmation do
   @moduledoc """
   Order Confirmation
-  
+
   Order details available at the time of checkout completion.
-  
+
   Generated from: order_confirmation.json
   """
   use Ecto.Schema

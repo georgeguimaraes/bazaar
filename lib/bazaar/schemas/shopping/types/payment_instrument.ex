@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.PaymentInstrument do
   @moduledoc """
   Payment Instrument
-  
+
   Matches a specific instrument type based on validation logic.
-  
+
   Generated from: payment_instrument.json
   """
   alias Bazaar.Schemas.Shopping.Types.CardPaymentInstrument

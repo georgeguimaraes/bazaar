@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentGroupCreateReq do
   @moduledoc """
   Fulfillment Group Create Request
-  
+
   A merchant-generated package/group of line items with fulfillment options.
-  
+
   Generated from: fulfillment_group.create_req.json
   """
   use Ecto.Schema

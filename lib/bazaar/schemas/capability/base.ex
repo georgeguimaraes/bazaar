@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Capability.Base do
   @moduledoc """
   Schema
-  
+
   Generated from: capability.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentMethodResp do
   @moduledoc """
   Fulfillment Method Response
-  
+
   A fulfillment method (shipping or pickup) with destinations and groups.
-  
+
   Generated from: fulfillment_method_resp.json
   """
   use Ecto.Schema

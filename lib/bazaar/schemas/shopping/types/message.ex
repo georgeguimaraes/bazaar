@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.Message do
   @moduledoc """
   Message
-  
+
   Container for error, warning, or info messages.
-  
+
   Generated from: message.json
   """
   alias Bazaar.Schemas.Shopping.Types.MessageError

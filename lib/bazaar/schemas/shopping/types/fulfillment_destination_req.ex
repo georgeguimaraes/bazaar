@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentDestinationReq do
   @moduledoc """
   Fulfillment Destination Request
-  
+
   A destination for fulfillment.
-  
+
   Generated from: fulfillment_destination_req.json
   """
   alias Bazaar.Schemas.Shopping.Types.RetailLocationReq

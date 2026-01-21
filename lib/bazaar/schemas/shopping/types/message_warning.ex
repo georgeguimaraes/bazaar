@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.MessageWarning do
   @moduledoc """
   Message Warning
-  
+
   Generated from: message_warning.json
   """
   use Ecto.Schema

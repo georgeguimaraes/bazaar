@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.PaymentInstrumentBase do
   @moduledoc """
   Payment Instrument Base
-  
+
   The base definition for any payment instrument. It links the instrument to a specific Merchant configuration (handler_id) and defines common fields like billing address.
-  
+
   Generated from: payment_instrument_base.json
   """
   use Ecto.Schema

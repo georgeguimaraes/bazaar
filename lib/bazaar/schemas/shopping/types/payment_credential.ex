@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.PaymentCredential do
   @moduledoc """
   Payment Credential
-  
+
   Container for sensitive payment data. Use the specific schema matching the 'type' field.
-  
+
   Generated from: payment_credential.json
   """
   alias Bazaar.Schemas.Shopping.Types.CardCredential

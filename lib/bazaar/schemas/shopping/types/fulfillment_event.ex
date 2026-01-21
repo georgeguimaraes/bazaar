@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentEvent do
   @moduledoc """
   Fulfillment Event
-  
+
   Append-only fulfillment event representing an actual shipment. References line items by ID.
-  
+
   Generated from: fulfillment_event.json
   """
   use Ecto.Schema

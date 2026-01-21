@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationReq do
   @moduledoc """
   Shipping Destination Request
-  
+
   Shipping destination.
-  
+
   Generated from: shipping_destination_req.json
   """
   use Ecto.Schema

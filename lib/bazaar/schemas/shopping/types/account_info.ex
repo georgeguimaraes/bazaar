@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.AccountInfo do
   @moduledoc """
   Payment Account Info
-  
+
   Non-sensitive backend identifiers for linking.
-  
+
   Generated from: account_info.json
   """
   use Ecto.Schema

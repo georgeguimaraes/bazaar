@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentOptionResp do
   @moduledoc """
   Fulfillment Option Response
-  
+
   A fulfillment option within a group (e.g., Standard Shipping $5, Express $15).
-  
+
   Generated from: fulfillment_option_resp.json
   """
   use Ecto.Schema

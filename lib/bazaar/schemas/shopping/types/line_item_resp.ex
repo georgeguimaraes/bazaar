@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.LineItemResp do
   @moduledoc """
   Line Item Response
-  
+
   Line item object. Expected to use the currency of the parent object.
-  
+
   Generated from: line_item_resp.json
   """
   use Ecto.Schema

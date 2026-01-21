@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.ItemCreateReq do
   @moduledoc """
   Item Create Request
-  
+
   Generated from: item.create_req.json
   """
   use Ecto.Schema

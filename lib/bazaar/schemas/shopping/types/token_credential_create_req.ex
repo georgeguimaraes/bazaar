@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.TokenCredentialCreateReq do
   @moduledoc """
   Token Credential Create Request
-  
+
   Base token credential schema. Concrete payment handlers may extend this schema with additional fields and define their own constraints.
-  
+
   Generated from: token_credential.create_req.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Capability.Response do
   @moduledoc """
   Capability (Response)
-  
+
   Capability reference in responses. Only name/version required to confirm active capabilities.
-  
+
   Generated from: capability.json
   """
   use Ecto.Schema

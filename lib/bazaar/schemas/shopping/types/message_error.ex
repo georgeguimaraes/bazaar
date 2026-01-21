@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.MessageError do
   @moduledoc """
   Message Error
-  
+
   Generated from: message_error.json
   """
   use Ecto.Schema

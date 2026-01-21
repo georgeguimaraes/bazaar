@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.Binding do
   @moduledoc """
   Binding
-  
+
   Binds a token to a specific checkout session and participant. Prevents token reuse across different checkouts or participants.
-  
+
   Generated from: binding.json
   """
   use Ecto.Schema

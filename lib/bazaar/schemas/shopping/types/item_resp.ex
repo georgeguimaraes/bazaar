@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.ItemResp do
   @moduledoc """
   Item Response
-  
+
   Generated from: item_resp.json
   """
   use Ecto.Schema

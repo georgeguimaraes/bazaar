@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp do
   @moduledoc """
   Fulfillment Available Method Response
-  
+
   Inventory availability hint for a fulfillment method type.
-  
+
   Generated from: fulfillment_available_method_resp.json
   """
   use Ecto.Schema

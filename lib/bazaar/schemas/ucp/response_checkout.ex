@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Ucp.ResponseCheckout do
   @moduledoc """
   UCP Checkout Response
-  
+
   UCP metadata for checkout responses.
-  
+
   Generated from: ucp.json
   """
   use Ecto.Schema

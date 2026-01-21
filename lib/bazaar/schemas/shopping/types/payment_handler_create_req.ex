@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.PaymentHandlerCreateReq do
   @moduledoc """
   Payment Handler Create Request
-  
+
   Generated from: payment_handler.create_req.json
   """
   use Ecto.Schema

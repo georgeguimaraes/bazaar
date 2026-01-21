@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.CardCredential do
   @moduledoc """
   Card Credential
-  
+
   A card credential containing sensitive payment card details including raw Primary Account Numbers (PANs). This credential type MUST NOT be used for checkout, only with payment handlers that tokenize or encrypt credentials. CRITICAL: Both parties handling CardCredential (sender and receiver) MUST be PCI DSS compliant. Transmission MUST use HTTPS/TLS with strong cipher suites.
-  
+
   Generated from: card_credential.json
   """
   use Ecto.Schema

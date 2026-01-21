@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentGroupResp do
   @moduledoc """
   Fulfillment Group Response
-  
+
   A merchant-generated package/group of line items with fulfillment options.
-  
+
   Generated from: fulfillment_group_resp.json
   """
   use Ecto.Schema

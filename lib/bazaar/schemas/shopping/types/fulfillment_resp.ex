@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.FulfillmentResp do
   @moduledoc """
   Fulfillment Response
-  
+
   Container for fulfillment methods and availability.
-  
+
   Generated from: fulfillment_resp.json
   """
   use Ecto.Schema

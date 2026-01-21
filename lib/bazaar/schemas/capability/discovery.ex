@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Capability.Discovery do
   @moduledoc """
   Capability (Discovery)
-  
+
   Full capability declaration for discovery profiles. Includes spec/schema URLs for agent fetching.
-  
+
   Generated from: capability.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Ucp.DiscoveryProfile do
   @moduledoc """
   UCP Discovery Profile
-  
+
   Full UCP metadata for /.well-known/ucp discovery.
-  
+
   Generated from: ucp.json
   """
   use Ecto.Schema

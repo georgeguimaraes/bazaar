@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.PaymentHandlerResp do
   @moduledoc """
   Payment Handler Response
-  
+
   Generated from: payment_handler_resp.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.TokenCredentialUpdateReq do
   @moduledoc """
   Token Credential Update Request
-  
+
   Base token credential schema. Concrete payment handlers may extend this schema with additional fields and define their own constraints.
-  
+
   Generated from: token_credential.update_req.json
   """
   use Ecto.Schema

@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Ucp.ResponseOrder do
   @moduledoc """
   UCP Order Response
-  
+
   UCP metadata for order responses. No payment handlers needed post-purchase.
-  
+
   Generated from: ucp.json
   """
   use Ecto.Schema

@@ -1,7 +1,7 @@
 defmodule Bazaar.Schemas.Shopping.Types.PostalAddress do
   @moduledoc """
   Postal Address
-  
+
   Generated from: postal_address.json
   """
   use Ecto.Schema

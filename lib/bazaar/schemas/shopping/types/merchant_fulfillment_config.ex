@@ -1,9 +1,9 @@
 defmodule Bazaar.Schemas.Shopping.Types.MerchantFulfillmentConfig do
   @moduledoc """
   Merchant Fulfillment Config
-  
+
   Merchant's fulfillment configuration.
-  
+
   Generated from: merchant_fulfillment_config.json
   """
   use Ecto.Schema
