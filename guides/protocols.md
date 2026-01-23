@@ -63,6 +63,34 @@ This means you write your handler once using UCP conventions, and Bazaar automat
 | `name` | `product.name` |
 | `price` | `base_amount` |
 
+### Product Schema Comparison
+
+Neither protocol defines a standalone product catalog schema. Product information is embedded in checkout line items. Here's how they compare:
+
+| Field | UCP (ItemResp) | ACP (LineItem) |
+|-------|----------------|----------------|
+| Product ID | `id` | `item.id` |
+| Name | `title` | `name` |
+| Description | — | `description` |
+| Unit price | `price` | `unit_amount` |
+| Image | `image_url` (single) | `images[]` (array) |
+| Quantity | (in LineItemResp) | `item.quantity` |
+| Custom attributes | — | `custom_attributes[]` |
+| Marketplace seller | — | `marketplace_seller_details` |
+| Disclosures | — | `disclosures[]` |
+
+**Line item pricing:**
+
+| Field | UCP (LineItemResp.totals[]) | ACP (LineItem) |
+|-------|---------------------------|----------------|
+| Base amount | `totals[type=base]` | `base_amount` |
+| Discount | `totals[type=discount]` | `discount` |
+| Subtotal | `totals[type=subtotal]` | `subtotal` |
+| Tax | `totals[type=tax]` | `tax` |
+| Total | `totals[type=total]` | `total` |
+
+ACP is flatter with fields directly on LineItem. UCP is more structured with nested ItemResp and a totals array. ACP includes additional product fields like description, multiple images, custom attributes, and marketplace seller details.
+
 ## Router Configuration
 
 ### UCP Only (Default)
