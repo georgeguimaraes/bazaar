@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   @moduledoc """
   Generates Elixir schema modules from UCP JSON Schema files.
 
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/types/buyer.json
 
   This will output Elixir code that can be copied into your schema modules.
 
@@ -16,13 +16,13 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
   ## Examples
 
       # Generate to stdout
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/total_resp.json
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/types/total_resp.json
 
       # Generate with module name
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/types/buyer.json --module Bazaar.Schemas.Buyer
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/types/buyer.json --module Bazaar.Schemas.Buyer
 
       # Generate to file
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-11/shopping/checkout_resp.json --output lib/bazaar/schemas/shopping/checkout.ex
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/checkout_resp.json --output lib/bazaar/schemas/shopping/checkout.ex
   """
 
   use Mix.Task

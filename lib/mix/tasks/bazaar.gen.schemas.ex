@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
   @moduledoc """
   Generates Elixir schema modules for all JSON Schema files in a directory.
 
-      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
+      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-23
 
   This will generate Elixir modules for all `.json` schema files found
   in the directory (recursively) and output them to `lib/bazaar/schemas/`.
@@ -18,10 +18,10 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
   ## Examples
 
       # Generate all schemas
-      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
+      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-23
 
       # Generate to custom directory
-      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --output-dir lib/generated
+      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-23 --output-dir lib/generated
 
       # Generate with custom prefix (for ACP schemas)
       $ mix bazaar.gen.schemas priv/acp_schemas --prefix Bazaar.Schemas.Acp --output-dir lib/bazaar/schemas/acp

@@ -8,7 +8,7 @@ defmodule Bazaar.DiscoveryProfile do
   Follows the official UCP spec format from https://ucp.dev
   """
 
-  @ucp_version "2026-01-11"
+  @ucp_version "2026-01-23"
   @ucp_spec_base "https://ucp.dev"
 
   @doc """

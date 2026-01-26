@@ -2,20 +2,22 @@ defmodule Bazaar.Schemas.Capability.Base do
   @moduledoc """
   Schema
 
+  Shared foundation for all UCP entities.
+
   Generated from: capability.json
   """
   use Ecto.Schema
   import Ecto.Changeset
 
   @field_descriptions %{
-    config: "Capability-specific configuration (structure defined by each capability).",
+    config: "Entity-specific configuration. Structure defined by each entity's schema.",
     extends:
       "Parent capability this extends. Present for extensions, absent for root capabilities.",
-    name:
-      "Stable capability identifier in reverse-domain notation (e.g., dev.ucp.shopping.checkout). Used in capability negotiation.",
-    schema: "URL to JSON Schema for this capability's payload.",
+    id:
+      "Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.",
+    schema: "URL to JSON Schema defining this entity's structure and payloads.",
     spec: "URL to human-readable specification document.",
-    version: "Capability version in YYYY-MM-DD format."
+    version: "Entity version in YYYY-MM-DD format."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
@@ -26,7 +28,7 @@ defmodule Bazaar.Schemas.Capability.Base do
   embedded_schema do
     field(:config, :map)
     field(:extends, :string)
-    field(:name, :string)
+    field(:id, :string)
     field(:schema, :string)
     field(:spec, :string)
     field(:version, :string)
@@ -34,7 +36,9 @@ defmodule Bazaar.Schemas.Capability.Base do
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, [:config, :extends, :name, :schema, :spec, :version])
+    struct
+    |> cast(params, [:config, :extends, :id, :schema, :spec, :version])
+    |> validate_required([:version])
   end
 
   (

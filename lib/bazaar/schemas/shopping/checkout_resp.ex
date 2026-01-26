@@ -8,13 +8,13 @@ defmodule Bazaar.Schemas.Shopping.CheckoutResp do
   """
   use Ecto.Schema
   import Ecto.Changeset
-  alias Bazaar.Schemas.Shopping.PaymentResp
+  alias Bazaar.Schemas.Shopping.Payment
   alias Bazaar.Schemas.Shopping.Types.Buyer
   alias Bazaar.Schemas.Shopping.Types.LineItemResp
   alias Bazaar.Schemas.Shopping.Types.Link
   alias Bazaar.Schemas.Shopping.Types.OrderConfirmation
   alias Bazaar.Schemas.Shopping.Types.TotalResp
-  alias Bazaar.Schemas.Ucp.ResponseCheckout
+  alias Bazaar.Schemas.Ucp.ResponseCheckoutSchema
 
   @status_values [
     :incomplete,
@@ -28,7 +28,8 @@ defmodule Bazaar.Schemas.Shopping.CheckoutResp do
     buyer: "Representation of the buyer.",
     continue_url:
       "URL for checkout handoff and session recovery. MUST be provided when status is requires_escalation. See specification for format and availability requirements.",
-    currency: "ISO 4217 currency code.",
+    currency:
+      "ISO 4217 currency code reflecting the merchant's market determination. Derived from address, context, and geo IP—buyers provide signals, merchants determine currency.",
     expires_at: "RFC 3339 expiry timestamp. Default TTL is 6 hours from creation if not sent.",
     id: "Unique identifier of the checkout session.",
     line_items: "List of line items being checked out.",
@@ -59,9 +60,9 @@ defmodule Bazaar.Schemas.Shopping.CheckoutResp do
     embeds_many(:line_items, LineItemResp)
     embeds_many(:links, Link)
     embeds_one(:order, OrderConfirmation)
-    embeds_one(:payment, PaymentResp)
+    embeds_one(:payment, Payment)
     embeds_many(:totals, TotalResp)
-    embeds_one(:ucp, ResponseCheckout)
+    embeds_one(:ucp, ResponseCheckoutSchema)
   end
 
   @doc "Creates a changeset for validating and casting params."
@@ -72,7 +73,7 @@ defmodule Bazaar.Schemas.Shopping.CheckoutResp do
     |> cast_embed(:line_items, required: true)
     |> cast_embed(:links, required: true)
     |> cast_embed(:order, required: false)
-    |> cast_embed(:payment, required: true)
+    |> cast_embed(:payment, required: false)
     |> cast_embed(:totals, required: true)
     |> cast_embed(:ucp, required: true)
     |> validate_required([:id, :status, :currency])

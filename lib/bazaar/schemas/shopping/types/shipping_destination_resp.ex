@@ -19,8 +19,6 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
     extended_address:
       "An address extension such as an apartment number, C/O or alternative name.",
     first_name: "Optional. First name of the contact associated with the address.",
-    full_name:
-      "Optional. Full name of the contact associated with the address (if first_name or last_name fields are present they take precedence).",
     id: "ID specific to this shipping destination.",
     last_name: "Optional. Last name of the contact associated with the address.",
     phone_number: "Optional. Phone number of the contact associated with the address.",
@@ -39,7 +37,6 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
     field(:address_region, :string)
     field(:extended_address, :string)
     field(:first_name, :string)
-    field(:full_name, :string)
     field(:id, :string)
     field(:last_name, :string)
     field(:phone_number, :string)
@@ -56,7 +53,6 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
       :address_region,
       :extended_address,
       :first_name,
-      :full_name,
       :id,
       :last_name,
       :phone_number,

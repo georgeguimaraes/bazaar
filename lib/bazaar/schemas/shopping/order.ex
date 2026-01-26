@@ -11,7 +11,7 @@ defmodule Bazaar.Schemas.Shopping.Order do
   alias Bazaar.Schemas.Shopping.Types.Adjustment
   alias Bazaar.Schemas.Shopping.Types.OrderLineItem
   alias Bazaar.Schemas.Shopping.Types.TotalResp
-  alias Bazaar.Schemas.Ucp.ResponseOrder
+  alias Bazaar.Schemas.Ucp.ResponseOrderSchema
 
   @field_descriptions %{
     adjustments:
@@ -38,7 +38,7 @@ defmodule Bazaar.Schemas.Shopping.Order do
     embeds_many(:adjustments, Adjustment)
     embeds_many(:line_items, OrderLineItem)
     embeds_many(:totals, TotalResp)
-    embeds_one(:ucp, ResponseOrder)
+    embeds_one(:ucp, ResponseOrderSchema)
   end
 
   @doc "Creates a changeset for validating and casting params."

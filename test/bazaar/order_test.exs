@@ -28,7 +28,7 @@ defmodule Bazaar.OrderTest do
       assert result["fulfillment"] == %{"expectations" => [], "events" => []}
       assert result["adjustments"] == []
       assert result["ucp"]["name"] == "dev.ucp.shopping.order"
-      assert result["ucp"]["version"] == "2026-01-11"
+      assert result["ucp"]["version"] == "2026-01-23"
     end
 
     test "handles atom keys in checkout" do

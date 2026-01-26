@@ -34,7 +34,7 @@ defmodule Bazaar.Order do
       "adjustments" => [],
       "ucp" => %{
         "name" => "dev.ucp.shopping.order",
-        "version" => "2026-01-11"
+        "version" => "2026-01-23"
       }
     }
   end

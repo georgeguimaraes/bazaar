@@ -33,7 +33,7 @@ if Code.ensure_loaded?(JSV) do
     - `validate/2` - Generic validation against any UCP schema
     """
 
-    @schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-01-11")
+    @schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-01-23")
 
     @doc """
     Validates data against the UCP checkout response schema.

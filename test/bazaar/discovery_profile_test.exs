@@ -83,7 +83,7 @@ defmodule Bazaar.DiscoveryProfileTest do
       checkout_cap = Enum.find(capabilities, &(&1["name"] == "dev.ucp.shopping.checkout"))
       assert checkout_cap["spec"] == "https://ucp.dev/specification/checkout/"
       assert checkout_cap["schema"] == "https://ucp.dev/schemas/shopping/checkout.json"
-      assert checkout_cap["version"] == "2026-01-11"
+      assert checkout_cap["version"] == "2026-01-23"
     end
 
     test "includes base_url in services endpoint" do

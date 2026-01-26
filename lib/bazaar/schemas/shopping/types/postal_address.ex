@@ -17,8 +17,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PostalAddress do
     extended_address:
       "An address extension such as an apartment number, C/O or alternative name.",
     first_name: "Optional. First name of the contact associated with the address.",
-    full_name:
-      "Optional. Full name of the contact associated with the address (if first_name or last_name fields are present they take precedence).",
     last_name: "Optional. Last name of the contact associated with the address.",
     phone_number: "Optional. Phone number of the contact associated with the address.",
     postal_code: "The postal code. For example, 94043.",
@@ -36,7 +34,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PostalAddress do
     field(:address_region, :string)
     field(:extended_address, :string)
     field(:first_name, :string)
-    field(:full_name, :string)
     field(:last_name, :string)
     field(:phone_number, :string)
     field(:postal_code, :string)
@@ -52,7 +49,6 @@ defmodule Bazaar.Schemas.Shopping.Types.PostalAddress do
       :address_region,
       :extended_address,
       :first_name,
-      :full_name,
       :last_name,
       :phone_number,
       :postal_code,

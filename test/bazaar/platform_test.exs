@@ -5,7 +5,7 @@ defmodule Bazaar.PlatformTest do
 
   @valid_profile %{
     "name" => "dev.ucp.example.platform",
-    "version" => "2026-01-11",
+    "version" => "2026-01-23",
     "capabilities" => ["dev.ucp.shopping.checkout", "dev.ucp.shopping.order"],
     "webhook_url" => "https://platform.example.com/webhooks/ucp",
     "webhook_secret" => "whsec_test123"

@@ -10,8 +10,6 @@ defmodule Bazaar.Schemas.Shopping.Types.Buyer do
   @field_descriptions %{
     email: "Email of the buyer.",
     first_name: "First name of the buyer.",
-    full_name:
-      "Optional, buyer's full name (if first_name or last_name fields are present they take precedence).",
     last_name: "Last name of the buyer.",
     phone_number: "E.164 standard."
   }
@@ -24,14 +22,13 @@ defmodule Bazaar.Schemas.Shopping.Types.Buyer do
   embedded_schema do
     field(:email, :string)
     field(:first_name, :string)
-    field(:full_name, :string)
     field(:last_name, :string)
     field(:phone_number, :string)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, [:email, :first_name, :full_name, :last_name, :phone_number])
+    struct |> cast(params, [:email, :first_name, :last_name, :phone_number])
   end
 
   (
