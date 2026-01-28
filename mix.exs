@@ -51,7 +51,8 @@ defmodule Bazaar.MixProject do
       maintainers: ["George Guimarães"],
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @source_url},
-      files: ~w(lib priv .formatter.exs mix.exs README.md LICENSE)
+      files: ~w(lib priv .formatter.exs mix.exs README.md LICENSE),
+      exclude_patterns: ["lib/mix"]
     ]
   end
 
