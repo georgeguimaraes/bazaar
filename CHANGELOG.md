@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/georgeguimaraes/bazaar/compare/v0.2.0...v0.2.1) (2026-01-28)
+
+
+### Miscellaneous
+
+* exclude mix tasks from hex package ([6a17499](https://github.com/georgeguimaraes/bazaar/commit/6a17499a8ced2ffe1719f46b53f1d9f39b3e31c1))
+
 ## [0.2.0](https://github.com/georgeguimaraes/bazaar/compare/v0.1.1...v0.2.0) (2026-01-26)
 
 
