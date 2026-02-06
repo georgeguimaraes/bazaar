@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/acp/openai/product-feed.schema.json",
+  "title": "OpenAI Product Feed",
+  "description": "Product feed schema based on the OpenAI developer docs (developers.openai.com/commerce/specs/feed/). Not part of the open ACP standard.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "item_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Unique product identifier (alphanumeric, must remain stable)."
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 150,
+      "description": "Product name/title."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 5000,
+      "description": "Product description (plain text)."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Direct link to the product page."
+    },
+    "brand": {
+      "type": "string",
+      "maxLength": 70,
+      "description": "Brand name."
+    },
+    "image_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Primary product image URL (JPEG/PNG)."
+    },
+    "price": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d{2}\\s[A-Z]{3}$",
+      "description": "Price with ISO 4217 currency code, e.g. '129.99 USD'."
+    },
+    "availability": {
+      "type": "string",
+      "enum": ["in_stock", "out_of_stock", "pre_order", "backorder", "unknown"],
+      "description": "Stock status."
+    },
+    "is_eligible_search": {
+      "type": "boolean",
+      "description": "Whether product appears in ChatGPT search results."
+    },
+    "is_eligible_checkout": {
+      "type": "boolean",
+      "description": "Whether product supports direct AI checkout. Requires is_eligible_search=true."
+    },
+    "group_id": {
+      "type": "string",
+      "maxLength": 70,
+      "description": "Product group ID for variants. Must match across variants."
+    },
+    "listing_has_variations": {
+      "type": "boolean",
+      "description": "Whether product has size/color/etc variants."
+    },
+    "seller_name": {
+      "type": "string",
+      "maxLength": 70,
+      "description": "Display name of the seller/merchant."
+    },
+    "seller_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL of the seller website."
+    },
+    "target_countries": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 2,
+        "description": "ISO 3166-1 alpha-2 country code."
+      },
+      "minItems": 1,
+      "description": "Target market countries."
+    },
+    "store_country": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 2,
+      "description": "Store location country (ISO 3166-1 alpha-2)."
+    },
+    "return_policy": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the return policy page."
+    },
+    "seller_privacy_policy": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the seller privacy policy. Required when is_eligible_checkout=true."
+    },
+    "seller_tos": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the seller terms of service. Required when is_eligible_checkout=true."
+    },
+    "availability_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expected availability date. Required when availability=pre_order."
+    },
+    "additional_image_urls": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "description": "Additional product images."
+    },
+    "star_rating": {
+      "type": "string",
+      "description": "Product rating as string, e.g. '4.5' (0-5 scale)."
+    },
+    "review_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of reviews."
+    },
+    "condition": {
+      "type": "string",
+      "description": "Product condition, e.g. 'new', 'refurbished'."
+    },
+    "gtin": {
+      "type": "string",
+      "pattern": "^\\d{8,14}$",
+      "description": "GTIN/UPC/ISBN (8-14 digits)."
+    },
+    "mpn": {
+      "type": "string",
+      "maxLength": 70,
+      "description": "Manufacturer part number."
+    },
+    "sale_price": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d{2}\\s[A-Z]{3}$",
+      "description": "Sale price with ISO 4217 currency code. Must be <= price."
+    },
+    "product_category": {
+      "type": "string",
+      "description": "Product category taxonomy path (use '>' separator)."
+    },
+    "color": {
+      "type": "string",
+      "maxLength": 40,
+      "description": "Product color."
+    },
+    "size": {
+      "type": "string",
+      "maxLength": 20,
+      "description": "Product size."
+    },
+    "popularity_score": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Popularity score (0-5 scale or merchant-defined)."
+    }
+  },
+  "required": [
+    "item_id",
+    "title",
+    "description",
+    "url",
+    "brand",
+    "image_url",
+    "price",
+    "availability",
+    "is_eligible_search",
+    "is_eligible_checkout",
+    "group_id",
+    "listing_has_variations",
+    "seller_name",
+    "seller_url",
+    "target_countries",
+    "store_country",
+    "return_policy"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "is_eligible_checkout": { "const": true }
+        },
+        "required": ["is_eligible_checkout"]
+      },
+      "then": {
+        "required": ["seller_privacy_policy", "seller_tos"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "availability": { "const": "pre_order" }
+        },
+        "required": ["availability"]
+      },
+      "then": {
+        "required": ["availability_date"]
+      }
+    }
+  ]
+}
