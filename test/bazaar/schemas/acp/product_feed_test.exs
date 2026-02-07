@@ -77,8 +77,7 @@ defmodule Bazaar.Schemas.Acp.ProductFeedTest do
         :seller_name,
         :seller_url,
         :target_countries,
-        :store_country,
-        :return_policy
+        :store_country
       ]
 
       for field <- required do
@@ -121,11 +120,16 @@ defmodule Bazaar.Schemas.Acp.ProductFeedTest do
 
   describe "conditional: is_eligible_checkout" do
     test "invalid without policies when is_eligible_checkout=true" do
-      attrs = Map.put(@valid_attrs, :is_eligible_checkout, true)
+      attrs =
+        @valid_attrs
+        |> Map.put(:is_eligible_checkout, true)
+        |> Map.delete(:return_policy)
+
       changeset = ProductFeed.changeset(%ProductFeed{}, attrs)
       refute changeset.valid?
       assert changeset.errors[:seller_privacy_policy]
       assert changeset.errors[:seller_tos]
+      assert changeset.errors[:return_policy]
     end
 
     test "valid with policies when is_eligible_checkout=true" do
@@ -135,6 +139,12 @@ defmodule Bazaar.Schemas.Acp.ProductFeedTest do
         |> Map.put(:seller_privacy_policy, "https://shop.example.com/privacy")
         |> Map.put(:seller_tos, "https://shop.example.com/tos")
 
+      changeset = ProductFeed.changeset(%ProductFeed{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "return_policy not required when is_eligible_checkout=false" do
+      attrs = Map.delete(@valid_attrs, :return_policy)
       changeset = ProductFeed.changeset(%ProductFeed{}, attrs)
       assert changeset.valid?
     end

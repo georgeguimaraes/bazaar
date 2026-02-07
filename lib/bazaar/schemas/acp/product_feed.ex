@@ -38,8 +38,7 @@ defmodule Bazaar.Schemas.Acp.ProductFeed do
     :seller_name,
     :seller_url,
     :target_countries,
-    :store_country,
-    :return_policy
+    :store_country
   ]
 
   @optional_fields [
@@ -96,6 +95,7 @@ defmodule Bazaar.Schemas.Acp.ProductFeed do
     :seller_privacy_policy,
     :seller_tos,
     # Returns
+    :return_policy,
     :accepts_returns,
     :return_deadline_in_days,
     :accepts_exchanges,
@@ -372,7 +372,7 @@ defmodule Bazaar.Schemas.Acp.ProductFeed do
   defp validate_checkout_policies(changeset) do
     if get_field(changeset, :is_eligible_checkout) == true do
       changeset
-      |> validate_required([:seller_privacy_policy, :seller_tos])
+      |> validate_required([:seller_privacy_policy, :seller_tos, :return_policy])
     else
       changeset
     end

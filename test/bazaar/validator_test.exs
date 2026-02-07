@@ -181,15 +181,20 @@ defmodule Bazaar.ValidatorTest do
         "id" => "cs_123",
         "status" => "not_ready_for_payment",
         "currency" => "USD",
+        "capabilities" => %{
+          "payment" => %{
+            "handlers" => []
+          }
+        },
         "line_items" => [
           %{
             "id" => "li_1",
-            "item" => %{"id" => "PROD-1", "quantity" => 1},
-            "base_amount" => 1000,
-            "discount" => 0,
-            "subtotal" => 1000,
-            "tax" => 80,
-            "total" => 1080
+            "item" => %{"id" => "PROD-1"},
+            "quantity" => 1,
+            "totals" => [
+              %{"type" => "subtotal", "display_text" => "Subtotal", "amount" => 1000},
+              %{"type" => "total", "display_text" => "Total", "amount" => 1080}
+            ]
           }
         ],
         "totals" => [%{"type" => "total", "display_text" => "Total", "amount" => 1080}],
@@ -209,21 +214,33 @@ defmodule Bazaar.ValidatorTest do
   describe "ACP checkout request validation" do
     test "validates a valid create request" do
       req = %{
-        "items" => [%{"id" => "PROD-1", "quantity" => 2}]
+        "currency" => "USD",
+        "capabilities" => %{
+          "payment" => %{
+            "handlers" => []
+          }
+        },
+        "line_items" => [%{"id" => "PROD-1"}]
       }
 
       assert {:ok, _} = Validator.validate(req, :checkout_create_req)
     end
 
-    test "rejects create request without items" do
+    test "rejects create request without line_items" do
       assert {:error, _} = Validator.validate(%{}, :checkout_create_req)
     end
 
     test "validates a valid complete request" do
       req = %{
         "payment_data" => %{
-          "token" => "tok_123",
-          "provider" => "stripe"
+          "handler_id" => "stripe_1",
+          "instrument" => %{
+            "type" => "card",
+            "credential" => %{
+              "type" => "token",
+              "token" => "tok_123"
+            }
+          }
         }
       }
 
