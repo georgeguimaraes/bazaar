@@ -53,10 +53,11 @@ Bazaar handles the HTTP/JSON plumbing. You write the commerce logic.
 ```
 lib/bazaar/
 ├── schemas/
-│   ├── shopping/      # Generated UCP schemas: Checkout, Order, Payment types
-│   ├── acp/           # ACP schemas: OpenAI product feed
-│   ├── capability/    # Capability definitions
-│   └── ucp/           # Discovery profile, response types
+│   ├── ucp/           # Generated UCP schemas (from Smelter)
+│   │   ├── shopping/  # Checkout, Order, Payment types
+│   │   ├── capability/# Capability definitions
+│   │   └── ucp/       # Discovery profile, response types
+│   └── acp/           # ACP schemas: OpenAI product feed
 ├── protocol.ex        # UCP/ACP status mappings
 ├── protocol/
 │   └── transformer.ex # Request/response translation between protocols

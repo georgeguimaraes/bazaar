@@ -22,7 +22,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schema do
       $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/types/buyer.json --module Bazaar.Schemas.Buyer
 
       # Generate to file
-      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/checkout_resp.json --output lib/bazaar/schemas/shopping/checkout.ex
+      $ mix bazaar.gen.schema priv/ucp_schemas/2026-01-23/shopping/checkout_resp.json --output lib/bazaar/schemas/ucp/shopping/checkout.ex
   """
 
   use Mix.Task

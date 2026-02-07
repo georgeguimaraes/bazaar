@@ -7,11 +7,11 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
       $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-23
 
   This will generate Elixir modules for all `.json` schema files found
-  in the directory (recursively) and output them to `lib/bazaar/schemas/`.
+  in the directory (recursively) and output them to `lib/bazaar/schemas/ucp/`.
 
   ## Options
 
-    * `--output-dir` - Output directory (default: lib/bazaar/schemas)
+    * `--output-dir` - Output directory (default: lib/bazaar/schemas/ucp)
     * `--prefix` - Module prefix (default: Bazaar.Schemas)
     * `--dry-run` - Show what would be generated without writing files
 
@@ -32,7 +32,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
   use Mix.Task
 
-  @default_output_dir "lib/bazaar/schemas"
+  @default_output_dir "lib/bazaar/schemas/ucp"
   @default_module_prefix "Bazaar.Schemas"
 
   @impl Mix.Task
