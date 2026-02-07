@@ -27,8 +27,7 @@ if Code.ensure_loaded?(JSV) do
     - `validate_checkout/1` - UCP checkout session response
     - `validate_order/1` - UCP order response
     - `validate_profile/1` - UCP discovery profile
-    - `validate_openai_product_feed/1` - OpenAI product feed
-    - `validate/2` - Generic validation against any schema
+    - `validate/2` - Generic validation against any schema (UCP, ACP, OpenAI)
     """
 
     @ucp_schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-01-23")
@@ -71,17 +70,6 @@ if Code.ensure_loaded?(JSV) do
     Returns `{:ok, data}` if valid, or `{:error, errors}` with validation errors.
     """
     def validate_profile(data), do: validate(data, :profile)
-
-    @doc """
-    Validates data against the OpenAI product feed schema.
-
-    Based on the OpenAI developer docs product feed spec
-    (developers.openai.com/commerce/specs/feed/). Validated via the
-    `Bazaar.Schemas.Acp.ProductFeed` Ecto embedded schema.
-
-    Returns `{:ok, struct}` if valid, or `{:error, errors}` with validation errors.
-    """
-    def validate_openai_product_feed(data), do: validate(data, :openai_product_feed)
 
     @doc """
     Validates data against a specific UCP or ACP schema.
