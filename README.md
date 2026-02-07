@@ -1,4 +1,4 @@
-# Bazaar 🎪
+# Bazaar
 
 **Open your store to AI agents.** Elixir SDK for [UCP](https://ucp.dev) and [ACP](https://github.com/agentic-commerce-protocol/acp-spec).
 
@@ -14,64 +14,62 @@ Bazaar helps you build commerce APIs in Elixir/Phoenix that work with both Googl
 | **UCP** (Universal Commerce Protocol) | Google Shopping agents | [ucp.dev](https://ucp.dev) |
 | **ACP** (Agentic Commerce Protocol) | OpenAI Operator, Stripe | [GitHub](https://github.com/agentic-commerce-protocol/acp-spec) |
 
-Both protocols enable AI agents to:
-
-- Discover what your store offers
-- Create and manage shopping carts
-- Complete checkouts
-- Track orders
+Both protocols enable AI agents to discover what your store offers, create and manage shopping carts, complete checkouts, and track orders.
 
 UCP was announced by Google at NRF 2026, co-developed with Shopify, Walmart, Etsy, and Target. ACP is backed by OpenAI and Stripe.
 
 ## Features
 
-- **Generated Schemas**: Smelter-generated Ecto schemas from official UCP JSON Schemas
-- **Phoenix Router Macro**: Mount all UCP routes with a single line
-- **Handler Behaviour**: Clean interface for your commerce logic
+- **Dual Protocol Support**: Serve both UCP and ACP clients from one handler with automatic request/response translation
+- **Generated UCP Schemas**: Smelter-generated Ecto schemas from official UCP JSON Schemas
+- **ACP Schema Validation**: JSON Schema validation for ACP checkout sessions and delegate payment, plus an Ecto schema for the OpenAI product feed
+- **Phoenix Router Macro**: Mount UCP and ACP routes with a single line each
+- **Handler Behaviour**: Write commerce logic once, serve both protocols
 - **Built-in Plugs**: Request validation, idempotency, and UCP headers
 - **Auto-generated Discovery**: `/.well-known/ucp` endpoint from your handler
+- **Protocol Transformer**: Automatic field/status mapping between UCP and ACP formats
 - **Business Logic Helpers**: Currency conversion, message factories, order creation
-
-## Architecture
-
-Bazaar separates concerns cleanly:
-
-```
-lib/bazaar/
-├── schemas/           # Generated from UCP JSON Schemas (via Smelter)
-│   ├── shopping/      # Checkout, Order, Payment types
-│   ├── capability/    # Capability definitions
-│   └── ucp/           # Discovery profile, response types
-├── checkout.ex        # Business logic: currency helpers
-├── order.ex           # Business logic: from_checkout helper
-├── message.ex         # Business logic: error/warning/info factories
-├── fulfillment.ex     # Business logic: field definitions
-├── handler.ex         # Handler behaviour
-├── phoenix/           # Router and controller
-└── plugs/             # Request validation, headers, idempotency
-```
-
-**Schemas** are generated from JSON and provide validation via `new/1` and `fields/0`.
-**Business logic** modules add helpers and factories on top of the schemas.
 
 ## How It Works
 
-Bazaar is a thin layer that connects your Phoenix app to AI shopping agents via UCP.
+Bazaar uses UCP as its internal format. Your handler always works with UCP field names and status values, regardless of which protocol the client uses:
 
 ```
-AI Agent → UCP Request → Bazaar Router → Bazaar Controller → Your Handler → Response
+UCP Request → Bazaar Router → Your Handler → UCP Response
+ACP Request → [transform to UCP] → Your Handler → [transform to ACP] → ACP Response
 ```
 
 Bazaar handles the HTTP/JSON plumbing. You write the commerce logic.
 
 | Bazaar | You |
 |--------|-----|
-| Parses JSON, validates structure | Write business logic |
-| Routes to correct callback | Query your database |
-| Handles UCP headers | Calculate prices, tax, shipping |
-| Returns proper HTTP responses | Integrate with payment/fulfillment |
+| Routes requests from UCP and ACP agents | Write business logic |
+| Transforms between protocol formats | Query your database |
+| Validates request/response structure | Calculate prices, tax, shipping |
+| Handles UCP headers and discovery | Integrate with payment/fulfillment |
 
-Bazaar doesn't touch your database or know about your products. It just speaks UCP so AI agents can shop at your store.
+## Architecture
+
+```
+lib/bazaar/
+├── schemas/
+│   ├── shopping/      # Generated UCP schemas: Checkout, Order, Payment types
+│   ├── acp/           # ACP schemas: OpenAI product feed
+│   ├── capability/    # Capability definitions
+│   └── ucp/           # Discovery profile, response types
+├── protocol.ex        # UCP/ACP status mappings
+├── protocol/
+│   └── transformer.ex # Request/response translation between protocols
+├── validator.ex       # Schema validation (UCP via JSV, ACP via JSV/$defs, product feed via Ecto)
+├── checkout.ex        # Business logic: currency helpers
+├── order.ex           # Business logic: from_checkout helper
+├── message.ex         # Business logic: error/warning/info factories
+├── fulfillment.ex     # Business logic: field definitions
+├── handler.ex         # Handler behaviour
+├── phoenix/           # Router and controller
+├── plugs/             # Request validation, headers, idempotency
+└── webhook/           # Event delivery with signatures and retries
+```
 
 ## Installation
 
@@ -85,12 +83,6 @@ def deps do
 end
 ```
 
-Then run:
-
-```bash
-mix deps.get
-```
-
 ## Quick Start
 
 ### Step 1: Create a Handler
@@ -98,7 +90,7 @@ mix deps.get
 The handler defines your store's capabilities and commerce logic:
 
 ```elixir
-defmodule MyApp.UCPHandler do
+defmodule MyApp.CommerceHandler do
   use Bazaar.Handler
 
   @impl true
@@ -115,13 +107,11 @@ defmodule MyApp.UCPHandler do
   @impl true
   def create_checkout(params, _conn) do
     # params already validated by Bazaar
-    # Save to your DB, return the checkout map
     {:ok, %{"id" => "chk_123", "status" => "incomplete", ...}}
   end
 
   @impl true
   def get_checkout(id, _conn) do
-    # Fetch from your DB
     {:ok, checkout} or {:error, :not_found}
   end
 
@@ -131,7 +121,7 @@ end
 
 ### Step 2: Mount Routes
 
-Add UCP routes to your Phoenix router:
+Add UCP and ACP routes to your Phoenix router:
 
 ```elixir
 defmodule MyAppWeb.Router do
@@ -144,12 +134,17 @@ defmodule MyAppWeb.Router do
 
   scope "/" do
     pipe_through :api
-    bazaar_routes "/", MyApp.UCPHandler
+
+    # UCP routes (Google agents)
+    bazaar_routes "/", MyApp.CommerceHandler
+
+    # ACP routes (OpenAI/Stripe agents)
+    bazaar_routes "/acp", MyApp.CommerceHandler, protocol: :acp
   end
 end
 ```
 
-This creates these endpoints:
+UCP endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -162,42 +157,88 @@ This creates these endpoints:
 | POST | `/orders/:id/actions/cancel` | Cancel order |
 | POST | `/webhooks/ucp` | Receive webhooks |
 
+ACP endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/acp/checkout_sessions` | Create checkout |
+| GET | `/acp/checkout_sessions/:id` | Get checkout |
+| POST | `/acp/checkout_sessions/:id` | Update checkout |
+| POST | `/acp/checkout_sessions/:id/complete` | Complete checkout |
+| POST | `/acp/checkout_sessions/:id/cancel` | Cancel checkout |
+
 ### Step 3: Test It
 
-Start your server and test the discovery endpoint:
-
 ```bash
+# UCP discovery
 curl http://localhost:4000/.well-known/ucp
+
+# Create a checkout via UCP
+curl -X POST http://localhost:4000/checkout-sessions \
+  -H "Content-Type: application/json" -d '{"items": [...]}'
+
+# Create a checkout via ACP
+curl -X POST http://localhost:4000/acp/checkout_sessions \
+  -H "Content-Type: application/json" -d '{"line_items": [...]}'
 ```
 
-You should see your store's profile and capabilities.
+## Protocol Differences
 
-## Guides
+Bazaar automatically handles the differences between UCP and ACP. Your handler code stays the same:
 
-New to Bazaar? Check out these guides:
+| Aspect | UCP | ACP |
+|--------|-----|-----|
+| URL style | `/checkout-sessions` | `/checkout_sessions` |
+| Update method | `PATCH` | `POST` |
+| Cancel method | `DELETE` | `POST /cancel` |
+| Discovery | `/.well-known/ucp` | None |
+| Status: incomplete | `incomplete` | `not_ready_for_payment` |
+| Status: ready | `ready_for_complete` | `ready_for_payment` |
+| Address: street | `street_address` | `line_one` |
+| Address: city | `address_locality` | `city` |
+| Items key | `items` | `line_items` |
 
-- **[Getting Started](guides/getting-started.md)** - Build your first UCP merchant
-- **[Protocols](guides/protocols.md)** - Support both UCP and ACP
-- **[Handlers](guides/handlers.md)** - Implement commerce logic
-- **[Schemas](guides/schemas.md)** - Validate checkout and order data
-- **[Plugs](guides/plugs.md)** - Add validation, idempotency, and headers
-- **[Testing](guides/testing.md)** - Test your implementation
+## Validation
 
-## Core Concepts
+Bazaar bundles schema validation for both protocols:
 
-### Capabilities
+```elixir
+# UCP schemas (via JSV against bundled JSON Schemas)
+Bazaar.Validator.validate(data, :checkout)
+Bazaar.Validator.validate(data, :order)
+Bazaar.Validator.validate(data, :profile)
 
-UCP defines three capabilities your store can support:
+# ACP schemas (via JSV against bundled JSON Schemas with $defs)
+Bazaar.Validator.validate(data, :checkout_session)
+Bazaar.Validator.validate(data, :checkout_create_req)
+Bazaar.Validator.validate(data, :checkout_complete_req)
+Bazaar.Validator.validate(data, :delegate_payment_req)
+Bazaar.Validator.validate(data, :delegate_payment_resp)
+
+# OpenAI product feed (via Ecto embedded schema)
+Bazaar.Validator.validate(data, :openai_product_feed)
+
+# List all available schemas
+Bazaar.Validator.available_schemas()
+# => %{ucp: [:checkout, :order, :profile], acp: [:checkout_session, ...]}
+```
+
+UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-01-23`). ACP schemas track the [open ACP repo](https://github.com/agentic-commerce-protocol/agentic-commerce-protocol) (currently `2026-01-30`).
+
+## Capabilities
 
 | Capability | Description | Callbacks |
 |------------|-------------|-----------|
 | `:checkout` | Shopping cart management | `create_checkout`, `get_checkout`, `update_checkout`, `cancel_checkout` |
 | `:orders` | Order tracking | `get_order`, `cancel_order` |
+| `:fulfillment` | Shipping and pickup | Extends checkout/order with fulfillment options |
 | `:identity` | User identity linking | `link_identity` |
+| `:catalog` | Product discovery | `list_products`, `get_product`, `search_products` |
+| `:discount` | Discount codes | Extends checkout with discount support |
 
-### Schemas
+## Schemas
 
-Bazaar schemas are generated from official UCP JSON Schemas using [Smelter](https://github.com/georgeguimaraes/smelter):
+UCP schemas are generated from official JSON Schemas using [Smelter](https://github.com/georgeguimaraes/smelter):
 
 ```elixir
 # Validate checkout response
@@ -214,15 +255,13 @@ dollars = Bazaar.Checkout.to_major_units(1999)  # => 19.99
 error = Bazaar.Message.error(%{"code" => "out_of_stock", "content" => "Item unavailable"})
 ```
 
-### Regenerating Schemas
-
-If UCP schemas are updated, regenerate with:
+Regenerate UCP schemas if the spec is updated:
 
 ```bash
-mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
+mix bazaar.gen.schemas priv/ucp_schemas/2026-01-23
 ```
 
-### Plugs
+## Plugs
 
 Optional plugs for production use:
 
@@ -234,188 +273,20 @@ pipeline :ucp do
 end
 ```
 
-## Example: Complete Handler
+## Guides
 
-Here's a more complete handler example:
-
-```elixir
-defmodule MyApp.Commerce.Handler do
-  use Bazaar.Handler
-
-  alias MyApp.{Repo, Checkout, Order}
-
-  @impl true
-  def capabilities, do: [:checkout, :orders]
-
-  @impl true
-  def business_profile do
-    %{
-      "name" => "Cool Gadgets Store",
-      "description" => "The best gadgets on the internet",
-      "support_email" => "help@coolgadgets.example"
-    }
-  end
-
-  # Checkout callbacks
-
-  @impl true
-  def create_checkout(params, _conn) do
-    case Bazaar.Schemas.Shopping.CheckoutResp.new(params) do
-      %{valid?: true} = changeset ->
-        data = Ecto.Changeset.apply_changes(changeset)
-        checkout = Repo.insert!(Checkout.from_ucp(data))
-        {:ok, Checkout.to_ucp(checkout)}
-
-      %{valid?: false} = changeset ->
-        {:error, changeset}
-    end
-  end
-
-  @impl true
-  def get_checkout(id, _conn) do
-    case Repo.get(Checkout, id) do
-      nil -> {:error, :not_found}
-      checkout -> {:ok, Checkout.to_ucp(checkout)}
-    end
-  end
-
-  @impl true
-  def update_checkout(id, params, _conn) do
-    case Repo.get(Checkout, id) do
-      nil ->
-        {:error, :not_found}
-
-      checkout ->
-        checkout
-        |> Checkout.changeset(params)
-        |> Repo.update()
-        |> case do
-          {:ok, updated} -> {:ok, Checkout.to_ucp(updated)}
-          {:error, changeset} -> {:error, changeset}
-        end
-    end
-  end
-
-  @impl true
-  def cancel_checkout(id, _conn) do
-    case Repo.get(Checkout, id) do
-      nil -> {:error, :not_found}
-      checkout ->
-        {:ok, _} = Repo.update(Checkout.cancel(checkout))
-        {:ok, %{id: id, status: "cancelled"}}
-    end
-  end
-
-  # Order callbacks
-
-  @impl true
-  def get_order(id, _conn) do
-    case Repo.get(Order, id) do
-      nil -> {:error, :not_found}
-      order -> {:ok, Order.to_ucp(order)}
-    end
-  end
-
-  @impl true
-  def cancel_order(id, _conn) do
-    case Repo.get(Order, id) do
-      nil ->
-        {:error, :not_found}
-
-      %{status: :shipped} ->
-        {:error, :invalid_state}
-
-      order ->
-        {:ok, _} = Repo.update(Order.cancel(order))
-        {:ok, %{id: id, status: "cancelled"}}
-    end
-  end
-
-  # Webhook callback
-
-  @impl true
-  def handle_webhook(%{"event" => "payment.completed", "data" => data}) do
-    # Handle payment completion
-    {:ok, :processed}
-  end
-
-  def handle_webhook(_), do: {:error, :unknown_event}
-end
-```
-
-## ACP (Agentic Commerce Protocol) Support
-
-Bazaar also supports [ACP](https://github.com/agentic-commerce-protocol/acp-spec), the commerce protocol used by OpenAI's Operator and Stripe. You can serve both UCP and ACP clients from the same handler.
-
-### Internal Format: UCP
-
-Bazaar uses UCP as its internal/canonical format. Your handler always works with UCP field names and status values, regardless of which protocol the client uses:
-
-```
-ACP Request → [transform to UCP] → Your Handler → [transform to ACP] → ACP Response
-UCP Request → Your Handler → UCP Response
-```
-
-This means you write your handler once using UCP conventions (`items`, `street_address`, `incomplete`), and Bazaar automatically translates for ACP clients (`line_items`, `line_one`, `not_ready_for_payment`).
-
-### Dual Protocol Setup
-
-Mount both protocols at different paths:
-
-```elixir
-defmodule MyAppWeb.Router do
-  use Phoenix.Router
-  use Bazaar.Phoenix.Router
-
-  scope "/" do
-    pipe_through :api
-
-    # UCP routes (Google agents)
-    bazaar_routes "/", MyApp.UCPHandler
-
-    # ACP routes (OpenAI/Stripe agents)
-    bazaar_routes "/acp", MyApp.UCPHandler, protocol: :acp
-  end
-end
-```
-
-### Protocol Differences
-
-Bazaar automatically handles the differences between UCP and ACP:
-
-| Aspect | UCP | ACP |
-|--------|-----|-----|
-| URL style | `/checkout-sessions` | `/checkout_sessions` |
-| Update method | `PATCH` | `POST` |
-| Cancel method | `DELETE` | `POST /cancel` |
-| Discovery | `/.well-known/ucp` | None |
-| Status: incomplete | `incomplete` | `not_ready_for_payment` |
-| Status: ready | `ready_for_complete` | `ready_for_payment` |
-| Address: street | `street_address` | `line_one` |
-| Address: city | `address_locality` | `city` |
-| Items key | `items` | `line_items` |
-
-Your handler code stays the same: Bazaar transforms requests and responses automatically.
-
-### ACP Routes
-
-When using `protocol: :acp`, these endpoints are created:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/checkout_sessions` | Create checkout |
-| GET | `/checkout_sessions/:id` | Get checkout |
-| POST | `/checkout_sessions/:id` | Update checkout |
-| POST | `/checkout_sessions/:id/complete` | Complete checkout |
-| POST | `/checkout_sessions/:id/cancel` | Cancel checkout |
+- **[Getting Started](guides/getting-started.md)**: Build your first merchant
+- **[Protocols](guides/protocols.md)**: Support both UCP and ACP
+- **[Handlers](guides/handlers.md)**: Implement commerce logic
+- **[Schemas](guides/schemas.md)**: Validate checkout and order data
+- **[Plugs](guides/plugs.md)**: Add validation, idempotency, and headers
+- **[Testing](guides/testing.md)**: Test your implementation
 
 ## Related Protocols
 
-UCP integrates with:
-
-- [Agent2Agent (A2A)](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/) - Agent communication
-- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) - AI model integration
-- [Agent Payments Protocol (AP2)](https://developers.google.com/merchant/ucp) - Secure payments
+- [Agent2Agent (A2A)](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/): Agent communication
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/): AI model integration
+- [Agent Payments Protocol (AP2)](https://developers.google.com/merchant/ucp): Secure payments
 
 ## License
 
