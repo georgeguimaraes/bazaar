@@ -26,7 +26,7 @@ defmodule Bazaar.Webhook.Delivery do
           |> MyApp.WebhookWorker.new()
           |> Oban.insert()
 
-          {:ok, Bazaar.Webhook.build_event(order, event_type)}
+          {:ok, Bazaar.WebhookEvent.build(order, event_type)}
         end
       end
 

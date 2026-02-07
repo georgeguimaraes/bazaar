@@ -107,17 +107,11 @@ defmodule Bazaar.Message do
   This implements oneOf-like behavior by routing to the appropriate
   schema based on the discriminator field.
   """
-  def parse(params) when is_map(params) do
-    type = params["type"] || params[:type]
-
-    case type do
-      t when t in ["error", :error] -> {:ok, error(params)}
-      t when t in ["warning", :warning] -> {:ok, warning(params)}
-      t when t in ["info", :info] -> {:ok, info(params)}
-      nil -> {:error, "type is required"}
-      _ -> {:error, "type must be one of: error, warning, info"}
-    end
-  end
+  def parse(%{"type" => "error"} = params), do: {:ok, error(params)}
+  def parse(%{"type" => "warning"} = params), do: {:ok, warning(params)}
+  def parse(%{"type" => "info"} = params), do: {:ok, info(params)}
+  def parse(%{"type" => _}), do: {:error, "type must be one of: error, warning, info"}
+  def parse(%{} = _params), do: {:error, "type is required"}
 
   @doc """
   Validates a list of messages, routing each to the appropriate schema.

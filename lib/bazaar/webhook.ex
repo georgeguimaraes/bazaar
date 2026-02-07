@@ -80,7 +80,7 @@ defmodule Bazaar.Webhook do
       [:bazaar, :webhook, :send],
       %{event_type: event_type},
       fn ->
-        event = build_event(order, event_type)
+        event = WebhookEvent.build(order, event_type)
         {body, signature} = sign_and_encode(event, webhook_secret)
 
         headers = [
@@ -100,25 +100,6 @@ defmodule Bazaar.Webhook do
         end
       end
     )
-  end
-
-  @doc """
-  Builds a webhook event payload.
-
-  Creates the event structure with auto-generated `event_id` and `created_time`.
-
-  ## Example
-
-      event = Webhook.build_event(order, :order_created)
-      # => %{
-      #   "event_id" => "evt_...",
-      #   "event_type" => "order_created",
-      #   "created_time" => "2026-01-19T...",
-      #   "order" => order
-      # }
-  """
-  def build_event(order, event_type) do
-    WebhookEvent.build(order, event_type)
   end
 
   @doc """

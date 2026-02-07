@@ -62,28 +62,6 @@ defmodule Bazaar.PlatformTest do
     end
   end
 
-  describe "webhook_url/1" do
-    test "extracts webhook_url from profile" do
-      assert Platform.webhook_url(@valid_profile) == "https://platform.example.com/webhooks/ucp"
-    end
-
-    test "returns nil when webhook_url not present" do
-      profile = Map.delete(@valid_profile, "webhook_url")
-      assert Platform.webhook_url(profile) == nil
-    end
-  end
-
-  describe "webhook_secret/1" do
-    test "extracts webhook_secret from profile" do
-      assert Platform.webhook_secret(@valid_profile) == "whsec_test123"
-    end
-
-    test "returns nil when webhook_secret not present" do
-      profile = Map.delete(@valid_profile, "webhook_secret")
-      assert Platform.webhook_secret(profile) == nil
-    end
-  end
-
   describe "discovery_url/1" do
     test "appends well-known path to agent URI" do
       assert Platform.discovery_url("https://example.com") ==

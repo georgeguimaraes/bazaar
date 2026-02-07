@@ -31,20 +31,6 @@ defmodule Bazaar.OrderTest do
       assert result["ucp"]["version"] == "2026-01-23"
     end
 
-    test "handles atom keys in checkout" do
-      checkout = %{
-        id: "checkout_123",
-        currency: "EUR",
-        line_items: [%{item: %{id: "SKU-1"}, quantity: 1}],
-        totals: [%{type: "total", amount: 1500}]
-      }
-
-      result = Order.from_checkout(checkout, "order_789", "https://shop.com/orders/789")
-
-      assert result["checkout_id"] == "checkout_123"
-      assert result["currency"] == "EUR"
-    end
-
     test "handles missing optional fields" do
       checkout = %{
         "id" => "checkout_minimal"

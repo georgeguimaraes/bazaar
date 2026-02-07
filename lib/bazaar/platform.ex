@@ -59,7 +59,7 @@ defmodule Bazaar.Platform do
 
       {:ok, profile} = Platform.discover("https://platform.example.com",
         http_client: &my_http_get/1)
-      webhook_url = Platform.webhook_url(profile)
+      webhook_url = profile["webhook_url"]
   """
   def discover(agent_uri, opts \\ []) do
     http_client = Keyword.fetch!(opts, :http_client)
@@ -119,24 +119,6 @@ defmodule Bazaar.Platform do
             error
         end
     end
-  end
-
-  @doc """
-  Extracts the webhook URL from a platform profile.
-
-  Returns `nil` if the profile doesn't contain a webhook_url.
-  """
-  def webhook_url(profile) when is_map(profile) do
-    profile["webhook_url"]
-  end
-
-  @doc """
-  Extracts the webhook secret from a platform profile.
-
-  Returns `nil` if the profile doesn't contain a webhook_secret.
-  """
-  def webhook_secret(profile) when is_map(profile) do
-    profile["webhook_secret"]
   end
 
   @doc """

@@ -120,17 +120,6 @@ defmodule Bazaar.WebhookTest do
     end
   end
 
-  describe "build_event/2" do
-    test "builds event payload with all required fields" do
-      event = Webhook.build_event(@order, :order_created)
-
-      assert event["event_type"] == "order_created"
-      assert event["order"] == @order
-      assert String.starts_with?(event["event_id"], "evt_")
-      assert event["created_time"] =~ ~r/^\d{4}-\d{2}-\d{2}T/
-    end
-  end
-
   describe "sign_and_encode/2" do
     test "returns JSON body and signature header" do
       event = %{
