@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.2.1](https://github.com/georgeguimaraes/bazaar/compare/v0.2.0...v0.2.1) (2026-02-07)
+
+
+### Features
+
+* add OpenAI product feed schema to validator ([b1eaf75](https://github.com/georgeguimaraes/bazaar/commit/b1eaf7542e567e90b651163cb954ae50129d289c))
+
+
+### Bug Fixes
+
+* normalize Message.parse return type and tighten retry error matching ([845b9d5](https://github.com/georgeguimaraes/bazaar/commit/845b9d50393d9d959ad836e7c6e17a2781a182ff))
+
+
+### Miscellaneous
+
+* exclude mix tasks from hex package ([6a17499](https://github.com/georgeguimaraes/bazaar/commit/6a17499a8ced2ffe1719f46b53f1d9f39b3e31c1))
+
+
+### Code Refactoring
+
+* remove unnecessary wrappers and dual string/atom handling ([3b1653a](https://github.com/georgeguimaraes/bazaar/commit/3b1653ad2298f0fc610beced05c82543bc86190b))
+* remove validate_openai_product_feed/1 convenience function ([9840351](https://github.com/georgeguimaraes/bazaar/commit/984035134780f695fc269998eaa0efa4881c6101))
+* replace JSON Schema with Ecto embedded schema for product feed ([c9b6a4b](https://github.com/georgeguimaraes/bazaar/commit/c9b6a4b6a7efbffb0d68754924b4ddacd899d8a9))
+* version ACP schemas and make return_policy conditionally required ([1031bb4](https://github.com/georgeguimaraes/bazaar/commit/1031bb44105ebe9385c7e302b25e777b2e5334ec))
+
 ## [0.2.0](https://github.com/georgeguimaraes/bazaar/compare/v0.1.1...v0.2.0) (2026-01-26)
 
 
