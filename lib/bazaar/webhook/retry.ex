@@ -174,9 +174,11 @@ defmodule Bazaar.Webhook.Retry do
   def retryable_error?({:http_error, 429, _body}), do: true
   def retryable_error?({:http_error, _status, _body}), do: false
 
-  def retryable_error?(error) when error in [:timeout, :econnrefused, :closed], do: true
-  def retryable_error?({:error, _reason}), do: true
-  def retryable_error?(_error), do: true
+  @network_errors [:timeout, :econnrefused, :closed, :nxdomain, :econnreset, :ehostunreach]
+
+  def retryable_error?(error) when error in @network_errors, do: true
+  def retryable_error?({:error, reason}) when reason in @network_errors, do: true
+  def retryable_error?(_error), do: false
 
   @doc """
   Builds a retry schedule showing attempt numbers and delays.

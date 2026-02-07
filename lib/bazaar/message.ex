@@ -111,9 +111,9 @@ defmodule Bazaar.Message do
     type = params["type"] || params[:type]
 
     case type do
-      t when t in ["error", :error] -> error(params)
-      t when t in ["warning", :warning] -> warning(params)
-      t when t in ["info", :info] -> info(params)
+      t when t in ["error", :error] -> {:ok, error(params)}
+      t when t in ["warning", :warning] -> {:ok, warning(params)}
+      t when t in ["info", :info] -> {:ok, info(params)}
       nil -> {:error, "type is required"}
       _ -> {:error, "type must be one of: error, warning, info"}
     end
@@ -130,10 +130,10 @@ defmodule Bazaar.Message do
       |> Enum.with_index()
       |> Enum.map(fn {msg, idx} ->
         case parse(msg) do
-          %{valid?: true} = changeset ->
+          {:ok, %{valid?: true} = changeset} ->
             {:ok, Ecto.Changeset.apply_changes(changeset)}
 
-          %{valid?: false} = changeset ->
+          {:ok, %{valid?: false} = changeset} ->
             {:error, {idx, Bazaar.Errors.from_changeset(changeset)}}
 
           {:error, reason} ->

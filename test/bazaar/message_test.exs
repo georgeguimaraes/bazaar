@@ -83,37 +83,31 @@ defmodule Bazaar.MessageTest do
 
   describe "parse/1" do
     test "routes to error/1 for error type" do
-      result =
-        Message.parse(%{
-          "type" => "error",
-          "code" => "invalid",
-          "content" => "Invalid",
-          "severity" => "recoverable"
-        })
-
-      assert %Ecto.Changeset{valid?: true} = result
+      assert {:ok, %Ecto.Changeset{valid?: true}} =
+               Message.parse(%{
+                 "type" => "error",
+                 "code" => "invalid",
+                 "content" => "Invalid",
+                 "severity" => "recoverable"
+               })
     end
 
     test "routes to warning/1 for warning type" do
-      result =
-        Message.parse(%{
-          "type" => "warning",
-          "code" => "notice",
-          "content" => "Notice"
-        })
-
-      assert %Ecto.Changeset{valid?: true} = result
+      assert {:ok, %Ecto.Changeset{valid?: true}} =
+               Message.parse(%{
+                 "type" => "warning",
+                 "code" => "notice",
+                 "content" => "Notice"
+               })
     end
 
     test "routes to info/1 for info type" do
-      result =
-        Message.parse(%{
-          "type" => "info",
-          "code" => "tip",
-          "content" => "Tip"
-        })
-
-      assert %Ecto.Changeset{valid?: true} = result
+      assert {:ok, %Ecto.Changeset{valid?: true}} =
+               Message.parse(%{
+                 "type" => "info",
+                 "code" => "tip",
+                 "content" => "Tip"
+               })
     end
 
     test "returns error for missing type" do
