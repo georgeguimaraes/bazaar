@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.2](https://github.com/georgeguimaraes/bazaar/compare/v0.2.1...v0.2.2) (2026-02-07)
+
+
+### Documentation
+
+* rewrite README to give ACP equal coverage ([c62317a](https://github.com/georgeguimaraes/bazaar/commit/c62317aff8f2c6c4ec955f6f6ffce4527c2b95ca))
+
+
+### Code Refactoring
+
+* move UCP schemas under schemas/ucp/ parent directory ([1432c80](https://github.com/georgeguimaraes/bazaar/commit/1432c80338553cbcb296993c8fcba0970f94abde))
+
 ## [0.2.1](https://github.com/georgeguimaraes/bazaar/compare/v0.2.0...v0.2.1) (2026-02-07)
 
 
