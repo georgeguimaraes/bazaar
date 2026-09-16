@@ -79,7 +79,7 @@ Add `bazaar` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:bazaar, "~> 0.1.0"}
+    {:bazaar, "~> 0.2"}
   ]
 end
 ```
