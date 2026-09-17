@@ -68,35 +68,48 @@ end
 
 ## Checkout Callbacks
 
-If you include `:checkout` in capabilities, implement these:
+If you include `:checkout` in capabilities, implement these. The document a checkout answers with has more rules than fields (totals order, discount allocations, fulfillment carry-over between updates, status), so `Bazaar.Checkout` builds it: you keep a small state per checkout and supply the business facts as functions.
+
+```elixir
+defmodule MyApp.CommerceHandler do
+  use Bazaar.Handler
+
+  alias Bazaar.Checkout
+
+  @impl true
+  def create_checkout(params, _conn) do
+    state = Checkout.new(params, stored_addresses: &MyApp.Customers.addresses/1)
+    MyApp.Checkouts.put(state)
+    {:ok, build(state)}
+  end
+
+  @impl true
+  def update_checkout(id, params, _conn) do
+    with {:ok, state} <- MyApp.Checkouts.open(id) do
+      state = Checkout.apply_update(state, params, stored_addresses: &MyApp.Customers.addresses/1)
+      MyApp.Checkouts.put(state)
+      {:ok, build(state)}
+    end
+  end
+
+  defp build(state) do
+    Checkout.build(state,
+      item: &MyApp.Products.item/1,               # product_id -> %{item: %{"title", "price"}, stock: n} | nil
+      fulfillment_options: &MyApp.Shipping.rates/2, # destination, %{subtotal, line_items} -> [option]
+      discount: &MyApp.Promotions.discount/2,     # code, running_total -> %{"code", "title", "amount"} | nil
+      payment_handlers: %{"dev.example.pay" => [%{"id" => "pay", "version" => "2026-08-25"}]},
+      links: [%{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"}],
+      order_url: &("https://mystore.example/orders/" <> &1)
+    )
+  end
+end
+```
+
+`new/2` and `apply_update/3` turn a request into state with the spec's merge rules: only keys present change, fulfillment methods keep their earlier destinations and groups, a method without groups gets one consolidating group, a buyer's stored addresses are injected when a method carries none. `build/2` prices every line from `item` (unknown products and sold-out ones become error messages, a quantity above stock is clamped with a warning), asks `fulfillment_options` once a destination is selected, applies discount codes in order on the running total, and reports `incomplete` until every error is gone and every method has a destination and option, `ready_for_complete` after. The state is a plain map; set `status` to `:canceled` or `:completed` (with `order_id`) yourself and the document follows. [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) is a complete handler on top of it.
 
 ### create_checkout/2
 
 Called when an agent creates a new checkout session.
-
-```elixir
-@impl true
-def create_checkout(params, conn) do
-  # params: Map with checkout data (string keys)
-  # conn: Plug.Conn (useful for auth info, headers)
-
-  # Save to your database, then return full checkout response
-  checkout = Repo.insert!(Checkout.from_params(params))
-
-  {:ok, %{
-    "id" => checkout.id,
-    "status" => "incomplete",
-    "currency" => params["currency"],
-    "line_items" => enrich_line_items(params["line_items"]),
-    "totals" => calculate_totals(params["line_items"]),
-    "links" => [
-      %{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"},
-      %{"type" => "terms_of_service", "url" => "https://mystore.example/terms"}
-    ],
-    "payment" => %{"handlers" => []}
-  }}
-end
-```
 
 **Parameters:**
 - `params` - Map with string keys containing checkout data

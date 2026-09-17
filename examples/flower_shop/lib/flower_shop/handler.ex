@@ -126,11 +126,11 @@ defmodule FlowerShop.Handler do
       Store.put_checkout(state)
       checkout = Checkout.build(state)
 
-      if Checkout.fulfillment_ready?(checkout) do
+      if Bazaar.Checkout.fulfillment_ready?(checkout) do
         authorize_and_place(state, checkout)
       else
         message =
-          Checkout.error(
+          Bazaar.Checkout.error(
             "missing",
             "A fulfillment destination and option must be selected",
             "$.fulfillment"
@@ -150,7 +150,9 @@ defmodule FlowerShop.Handler do
 
       {:error, reason} ->
         {:ok,
-         Checkout.build(state, messages: [Checkout.error("payment_failed", reason, "$.payment")])}
+         Checkout.build(state,
+           messages: [Bazaar.Checkout.error("payment_failed", reason, "$.payment")]
+         )}
     end
   end
 

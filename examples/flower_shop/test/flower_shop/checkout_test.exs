@@ -49,29 +49,6 @@ defmodule FlowerShop.CheckoutTest do
       assert total(doc, "subtotal") == 3000
       assert total(doc, "total") == 3000
     end
-
-    test "drops unknown and sold-out items with an error message" do
-      doc =
-        %{
-          "line_items" => [
-            %{"item" => %{"id" => "pink_wumpus"}},
-            %{"item" => %{"id" => "gardenias"}}
-          ]
-        }
-        |> create()
-        |> Checkout.build()
-
-      assert doc["line_items"] == []
-      assert ["not_found", "out_of_stock"] = Enum.map(doc["messages"], & &1["code"])
-      assert doc["status"] == "ready_for_complete"
-    end
-
-    test "clamps quantity to stock with a warning" do
-      doc = roses(10_001) |> create() |> Checkout.build()
-
-      assert [%{"quantity" => 1000}] = doc["line_items"]
-      assert [%{"type" => "warning", "code" => "quantity_adjusted"}] = doc["messages"]
-    end
   end
 
   describe "discounts" do
@@ -127,22 +104,6 @@ defmodule FlowerShop.CheckoutTest do
       assert [%{"totals" => [%{"amount" => 500}]}, _] = group["options"]
     end
 
-    test "adds the selected option to the total and reports readiness" do
-      doc =
-        roses()
-        |> Map.merge(
-          shipping_to("US", %{
-            "groups" => [%{"id" => "g1", "selected_option_id" => "exp-ship-us"}]
-          })
-        )
-        |> create()
-        |> Checkout.build()
-
-      assert total(doc, "fulfillment") == 1500
-      assert total(doc, "total") == 5000
-      assert Checkout.fulfillment_ready?(doc)
-    end
-
     test "injects a known customer's stored addresses and keeps their ids on resubmission" do
       state = roses() |> Map.put("buyer", %{"email" => "john.doe@example.com"}) |> create()
 
@@ -168,44 +129,6 @@ defmodule FlowerShop.CheckoutTest do
         })
 
       assert [%{destinations: [%{"id" => "addr_1"}]}] = resubmitted.methods
-    end
-  end
-
-  describe "buyer consent" do
-    test "stores purposes and answers a 2026-04-08 platform in its own booleans" do
-      state =
-        roses()
-        |> Map.put("buyer", %{
-          "email" => "c@example.com",
-          "consent" => %{"marketing" => true, "analytics" => false}
-        })
-        |> create()
-
-      assert %{"dev.ucp.consent.marketing" => %{"granted" => true, "source" => "platform"}} =
-               state.buyer["consent"]
-
-      assert Checkout.build(state)["buyer"]["consent"] == %{
-               "marketing" => true,
-               "analytics" => false
-             }
-    end
-
-    test "echoes a purpose map as sent" do
-      purposes = %{
-        "dev.ucp.consent.marketing" => %{
-          "granted" => true,
-          "source" => "platform",
-          "description" => "Promos"
-        }
-      }
-
-      doc =
-        roses()
-        |> Map.put("buyer", %{"email" => "c@example.com", "consent" => purposes})
-        |> create()
-        |> Checkout.build()
-
-      assert doc["buyer"]["consent"] == purposes
     end
   end
 end

@@ -28,7 +28,8 @@ UCP was announced by Google at NRF 2026, co-developed with Shopify, Walmart, Ets
 - **Built-in Plugs**: Request validation, idempotency, and UCP headers
 - **Auto-generated Discovery**: `/.well-known/ucp` endpoint from your handler
 - **Protocol Transformer**: Automatic field/status mapping between UCP and ACP formats
-- **Business Logic Helpers**: Currency conversion, message factories, order creation
+- **Checkout Document Builder**: `Bazaar.Checkout` merges updates with the spec's carry-over rules and builds the document (totals, fulfillment, discounts, status) from your prices, stock and rates
+- **Business Logic Helpers**: Currency conversion, message factories, order creation, catalog filters and pagination
 
 ## How It Works
 
@@ -62,7 +63,7 @@ lib/bazaar/
 ├── protocol/
 │   └── transformer.ex # Request/response translation between protocols
 ├── validator.ex       # Schema validation (UCP via JSV, ACP via JSV/$defs, product feed via Ecto)
-├── checkout.ex        # Business logic: currency helpers
+├── checkout.ex        # Checkout state, update rules and document builder
 ├── order.ex           # Order documents: from a checkout, platform updates, fulfillment events
 ├── message.ex         # Business logic: error/warning/info factories
 ├── fulfillment.ex     # Fulfillment types and default configuration
