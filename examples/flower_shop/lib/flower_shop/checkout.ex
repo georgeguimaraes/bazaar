@@ -9,6 +9,7 @@ defmodule FlowerShop.Checkout do
   trusted from the request.
   """
 
+  alias Bazaar.BuyerConsent
   alias FlowerShop.Catalog
 
   @type state :: map()
@@ -21,6 +22,7 @@ defmodule FlowerShop.Checkout do
       status: :open,
       line_items: [],
       buyer: nil,
+      consent_dialect: nil,
       methods: nil,
       discount_codes: [],
       instruments: [],
@@ -67,7 +69,24 @@ defmodule FlowerShop.Checkout do
   end
 
   defp update_buyer(state, nil), do: state
-  defp update_buyer(state, buyer) when is_map(buyer), do: %{state | buyer: buyer}
+
+  # Consent is stored as the spec's purpose map whichever shape it arrived in;
+  # the dialect is remembered so the response speaks the platform's language.
+  defp update_buyer(state, buyer) when is_map(buyer) do
+    case buyer["consent"] do
+      consent when is_map(consent) ->
+        dialect = if BuyerConsent.legacy?(consent), do: :legacy, else: :purposes
+
+        %{
+          state
+          | buyer: Map.put(buyer, "consent", BuyerConsent.normalize(consent)),
+            consent_dialect: dialect
+        }
+
+      _ ->
+        %{state | buyer: buyer}
+    end
+  end
 
   defp update_methods(state, nil), do: state
 
@@ -240,11 +259,19 @@ defmodule FlowerShop.Checkout do
       "payment" => %{"instruments" => state.instruments},
       "messages" => line_messages ++ Keyword.get(opts, :messages, [])
     }
-    |> put_unless_nil("buyer", state.buyer)
+    |> put_unless_nil("buyer", buyer_doc(state))
     |> put_unless_nil("fulfillment", method_docs && %{"methods" => method_docs})
     |> put_unless_nil("discounts", discounts_doc(state.discount_codes, applied))
     |> put_unless_nil("order", order_ref(state))
   end
+
+  defp buyer_doc(%{buyer: nil}), do: nil
+
+  defp buyer_doc(%{buyer: buyer, consent_dialect: :legacy}) do
+    Map.update!(buyer, "consent", &BuyerConsent.legacy/1)
+  end
+
+  defp buyer_doc(%{buyer: buyer}), do: buyer
 
   defp status(%{status: :canceled}), do: "canceled"
   defp status(%{status: :completed}), do: "completed"

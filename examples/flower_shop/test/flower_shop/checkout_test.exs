@@ -170,4 +170,42 @@ defmodule FlowerShop.CheckoutTest do
       assert [%{destinations: [%{"id" => "addr_1"}]}] = resubmitted.methods
     end
   end
+
+  describe "buyer consent" do
+    test "stores purposes and answers a 2026-04-08 platform in its own booleans" do
+      state =
+        roses()
+        |> Map.put("buyer", %{
+          "email" => "c@example.com",
+          "consent" => %{"marketing" => true, "analytics" => false}
+        })
+        |> create()
+
+      assert %{"dev.ucp.consent.marketing" => %{"granted" => true, "source" => "platform"}} =
+               state.buyer["consent"]
+
+      assert Checkout.build(state)["buyer"]["consent"] == %{
+               "marketing" => true,
+               "analytics" => false
+             }
+    end
+
+    test "echoes a purpose map as sent" do
+      purposes = %{
+        "dev.ucp.consent.marketing" => %{
+          "granted" => true,
+          "source" => "platform",
+          "description" => "Promos"
+        }
+      }
+
+      doc =
+        roses()
+        |> Map.put("buyer", %{"email" => "c@example.com", "consent" => purposes})
+        |> create()
+        |> Checkout.build()
+
+      assert doc["buyer"]["consent"] == purposes
+    end
+  end
 end
