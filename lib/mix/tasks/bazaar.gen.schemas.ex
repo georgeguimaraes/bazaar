@@ -13,6 +13,8 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
     * `--output-dir` - Output directory (default: lib/bazaar/schemas/ucp)
     * `--prefix` - Module prefix (default: Bazaar.Schemas)
+    * `--roots` - Comma-separated globs (relative to the schema directory). Only
+      these files and everything they reference through `$ref` are generated
     * `--dry-run` - Show what would be generated without writing files
 
   ## Examples
@@ -27,7 +29,10 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
       $ mix bazaar.gen.schemas priv/acp_schemas --prefix Bazaar.Schemas.Acp --output-dir lib/bazaar/schemas/acp
 
       # Preview what would be generated
-      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11 --dry-run
+      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 --dry-run
+
+      # Only the capabilities you expose and what they reference
+      $ mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 --roots "*.json,shopping/checkout*.json,shopping/order*.json"
   """
 
   use Mix.Task
@@ -39,7 +44,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
   def run(args) do
     {opts, args, _} =
       OptionParser.parse(args,
-        strict: [output_dir: :string, prefix: :string, dry_run: :boolean],
+        strict: [output_dir: :string, prefix: :string, dry_run: :boolean, roots: :string],
         aliases: [o: :output_dir, p: :prefix, n: :dry_run]
       )
 
@@ -70,6 +75,16 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
       |> Enum.reject(&String.contains?(&1, "node_modules"))
       |> Enum.sort()
 
+    schema_files =
+      case opts[:roots] do
+        nil ->
+          schema_files
+
+        roots ->
+          wanted = closure(schema_dir, String.split(roots, ","))
+          Enum.filter(schema_files, &MapSet.member?(wanted, Path.relative_to(&1, schema_dir)))
+      end
+
     if schema_files == [] do
       Mix.shell().error("No JSON schema files found in #{schema_dir}")
       exit({:shutdown, 1})
@@ -98,6 +113,64 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
 
     if dry_run do
       Mix.shell().info("(dry run - no files written)")
+    end
+  end
+
+  @doc """
+  The files matched by the root globs plus everything they reach through
+  `$ref`, as a set of paths relative to the schema directory.
+  """
+  def closure(schema_dir, root_globs) do
+    roots =
+      root_globs
+      |> Enum.flat_map(&Path.wildcard(Path.join(schema_dir, String.trim(&1))))
+      |> Enum.map(&Path.relative_to(&1, schema_dir))
+
+    walk_refs(MapSet.new(), roots, schema_dir)
+  end
+
+  defp walk_refs(seen, [], _schema_dir), do: seen
+
+  defp walk_refs(seen, [file | rest], schema_dir) do
+    if MapSet.member?(seen, file) or not File.exists?(Path.join(schema_dir, file)) do
+      walk_refs(seen, rest, schema_dir)
+    else
+      referenced =
+        schema_dir
+        |> Path.join(file)
+        |> File.read!()
+        |> JSON.decode!()
+        |> refs()
+        |> Enum.map(&ref_target(&1, file))
+        |> Enum.reject(&is_nil/1)
+
+      walk_refs(MapSet.put(seen, file), referenced ++ rest, schema_dir)
+    end
+  end
+
+  defp refs(%{} = map) do
+    Enum.flat_map(map, fn
+      {"$ref", ref} when is_binary(ref) -> [ref]
+      {_key, value} -> refs(value)
+    end)
+  end
+
+  defp refs(list) when is_list(list), do: Enum.flat_map(list, &refs/1)
+  defp refs(_), do: []
+
+  # Same resolution as the bundled resolver: ucp.dev URLs and the
+  # `../../schemas/` form map to the tree root, the rest is relative to the file.
+  defp ref_target(ref, file) do
+    case ref |> String.split("#", parts: 2) |> hd() do
+      "" ->
+        nil
+
+      path ->
+        if String.contains?(path, "schemas/") do
+          List.last(String.split(path, "schemas/", parts: 2))
+        else
+          path |> Path.expand(Path.join("/", Path.dirname(file))) |> String.trim_leading("/")
+        end
     end
   end
 

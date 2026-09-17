@@ -102,7 +102,7 @@ defmodule Bazaar.WebhookTest do
                ~s[("@method" "@authority" "@path" "content-digest" "content-type" "idempotency-key" "ucp-agent" "webhook-id" "webhook-timestamp")]
 
       request = %{method: "POST", url: call.url, headers: call.headers, body: call.body}
-      assert :ok = HttpSignature.verify(request, Key.from_jwk(Key.public_jwk(key)))
+      assert {:ok, _} = HttpSignature.verify(request, Key.from_jwk(Key.public_jwk(key)))
     end
   end
 end

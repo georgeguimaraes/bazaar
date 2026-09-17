@@ -85,7 +85,7 @@ defmodule Bazaar.Signing.HttpSignatureTest do
         | headers: HttpSignature.sign(request(), key, components: ["webhook-id"])
       }
 
-      assert :ok = HttpSignature.verify(signed, public)
+      assert {:ok, _} = HttpSignature.verify(signed, public)
       assert {:error, :digest_mismatch} = HttpSignature.verify(%{signed | body: "{}"}, public)
 
       tampered_headers = List.keyreplace(signed.headers, "webhook-id", 0, {"webhook-id", "wh_2"})
@@ -95,5 +95,54 @@ defmodule Bazaar.Signing.HttpSignatureTest do
 
       assert {:error, :missing_signature_input} = HttpSignature.verify(request(), public)
     end
+  end
+
+  test "verifies any signature label and covers dictionary members like signature-agent" do
+    key = Key.generate(:p256)
+    public = Key.from_jwk(Key.public_jwk(key))
+
+    request = %{
+      request()
+      | headers:
+          request().headers ++ [{"signature-agent", ~s(sig1="https://p.example/.well-known/ucp")}]
+    }
+
+    headers =
+      HttpSignature.sign(request, key,
+        components: [~s(signature-agent;key="sig1")],
+        created: 1_738_617_600
+      )
+
+    {"signature-input", input} = List.keyfind(headers, "signature-input", 0)
+    assert input =~ ~s("signature-agent";key="sig1")
+
+    relabeled =
+      Enum.map(headers, fn
+        {"signature-input", "sig1=" <> rest} -> {"signature-input", "wba=" <> rest}
+        {"signature", "sig1=" <> rest} -> {"signature", "wba=" <> rest}
+        other -> other
+      end)
+
+    assert {:ok, %{keyid: kid, created: 1_738_617_600, expires: nil}} =
+             HttpSignature.verify(%{request | headers: relabeled}, public)
+
+    assert kid == key.kid
+    assert HttpSignature.keyid(relabeled) == key.kid
+  end
+
+  test "signs and verifies a request without a body, with no digest and no body components" do
+    key = Key.generate(:p256)
+    request = %{method: "GET", url: "https://shop.example/orders/1", headers: [], body: ""}
+    headers = HttpSignature.sign(request, key)
+
+    refute List.keyfind(headers, "content-digest", 0)
+    {"signature-input", input} = List.keyfind(headers, "signature-input", 0)
+    assert input =~ ~s[("@method" "@authority" "@path");created=]
+
+    assert {:ok, _} =
+             HttpSignature.verify(
+               %{request | headers: headers},
+               Key.from_jwk(Key.public_jwk(key))
+             )
   end
 end

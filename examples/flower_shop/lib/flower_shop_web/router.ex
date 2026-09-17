@@ -11,6 +11,7 @@ defmodule FlowerShopWeb.Router do
   pipeline :ucp do
     plug :accepts, ["json"]
     plug Bazaar.Plugs.UCP
+    plug Bazaar.Plugs.VerifySignature, http_client: &FlowerShop.Http.get/1
   end
 
   scope "/" do

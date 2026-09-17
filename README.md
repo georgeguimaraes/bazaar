@@ -267,8 +267,11 @@ When the spec is updated, fetch the new version's schemas (needs `cargo install 
 
 ```bash
 mix run scripts/fetch_ucp_schemas.exs 2026-08-25
-mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25
+mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 \
+  --roots "*.json,shopping/checkout*.json,shopping/order*.json,shopping/fulfillment*.json,shopping/discount*.json,shopping/buyer_consent*.json,transports/*.json"
 ```
+
+`--roots` keeps the generated modules to the capabilities bazaar exposes and what they reference; the validator still uses the full schema tree in `priv/`.
 
 ## Webhooks
 
@@ -298,9 +301,12 @@ Optional plugs for production use:
 pipeline :ucp do
   plug :accepts, ["json"]
   plug Bazaar.Plugs.UCP              # UCPHeaders (version negotiation) then Idempotency (replay)
+  plug Bazaar.Plugs.VerifySignature, http_client: &MyApp.Http.get/1   # RFC 9421 request signatures, when present
   plug Bazaar.Plugs.ValidateRequest  # Validate request body
 end
 ```
+
+`VerifySignature` checks signed requests against the keys in the platform's profile and lets unsigned ones through unless `required: true`; it needs the raw body, so configure `Plug.Parsers` with `body_reader: {Bazaar.Plugs.RawBody, :read_body, []}`.
 
 `Bazaar.Plugs.UCP` composes `Bazaar.Plugs.UCPHeaders` and `Bazaar.Plugs.Idempotency`; use them individually if you need something in between. Idempotency needs a store: `Bazaar.Idempotency.ETS` in your supervision tree for development and a single node, or `Bazaar.Idempotency.Cachex` on a [Cachex](https://hexdocs.pm/cachex) cache for production and any multi-node deployment. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
 

@@ -46,9 +46,14 @@ defmodule Bazaar.DiscoveryProfile do
       "merchant" => build_merchant(business, base_url)
     }
 
+    # The schema puts the JWK set at the profile root; the reference platform
+    # verifier reads it under `ucp`, so it is published in both places.
     case Map.get(business, "keys") do
-      keys when is_list(keys) and keys != [] -> Map.put(profile, "keys", keys)
-      _ -> profile
+      keys when is_list(keys) and keys != [] ->
+        profile |> Map.put("keys", keys) |> put_in(["ucp", "keys"], keys)
+
+      _ ->
+        profile
     end
   end
 

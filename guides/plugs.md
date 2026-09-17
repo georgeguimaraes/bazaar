@@ -7,6 +7,7 @@ Bazaar provides plugs for UCP implementations:
 | `UCP` | `UCPHeaders` followed by `Idempotency`, one plug for the whole pipeline |
 | `UCPHeaders` | Read the UCP headers and negotiate the protocol version |
 | `Idempotency` | Replay responses for repeated `Idempotency-Key` requests |
+| `VerifySignature` | Verify RFC 9421 signatures on requests from platforms |
 | `ValidateRequest` | Validate request bodies against the generated schemas |
 | `ValidateResponse` | Validate response bodies against the generated schemas |
 
@@ -117,12 +118,36 @@ Any other backend implements the four callbacks of `Bazaar.Idempotency.Store`: `
 
 Only 2xx and 4xx responses are recorded; a 5xx releases the key so the platform's retry runs the action again. A reservation left behind by a request that crashed before responding is taken over after `:reservation_ttl` (30 seconds by default).
 
+## VerifySignature
+
+Platforms may sign their requests with RFC 9421 HTTP message signatures and publish their public keys as a JWK set in their profile. `Bazaar.Plugs.VerifySignature` fetches the profile named in `UCP-Agent`, picks the key the signature's `keyid` names, and verifies the signature and the `Content-Digest` against the raw body. Unsigned requests pass unless `required: true`, since the spec leaves inbound verification to the business and the conformance suite sends none.
+
+It needs the raw body bytes, so install the body reader on `Plug.Parsers`:
+
+```elixir
+# endpoint.ex
+plug Plug.Parsers,
+  parsers: [:json],
+  json_decoder: Jason,
+  body_reader: {Bazaar.Plugs.RawBody, :read_body, []}
+
+# router.ex
+plug Bazaar.Plugs.VerifySignature,
+  http_client: &MyApp.Http.get/1,      # the 1-arity GET Bazaar.Platform uses
+  cache: MyApp.ProfileCache.map(),     # optional, fetch each platform's keys once
+  required: false,                     # 401 for unsigned requests when true
+  max_age: 300                         # seconds a signature's created may be in the past
+```
+
+A verified request carries `conn.assigns.ucp_signature` with the `keyid` and `created`. Failures answer 401 with an error document: `invalid_signature`, `signer_unknown` or `signature_required`.
+
 ## Plug Order
 
 ```elixir
 pipeline :ucp do
-  plug Bazaar.Plugs.UCPHeaders    # headers and version first, so rejections carry a request id
-  plug Bazaar.Plugs.Idempotency   # replay before validation and before the action
+  plug Bazaar.Plugs.UCPHeaders       # headers and version first, so rejections carry a request id
+  plug Bazaar.Plugs.Idempotency      # replay before validation and before the action
+  plug Bazaar.Plugs.VerifySignature  # needs the profile URL from UCPHeaders
   plug Bazaar.Plugs.ValidateRequest
 end
 ```

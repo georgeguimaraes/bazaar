@@ -4,7 +4,7 @@ A small UCP merchant built on Bazaar, and the server the official [UCP conforman
 
 It sells the suite's flower shop catalog (six products, three discount codes, free shipping on roses or orders over $100, US and international express rates, a couple of known customers with stored addresses) from memory. No database.
 
-`FlowerShop.Handler` implements `Bazaar.Handler` and `bazaar_routes` mounts discovery, checkouts and orders for it. Bazaar's plugs handle version negotiation and idempotent replay, `Bazaar.Platform` finds the platform's webhook URL and `Bazaar.Webhook` delivers signed order events with a P-256 key generated at boot and published in the discovery profile. The app adds two routes the suite drives that aren't UCP: the simulate-shipping hook and `/healthz`.
+`FlowerShop.Handler` implements `Bazaar.Handler` and `bazaar_routes` mounts discovery, checkouts and orders for it. Bazaar's plugs handle version negotiation, idempotent replay and signature verification for platforms that sign, `Bazaar.Platform` finds the platform's webhook URL and `Bazaar.Webhook` delivers signed order events with a P-256 key generated at boot and published in the discovery profile. The app adds two routes the suite drives that aren't UCP: the simulate-shipping hook and `/healthz`.
 
 ## Run it
 

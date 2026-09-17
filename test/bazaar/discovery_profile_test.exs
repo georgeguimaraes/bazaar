@@ -198,6 +198,7 @@ defmodule Bazaar.DiscoveryProfileTest do
       profile = DiscoveryProfile.from_handler(EverythingHandler)
 
       assert [%{"kid" => "key-1", "kty" => "EC"}] = profile["keys"]
+      assert profile["ucp"]["keys"] == profile["keys"]
     end
 
     test "validates against the UCP business profile schema" do

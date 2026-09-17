@@ -29,6 +29,9 @@ defmodule Bazaar.Errors do
       {"Idempotency-Key was already used with a different request", "unrecoverable"},
     idempotency_in_progress:
       {"A request with this Idempotency-Key is still being processed", "recoverable"},
+    signature_required: {"This endpoint requires a signed request", "unrecoverable"},
+    invalid_signature: {"The request signature did not verify", "unrecoverable"},
+    signer_unknown: {"No usable signing key was found in the signer's profile", "unrecoverable"},
     unauthorized: {"Authentication required", "unrecoverable"},
     forbidden: {"Access denied", "unrecoverable"},
     already_cancelled: {"Resource is already cancelled", "unrecoverable"},
@@ -133,7 +136,16 @@ defmodule Bazaar.Errors do
   end
 
   defp acp_type(%Ecto.Changeset{}), do: "invalid_request"
-  defp acp_type(reason) when reason in [:not_found, :invalid_state], do: "invalid_request"
+
+  defp acp_type(reason)
+       when reason in [
+              :not_found,
+              :invalid_state,
+              :signature_required,
+              :invalid_signature,
+              :signer_unknown
+            ],
+       do: "invalid_request"
 
   defp acp_type(reason) when reason in [:idempotency_conflict, :idempotency_in_progress],
     do: "request_not_idempotent"

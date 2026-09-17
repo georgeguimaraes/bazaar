@@ -30,8 +30,11 @@ When a new UCP spec version is released, fetch its schemas and regenerate:
 
 ```bash
 mix run scripts/fetch_ucp_schemas.exs 2026-08-25
-mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25
+mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 \
+  --roots "*.json,shopping/checkout*.json,shopping/order*.json,shopping/fulfillment*.json,shopping/discount*.json,shopping/buyer_consent*.json,transports/*.json"
 ```
+
+`--roots` limits generation to the matching files plus everything they reach through `$ref`, so the Elixir modules cover the capabilities bazaar exposes rather than the whole spec. Leave it out to generate every schema.
 
 The fetch script clones the spec repo at that tag and rebuilds the resolved schema tree under `priv/ucp_schemas/<version>/`, replacing that directory if it exists. It writes one `_resp.json` plus `.create_req.json`, `.update_req.json` and `.complete_req.json` variant per annotated schema, produced with the official [`ucp-schema`](https://github.com/Universal-Commerce-Protocol/ucp-schema) CLI (`cargo install ucp-schema`). The generator then overwrites all files in `lib/bazaar/schemas/` with fresh generated code.
 
