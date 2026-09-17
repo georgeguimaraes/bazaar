@@ -136,6 +136,10 @@ defmodule Bazaar.DiscoveryProfile do
     ]
   end
 
+  defp capability_entries(:cart, _handler) do
+    [{"dev.ucp.shopping.cart", capability("shopping/cart", "shopping/cart")}]
+  end
+
   defp capability_entries(:catalog, _handler) do
     [
       {"dev.ucp.shopping.catalog.search",

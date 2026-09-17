@@ -46,6 +46,14 @@ defmodule Bazaar.Handler do
   - `get_order/2` - Retrieve an order
   - `cancel_order/2` - Cancel an order
 
+  ### Cart Capability
+  - `create_cart/2`, `get_cart/2`, `update_cart/3`, `cancel_cart/2` - Carts
+    before checkout, built with `Bazaar.Cart`. With this capability a
+    platform may create a checkout from a cart: `create_checkout/2` then
+    receives `cart_id`, must build the checkout from the cart's line items,
+    buyer and context (`Bazaar.Checkout.from_cart/3`) and must answer with
+    the existing checkout when one was already created for that cart.
+
   ### Catalog Capability
   - `search_products/2` - Search by `query`, `filters` and `pagination`
   - `lookup_products/2` - Resolve a list of product or variant `ids`
@@ -69,7 +77,14 @@ defmodule Bazaar.Handler do
   @type params :: map()
   @type id :: String.t()
   @type capability ::
-          :checkout | :orders | :identity | :fulfillment | :discount | :buyer_consent | :catalog
+          :checkout
+          | :orders
+          | :identity
+          | :fulfillment
+          | :discount
+          | :buyer_consent
+          | :catalog
+          | :cart
 
   # Discovery
   @callback capabilities() :: [capability()]
@@ -96,6 +111,16 @@ defmodule Bazaar.Handler do
   @callback update_order(id(), params(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
   @callback cancel_order(id(), conn()) ::
+              {:ok, map()} | {:error, :not_found | term()}
+
+  # Cart capability
+  @callback create_cart(params(), conn()) ::
+              {:ok, map()} | {:error, term()}
+  @callback get_cart(id(), conn()) ::
+              {:ok, map()} | {:error, :not_found | term()}
+  @callback update_cart(id(), params(), conn()) ::
+              {:ok, map()} | {:error, :not_found | term()}
+  @callback cancel_cart(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
 
   # Catalog capability
@@ -127,6 +152,11 @@ defmodule Bazaar.Handler do
     get_order: 2,
     update_order: 3,
     cancel_order: 2,
+    # Cart
+    create_cart: 2,
+    get_cart: 2,
+    update_cart: 3,
+    cancel_cart: 2,
     # Catalog
     search_products: 2,
     lookup_products: 2,

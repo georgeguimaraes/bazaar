@@ -45,9 +45,11 @@ defmodule FlowerShop.Checkout do
     )
   end
 
-  defp stored_addresses(buyer), do: Catalog.customer_addresses(buyer && buyer["email"])
+  @doc "A known customer's stored addresses, by email."
+  def stored_addresses(buyer), do: Catalog.customer_addresses(buyer && buyer["email"])
 
-  defp item(product_id) do
+  @doc "A catalog product as a checkout item with its stock, `nil` when unknown."
+  def item(product_id) do
     case Catalog.product(product_id) do
       nil ->
         nil
@@ -82,7 +84,8 @@ defmodule FlowerShop.Checkout do
 
   defp shipping_options(_destination, _context), do: nil
 
-  defp discount(code, running) do
+  @doc "What a discount code is worth on a running total, `nil` for an unknown code."
+  def discount(code, running) do
     case Catalog.discount(code) do
       nil ->
         nil

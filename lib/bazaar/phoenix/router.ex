@@ -54,6 +54,10 @@ defmodule Bazaar.Phoenix.Router do
   | GET | `/orders/:id` | Get order |
   | PUT | `/orders/:id` | Update order (with `order_updates: true`) |
   | POST | `/orders/:id/actions/cancel` | Cancel order |
+  | POST | `/carts` | Create cart |
+  | GET | `/carts/:id` | Get cart |
+  | PUT | `/carts/:id` | Update cart |
+  | POST | `/carts/:id/cancel` | Cancel cart |
   | POST | `/catalog/search` | Search products |
   | POST | `/catalog/lookup` | Look up products by id |
   | POST | `/catalog/product` | Get one product |
@@ -197,6 +201,7 @@ defmodule Bazaar.Phoenix.Router do
       if unquote(protocol) == :ucp do
         Bazaar.Phoenix.Router.mount_orders(unquote(assigns), unquote(capabilities), unquote(opts))
         Bazaar.Phoenix.Router.mount_identity(unquote(assigns), unquote(capabilities))
+        Bazaar.Phoenix.Router.mount_cart(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_catalog(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_webhooks(unquote(assigns), unquote(opts))
       end
@@ -225,6 +230,21 @@ defmodule Bazaar.Phoenix.Router do
     quote do
       if :identity in unquote(capabilities) do
         post("/identity/link", Bazaar.Phoenix.Controller, :link_identity,
+          assigns: unquote(assigns)
+        )
+      end
+    end
+  end
+
+  @doc false
+  defmacro mount_cart(assigns, capabilities) do
+    quote do
+      if :cart in unquote(capabilities) do
+        post("/carts", Bazaar.Phoenix.Controller, :create_cart, assigns: unquote(assigns))
+        get("/carts/:id", Bazaar.Phoenix.Controller, :get_cart, assigns: unquote(assigns))
+        put("/carts/:id", Bazaar.Phoenix.Controller, :update_cart, assigns: unquote(assigns))
+
+        post("/carts/:id/cancel", Bazaar.Phoenix.Controller, :cancel_cart,
           assigns: unquote(assigns)
         )
       end

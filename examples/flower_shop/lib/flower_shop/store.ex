@@ -1,14 +1,36 @@
 defmodule FlowerShop.Store do
   @moduledoc """
-  In-memory state: checkouts, orders and idempotency records. An Agent is all a
-  demo merchant needs, and it keeps the example free of a database.
+  In-memory state: carts, checkouts, orders and idempotency records. An Agent
+  is all a demo merchant needs, and it keeps the example free of a database.
   """
 
   use Agent
 
   def start_link(_opts) do
-    Agent.start_link(fn -> %{checkouts: %{}, orders: %{}, idempotency: %{}} end, name: __MODULE__)
+    Agent.start_link(
+      fn ->
+        %{carts: %{}, checkout_for_cart: %{}, checkouts: %{}, orders: %{}, idempotency: %{}}
+      end,
+      name: __MODULE__
+    )
   end
+
+  def get_cart(id), do: Agent.get(__MODULE__, &Map.get(&1.carts, id))
+
+  def put_cart(%{id: id} = cart) do
+    Agent.update(__MODULE__, &put_in(&1, [:carts, id], cart))
+    cart
+  end
+
+  def delete_cart(id),
+    do: Agent.update(__MODULE__, &update_in(&1.carts, fn carts -> Map.delete(carts, id) end))
+
+  # The checkout a cart was converted into, so a second conversion answers the same one.
+  def get_checkout_for_cart(cart_id),
+    do: Agent.get(__MODULE__, &Map.get(&1.checkout_for_cart, cart_id))
+
+  def put_checkout_for_cart(cart_id, checkout_id),
+    do: Agent.update(__MODULE__, &put_in(&1, [:checkout_for_cart, cart_id], checkout_id))
 
   def get_checkout(id), do: Agent.get(__MODULE__, &Map.get(&1.checkouts, id))
 

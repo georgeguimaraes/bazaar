@@ -342,6 +342,47 @@ defmodule Bazaar.Phoenix.Controller do
     end
   end
 
+  # Cart (UCP only)
+
+  def create_cart(conn, params) do
+    cart(conn, :create, fn handler -> handler.create_cart(params, conn) end, :created)
+  end
+
+  def get_cart(conn, %{"id" => id}) do
+    cart(conn, :get, fn handler -> handler.get_cart(id, conn) end)
+  end
+
+  def update_cart(conn, %{"id" => id} = params) do
+    cart(conn, :update, fn handler -> handler.update_cart(id, Map.delete(params, "id"), conn) end)
+  end
+
+  def cancel_cart(conn, %{"id" => id}) do
+    cart(conn, :cancel, fn handler -> handler.cancel_cart(id, conn) end)
+  end
+
+  defp cart(conn, operation, fun, status \\ :ok) do
+    handler = conn.assigns.bazaar_handler
+
+    result =
+      Telemetry.span_with_metadata([:bazaar, :cart, operation], %{}, fn ->
+        case fun.(handler) do
+          {:ok, cart} = result -> {result, %{cart_id: cart["id"]}}
+          error -> {error, %{}}
+        end
+      end)
+
+    case result do
+      {:ok, cart} ->
+        conn |> put_status(status) |> json(cart)
+
+      {:error, :not_found} ->
+        conn |> put_status(:not_found) |> json(Bazaar.Errors.response(:not_found))
+
+      {:error, reason} ->
+        conn |> put_status(:unprocessable_entity) |> json(Bazaar.Errors.response(reason))
+    end
+  end
+
   # Catalog (UCP only: the binding is three POSTs, every one answering 200)
 
   def search_products(conn, params) do

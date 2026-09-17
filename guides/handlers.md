@@ -45,7 +45,8 @@ def capabilities, do: [:checkout, :orders, :identity]
 ```
 
 Available capabilities:
-- `:checkout` - Shopping cart management
+- `:checkout` - Checkout sessions
+- `:cart` - Carts before checkout
 - `:orders` - Order tracking and management
 - `:identity` - User identity linking (OAuth)
 
@@ -167,6 +168,56 @@ def cancel_checkout(id, conn) do
     checkout ->
       {:ok, _} = Repo.update(Checkout.cancel(checkout))
       {:ok, %{"id" => id, "status" => "canceled"}}
+  end
+end
+```
+
+## Cart Callbacks
+
+If you include `:cart` in capabilities, `bazaar_routes` mounts `POST /carts`, `GET /carts/:id`, `PUT /carts/:id` and `POST /carts/:id/cancel`. A cart is a checkout without payment, fulfillment or status: estimated pricing while the buyer is still deciding. `Bazaar.Cart` reuses the checkout state and builder, so the callbacks are the checkout ones in miniature.
+
+```elixir
+@impl true
+def create_cart(params, _conn) do
+  state = Bazaar.Cart.new(params)
+  MyApp.Carts.put(state)
+  {:ok, build_cart(state)}
+end
+
+@impl true
+def update_cart(id, params, _conn) do
+  case MyApp.Carts.get(id) do
+    nil -> {:error, :not_found}
+    state -> {:ok, state |> Bazaar.Cart.apply_update(params) |> MyApp.Carts.put() |> build_cart()}
+  end
+end
+
+@impl true
+def cancel_cart(id, _conn) do
+  case MyApp.Carts.get(id) do
+    nil -> {:error, :not_found}
+    state -> MyApp.Carts.delete(id); {:ok, build_cart(state)}
+  end
+end
+
+defp build_cart(state) do
+  Bazaar.Cart.build(state, item: &MyApp.Products.item/1, continue_url: "https://mystore.example/carts/" <> state.id)
+end
+```
+
+With the cart capability advertised, a platform converts a cart by sending `cart_id` on checkout create. The spec has the business use the cart's line items, buyer and context and ignore those fields in the payload, and answer a repeat conversion with the checkout it already created. `Bazaar.Checkout.from_cart/3` does the first part; remembering which checkout a cart became is your storage:
+
+```elixir
+@impl true
+def create_checkout(%{"cart_id" => cart_id} = params, conn) do
+  case {MyApp.Carts.checkout_for(cart_id), MyApp.Carts.get(cart_id)} do
+    {checkout_id, _} when is_binary(checkout_id) -> get_checkout(checkout_id, conn)
+    {nil, nil} -> {:error, :not_found}
+    {nil, cart} ->
+      state = Bazaar.Checkout.from_cart(cart, params, stored_addresses: &MyApp.Customers.addresses/1)
+      MyApp.Checkouts.put(state)
+      MyApp.Carts.converted(cart_id, state.id)
+      {:ok, build(state)}
   end
 end
 ```

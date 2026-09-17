@@ -162,6 +162,10 @@ UCP endpoints:
 | POST | `/checkout-sessions/:id/cancel` | Cancel checkout |
 | GET | `/orders/:id` | Get order |
 | POST | `/orders/:id/actions/cancel` | Cancel order |
+| POST | `/carts` | Create cart (with `:cart`) |
+| GET | `/carts/:id` | Get cart (with `:cart`) |
+| PUT | `/carts/:id` | Update cart (with `:cart`) |
+| POST | `/carts/:id/cancel` | Cancel cart (with `:cart`) |
 | POST | `/catalog/search` | Search products (with `:catalog`) |
 | POST | `/catalog/lookup` | Look up products by id (with `:catalog`) |
 | POST | `/catalog/product` | Get one product (with `:catalog`) |
@@ -217,6 +221,7 @@ Bazaar bundles schema validation for both protocols:
 ```elixir
 # UCP schemas (via JSV against bundled JSON Schemas)
 Bazaar.Validator.validate(data, :checkout)
+Bazaar.Validator.validate(data, :cart)
 Bazaar.Validator.validate(data, :order)
 Bazaar.Validator.validate(data, :profile)
 Bazaar.Validator.validate(data, :catalog_search_response)
@@ -244,7 +249,8 @@ UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-08-25`). ACP 
 
 | Capability | Description | Callbacks |
 |------------|-------------|-----------|
-| `:checkout` | Shopping cart management | `create_checkout`, `get_checkout`, `update_checkout`, `cancel_checkout` |
+| `:checkout` | Checkout sessions | `create_checkout`, `get_checkout`, `update_checkout`, `cancel_checkout` |
+| `:cart` | Carts before checkout, convertible with `cart_id` | `create_cart`, `get_cart`, `update_cart`, `cancel_cart` (see `Bazaar.Cart`) |
 | `:orders` | Order tracking | `get_order`, `cancel_order` |
 | `:fulfillment` | Shipping and pickup | Extends checkout/order with fulfillment options |
 | `:identity` | User identity linking | `link_identity` |

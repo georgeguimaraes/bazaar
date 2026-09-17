@@ -25,6 +25,7 @@ defmodule Bazaar.Checkout do
     * `buyer`: as sent, consent normalized to the spec's purpose map
       (`Bazaar.BuyerConsent`); `consent_dialect` remembers which shape the
       platform spoke so the response answers in kind
+    * `context`: the platform's localization context, as sent
     * `methods`: fulfillment methods with their destinations and groups, or
       `nil` before the platform sent any
     * `discount_codes`, `instruments`
@@ -81,6 +82,7 @@ defmodule Bazaar.Checkout do
       line_items: [],
       buyer: nil,
       consent_dialect: nil,
+      context: nil,
       methods: nil,
       discount_codes: [],
       instruments: [],
@@ -102,6 +104,7 @@ defmodule Bazaar.Checkout do
     state
     |> update_line_items(params["line_items"])
     |> update_buyer(params["buyer"])
+    |> update_context(params["context"])
     |> update_methods(get_in(params, ["fulfillment", "methods"]), opts)
     |> update_discounts(params["discounts"])
     |> update_instruments(get_in(params, ["payment", "instruments"]))
@@ -122,6 +125,26 @@ defmodule Bazaar.Checkout do
       end)
 
     %{state | line_items: line_items}
+  end
+
+  defp update_context(state, nil), do: state
+  defp update_context(state, context) when is_map(context), do: %{state | context: context}
+
+  @cart_fields ~w(line_items buyer context)
+
+  @doc """
+  The state for a checkout created from a cart (`cart_id` on create). The
+  spec has the business use the cart's line items, buyer and context and
+  ignore those fields in the checkout payload; everything else in the payload
+  (fulfillment, discounts, payment) applies as on any create.
+  """
+  def from_cart(cart, params, opts \\ []) do
+    # The cart's contents go in first so the payload's fulfillment resolves
+    # against the cart's line items and the buyer's stored addresses.
+    %{"id" => params["id"], "currency" => params["currency"] || cart.currency}
+    |> new()
+    |> Map.merge(Map.take(cart, [:line_items, :buyer, :consent_dialect, :context]))
+    |> apply_update(Map.drop(params, @cart_fields), opts)
   end
 
   defp update_buyer(state, nil), do: state
@@ -347,6 +370,7 @@ defmodule Bazaar.Checkout do
       "messages" => messages
     }
     |> put_unless_nil("buyer", buyer_doc(state))
+    |> put_unless_nil("context", state.context)
     |> put_unless_nil("fulfillment", method_docs && %{"methods" => method_docs})
     |> put_unless_nil("discounts", discounts_doc(state.discount_codes, applied))
     |> put_unless_nil("order", order_ref(state, Keyword.get(opts, :order_url)))

@@ -52,7 +52,8 @@ if Code.ensure_loaded?(JSV) do
       catalog_product_response: {"shopping/catalog_lookup_resp.json", "get_product_response"}
     }
 
-    @ucp_schemas [:checkout, :order, :profile, :error_response] ++ Map.keys(@ucp_catalog_defs)
+    @ucp_schemas [:checkout, :cart, :order, :profile, :error_response] ++
+                   Map.keys(@ucp_catalog_defs)
     @acp_bundle_schemas Map.keys(@acp_bundle_defs)
 
     # Convenience functions
@@ -84,6 +85,7 @@ if Code.ensure_loaded?(JSV) do
     ## UCP schemas
 
     - `:checkout` - Checkout session response
+    - `:cart` - Cart response
     - `:order` - Order response
     - `:profile` - Discovery profile
     - `:error_response` - Error document
@@ -191,6 +193,7 @@ if Code.ensure_loaded?(JSV) do
     defp ucp_schema_path(:checkout),
       do: Path.join([@ucp_schemas_dir, "shopping", "checkout_resp.json"])
 
+    defp ucp_schema_path(:cart), do: Path.join([@ucp_schemas_dir, "shopping", "cart_resp.json"])
     defp ucp_schema_path(:order), do: Path.join([@ucp_schemas_dir, "shopping", "order_resp.json"])
     defp ucp_schema_path(:profile), do: Path.join(@ucp_schemas_dir, "profile.json")
 

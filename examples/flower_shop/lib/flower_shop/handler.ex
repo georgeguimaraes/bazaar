@@ -11,10 +11,11 @@ defmodule FlowerShop.Handler do
 
   alias Bazaar.Signing.Key
   alias Bazaar.{Order, Platform, Webhook}
-  alias FlowerShop.{Catalog, Checkout, Orders, Payments, Store}
+  alias FlowerShop.{Cart, Catalog, Checkout, Orders, Payments, Store}
 
   @impl true
-  def capabilities, do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent, :catalog]
+  def capabilities,
+    do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent, :catalog, :cart]
 
   @impl true
   def business_profile do
@@ -80,7 +81,68 @@ defmodule FlowerShop.Handler do
     end
   end
 
+  # Carts
+
   @impl true
+  def create_cart(params, _conn) do
+    state = Cart.new(params, base_url: base_url())
+    Store.put_cart(state)
+    {:ok, Cart.build(state)}
+  end
+
+  @impl true
+  def get_cart(id, _conn) do
+    case Store.get_cart(id) do
+      nil -> {:error, :not_found}
+      state -> {:ok, Cart.build(state)}
+    end
+  end
+
+  @impl true
+  def update_cart(id, params, _conn) do
+    case Store.get_cart(id) do
+      nil -> {:error, :not_found}
+      state -> {:ok, state |> Cart.apply_update(params) |> Store.put_cart() |> Cart.build()}
+    end
+  end
+
+  @impl true
+  def cancel_cart(id, _conn) do
+    case Store.get_cart(id) do
+      nil ->
+        {:error, :not_found}
+
+      state ->
+        Store.delete_cart(id)
+        {:ok, Cart.build(state)}
+    end
+  end
+
+  # Checkouts
+
+  # A checkout from a cart: the cart's contents win over the payload, and a
+  # cart converts once, so a repeat answers the checkout it already has.
+  @impl true
+  def create_checkout(%{"cart_id" => cart_id} = params, conn) do
+    case {Store.get_checkout_for_cart(cart_id), Store.get_cart(cart_id)} do
+      {checkout_id, _cart} when is_binary(checkout_id) ->
+        get_checkout(checkout_id, conn)
+
+      {nil, nil} ->
+        {:error, :not_found}
+
+      {nil, cart} ->
+        state =
+          cart
+          |> Bazaar.Checkout.from_cart(params, stored_addresses: &Checkout.stored_addresses/1)
+          |> Map.merge(%{profile_url: profile_url(conn), base_url: base_url()})
+
+        Store.put_checkout(state)
+        Store.put_checkout_for_cart(cart_id, state.id)
+        {:ok, Checkout.build(state)}
+    end
+  end
+
   def create_checkout(params, conn) do
     state = Checkout.new(params, base_url: base_url(), profile_url: profile_url(conn))
     Store.put_checkout(state)
