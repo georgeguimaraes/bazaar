@@ -161,6 +161,9 @@ UCP endpoints:
 | POST | `/checkout-sessions/:id/cancel` | Cancel checkout |
 | GET | `/orders/:id` | Get order |
 | POST | `/orders/:id/actions/cancel` | Cancel order |
+| POST | `/catalog/search` | Search products (with `:catalog`) |
+| POST | `/catalog/lookup` | Look up products by id (with `:catalog`) |
+| POST | `/catalog/product` | Get one product (with `:catalog`) |
 | POST | `/webhooks/ucp` | Receive webhooks |
 
 ACP endpoints:
@@ -215,6 +218,9 @@ Bazaar bundles schema validation for both protocols:
 Bazaar.Validator.validate(data, :checkout)
 Bazaar.Validator.validate(data, :order)
 Bazaar.Validator.validate(data, :profile)
+Bazaar.Validator.validate(data, :catalog_search_response)
+Bazaar.Validator.validate(data, :catalog_lookup_response)
+Bazaar.Validator.validate(data, :catalog_product_response)
 
 # ACP schemas (via JSV against bundled JSON Schemas with $defs)
 Bazaar.Validator.validate(data, :checkout_session)
@@ -228,7 +234,7 @@ Bazaar.Validator.validate(data, :openai_product_feed)
 
 # List all available schemas
 Bazaar.Validator.available_schemas()
-# => %{ucp: [:checkout, :order, :profile], acp: [:checkout_session, ...]}
+# => %{ucp: [:checkout, :order, :profile, :error_response, :catalog_search_response, ...], acp: [...]}
 ```
 
 UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-08-25`). ACP schemas track the [open ACP repo](https://github.com/agentic-commerce-protocol/agentic-commerce-protocol) (currently `2026-01-30`).
@@ -241,7 +247,7 @@ UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-08-25`). ACP 
 | `:orders` | Order tracking | `get_order`, `cancel_order` |
 | `:fulfillment` | Shipping and pickup | Extends checkout/order with fulfillment options |
 | `:identity` | User identity linking | `link_identity` |
-| `:catalog` | Product discovery | `list_products`, `get_product`, `search_products` |
+| `:catalog` | Product discovery | `search_products`, `lookup_products`, `get_product` (see `Bazaar.Catalog` for filters, pagination and option availability) |
 | `:discount` | Discount codes | Extends checkout with discount support |
 
 ## Schemas

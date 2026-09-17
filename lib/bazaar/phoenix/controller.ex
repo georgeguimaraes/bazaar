@@ -342,95 +342,58 @@ defmodule Bazaar.Phoenix.Controller do
     end
   end
 
-  # Catalog
-
-  def list_products(conn, params) do
-    handler = conn.assigns.bazaar_handler
-    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
-    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
-
-    result =
-      Telemetry.span_with_metadata([:bazaar, :catalog, :list], %{}, fn ->
-        case handler.list_products(transformed_params, conn) do
-          {:ok, result} ->
-            {{:ok, result}, %{count: length(result["products"] || [])}}
-
-          error ->
-            {error, %{}}
-        end
-      end)
-
-    case result do
-      {:ok, result} ->
-        {:ok, response} = Transformer.transform_response(result, protocol)
-        json(conn, response)
-
-      {:error, reason} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.response(reason, protocol: protocol))
-    end
-  end
-
-  def get_product(conn, %{"id" => id}) do
-    handler = conn.assigns.bazaar_handler
-    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
-
-    result =
-      Telemetry.span_with_metadata([:bazaar, :catalog, :get], %{}, fn ->
-        case handler.get_product(id, conn) do
-          {:ok, _product} = result ->
-            {result, %{product_id: id}}
-
-          error ->
-            {error, %{product_id: id}}
-        end
-      end)
-
-    case result do
-      {:ok, product} ->
-        {:ok, response} = Transformer.transform_response(product, protocol)
-        json(conn, response)
-
-      {:error, :not_found} ->
-        conn
-        |> put_status(:not_found)
-        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
-
-      {:error, reason} ->
-        conn
-        |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.response(reason, protocol: protocol))
-    end
-  end
+  # Catalog (UCP only: the binding is three POSTs, every one answering 200)
 
   def search_products(conn, params) do
+    catalog(conn, :search, fn handler -> handler.search_products(params, conn) end)
+  end
+
+  def lookup_products(conn, params) do
+    catalog(conn, :lookup, fn handler -> handler.lookup_products(params, conn) end)
+  end
+
+  def get_product(conn, %{"id" => _} = params) do
+    catalog(conn, :get, fn handler -> handler.get_product(params, conn) end)
+  end
+
+  def get_product(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(Bazaar.Errors.response(:missing_id))
+  end
+
+  defp catalog(conn, operation, fun) do
     handler = conn.assigns.bazaar_handler
-    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
-    {:ok, transformed_params} = Transformer.transform_request(params, protocol)
 
     result =
-      Telemetry.span_with_metadata([:bazaar, :catalog, :search], %{}, fn ->
-        case handler.search_products(transformed_params, conn) do
-          {:ok, result} ->
-            {{:ok, result}, %{query: params["q"], count: length(result["products"] || [])}}
-
-          error ->
-            {error, %{query: params["q"]}}
+      Telemetry.span_with_metadata([:bazaar, :catalog, operation], %{}, fn ->
+        case fun.(handler) do
+          {:ok, document} -> {{:ok, document}, %{count: catalog_count(document)}}
+          error -> {error, %{}}
         end
       end)
 
     case result do
-      {:ok, result} ->
-        {:ok, response} = Transformer.transform_response(result, protocol)
-        json(conn, response)
+      {:ok, document} ->
+        json(conn, Bazaar.Catalog.envelope(document, catalog_capability(operation)))
+
+      # Unknown product: the spec's error document, still a 200.
+      {:error, :not_found} when operation == :get ->
+        json(conn, Bazaar.Errors.response(:not_found))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.response(reason, protocol: protocol))
+        |> json(Bazaar.Errors.response(reason))
     end
   end
+
+  defp catalog_capability(:search), do: :search
+  defp catalog_capability(_lookup_or_get), do: :lookup
+
+  defp catalog_count(%{"products" => products}) when is_list(products), do: length(products)
+  defp catalog_count(%{"product" => _}), do: 1
+  defp catalog_count(_document), do: 0
 
   # Webhooks
 

@@ -217,6 +217,54 @@ def cancel_order(id, conn) do
 end
 ```
 
+## Catalog Callbacks
+
+If you include `:catalog` in capabilities, `bazaar_routes` mounts the spec's three POSTs (`/catalog/search`, `/catalog/lookup`, `/catalog/product`) and advertises `dev.ucp.shopping.catalog.search` and `.lookup` in discovery. Each callback takes the request body and returns the response document without its `ucp` metadata, which the controller adds. Products are string-keyed maps in the spec's shape: `id`, `title`, `description` (`%{"plain" => ...}`), `price_range` and at least one variant, whose `id` is what checkout later receives as `item.id`.
+
+`Bazaar.Catalog` implements the rules the spec asks of every catalog: `filter/2` (categories and price range), `paginate/2` (limit and opaque cursor), `lookup/2` (id resolution with the `inputs` correlation lookup responses require), `find/2` and `detail_product/3` (option values with `available` and `exists` relative to the selection).
+
+### search_products/2
+
+```elixir
+@impl true
+def search_products(params, _conn) do
+  products =
+    Shop.products()
+    |> Enum.filter(&matches?(&1, params["query"]))
+    |> Bazaar.Catalog.filter(params["filters"])
+
+  {page, pagination} = Bazaar.Catalog.paginate(products, params["pagination"])
+  {:ok, %{"products" => page, "pagination" => pagination}}
+end
+```
+
+### lookup_products/2
+
+Unknown ids are simply absent from `products`; an info message per id is a courtesy.
+
+```elixir
+@impl true
+def lookup_products(%{"ids" => ids}, _conn) do
+  {products, unknown} = Bazaar.Catalog.lookup(Shop.products(), ids)
+  messages = for id <- unknown, do: %{"type" => "info", "code" => "not_found", "content" => "No product #{id}"}
+  {:ok, %{"products" => products, "messages" => messages}}
+end
+```
+
+### get_product/2
+
+`{:error, :not_found}` renders the spec's error document, still with a 200, as the binding says.
+
+```elixir
+@impl true
+def get_product(%{"id" => id} = params, _conn) do
+  case Bazaar.Catalog.find(Shop.products(), id) do
+    nil -> {:error, :not_found}
+    product -> {:ok, %{"product" => Bazaar.Catalog.detail_product(product, params["selected"])}}
+  end
+end
+```
+
 ## Identity Callback
 
 If you include `:identity` in capabilities:

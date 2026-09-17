@@ -24,7 +24,8 @@ defmodule FlowerShop.MixProject do
       {:phoenix, "~> 1.8"},
       {:bandit, "~> 1.6"},
       {:jason, "~> 1.4"},
-      {:req, "~> 0.5"}
+      {:req, "~> 0.5"},
+      {:jsv, "~> 0.15", only: :test}
     ]
   end
 end

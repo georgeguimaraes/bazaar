@@ -24,6 +24,7 @@ defmodule Bazaar.Errors do
 
   @known_reasons %{
     not_found: {"Resource not found", "unrecoverable"},
+    missing_id: {"The request must carry an id", "unrecoverable"},
     invalid_state: {"Operation not allowed in current state", "unrecoverable"},
     idempotency_conflict:
       {"Idempotency-Key was already used with a different request", "unrecoverable"},

@@ -2,8 +2,8 @@ defmodule FlowerShop.Handler do
   @moduledoc """
   The flower shop's `Bazaar.Handler`.
 
-  `bazaar_routes` in `FlowerShopWeb.Router` serves discovery, checkouts and
-  orders from these callbacks. `update_order/2` and `ship_order/1` back the
+  `bazaar_routes` in `FlowerShopWeb.Router` serves discovery, the catalog,
+  checkouts and orders from these callbacks. `update_order/2` and `ship_order/1` back the
   app's own routes.
   """
 
@@ -14,7 +14,7 @@ defmodule FlowerShop.Handler do
   alias FlowerShop.{Catalog, Checkout, Orders, Payments, Store}
 
   @impl true
-  def capabilities, do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent]
+  def capabilities, do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent, :catalog]
 
   @impl true
   def business_profile do
@@ -27,6 +27,59 @@ defmodule FlowerShop.Handler do
       "payment_handlers" => [%{"name" => handler.namespace, "id" => handler.id, "config" => %{}}],
       "keys" => [Key.public_jwk(signing_key())]
     }
+  end
+
+  # Catalog: the query matches titles and descriptions, the spec's filters
+  # and pagination come from Bazaar.Catalog.
+
+  @impl true
+  def search_products(params, _conn) do
+    products =
+      Catalog.products()
+      |> Enum.filter(&matches?(&1, params["query"]))
+      |> Bazaar.Catalog.filter(params["filters"])
+
+    {page, pagination} = Bazaar.Catalog.paginate(products, params["pagination"])
+    {:ok, %{"products" => page, "pagination" => pagination}}
+  end
+
+  defp matches?(_product, query) when query in [nil, ""], do: true
+
+  defp matches?(product, query) do
+    query = String.downcase(query)
+
+    String.contains?(String.downcase(product["title"]), query) or
+      String.contains?(String.downcase(product["description"]["plain"]), query)
+  end
+
+  @impl true
+  def lookup_products(%{"ids" => ids} = params, _conn) when is_list(ids) do
+    {products, unknown} = Bazaar.Catalog.lookup(Catalog.products(), ids)
+    products = Bazaar.Catalog.filter(products, params["filters"])
+
+    messages =
+      for id <- unknown,
+          do: %{"type" => "info", "code" => "not_found", "content" => "No product with id #{id}"}
+
+    {:ok, %{"products" => products, "messages" => messages}}
+  end
+
+  def lookup_products(_params, _conn), do: {:error, :missing_ids}
+
+  @impl true
+  def get_product(%{"id" => id} = params, _conn) do
+    case Bazaar.Catalog.find(Catalog.products(), id) do
+      nil ->
+        {:error, :not_found}
+
+      product ->
+        detail =
+          Bazaar.Catalog.detail_product(product, params["selected"],
+            preferences: params["preferences"]
+          )
+
+        {:ok, %{"product" => detail}}
+    end
   end
 
   @impl true

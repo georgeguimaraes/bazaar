@@ -4,7 +4,7 @@ A small UCP merchant built on Bazaar, and the server the official [UCP conforman
 
 It sells the suite's flower shop catalog (six products, three discount codes, free shipping on roses or orders over $100, US and international express rates, a couple of known customers with stored addresses) from memory. No database.
 
-`FlowerShop.Handler` implements `Bazaar.Handler` and `bazaar_routes` mounts discovery, checkouts and orders for it. Bazaar's plugs handle version negotiation, idempotent replay and signature verification for platforms that sign, `Bazaar.Platform` finds the platform's webhook URL and `Bazaar.Webhook` delivers signed order events with a P-256 key generated at boot and published in the discovery profile. The app adds two routes the suite drives that aren't UCP: the simulate-shipping hook and `/healthz`.
+`FlowerShop.Handler` implements `Bazaar.Handler` and `bazaar_routes` mounts discovery, the catalog, checkouts and orders for it. Bazaar's plugs handle version negotiation, idempotent replay and signature verification for platforms that sign, `Bazaar.Platform` finds the platform's webhook URL and `Bazaar.Webhook` delivers signed order events with a P-256 key generated at boot and published in the discovery profile. The app adds two routes the suite drives that aren't UCP: the simulate-shipping hook and `/healthz`.
 
 ## Run it
 
@@ -12,6 +12,7 @@ It sells the suite's flower shop catalog (six products, three discount codes, fr
 mix deps.get
 PORT=8182 SIMULATION_SECRET=super-secret-sim-key mix run --no-halt
 curl http://localhost:8182/.well-known/ucp
+curl -X POST http://localhost:8182/catalog/search -H 'content-type: application/json' -d '{"query":"roses"}'
 ```
 
 `FLOWER_SHOP_URL` sets the absolute URL advertised in discovery (default `http://localhost:8182`).
@@ -30,7 +31,7 @@ The script clones the suite at a pinned commit into `tmp/`, installs it with `uv
 
 | Module | Role |
 |---|---|
-| `FlowerShop.Catalog` | products, stock, discounts, promotions, shipping rates, customers |
+| `FlowerShop.Catalog` | products (and their UCP catalog documents), stock, discounts, promotions, shipping rates, customers |
 | `FlowerShop.Checkout` | checkout state and the document built from it: pricing, stock messages, shipping options, discounts |
 | `FlowerShop.Orders` | the shipped event (order documents and updates come from `Bazaar.Order`) |
 | `FlowerShop.Payments` | mock payment handler (`fail_token` declines) |

@@ -65,7 +65,7 @@ This means you write your handler once using UCP conventions, and Bazaar automat
 
 ### Product Schema Comparison
 
-Neither protocol defines a standalone product catalog schema. Product information is embedded in checkout line items. Here's how they compare:
+UCP has a catalog capability (search, lookup and get product, see `Bazaar.Catalog`); ACP has none, its product information lives in checkout line items. Inside a checkout the two embed products like this:
 
 | Field | UCP (ItemResp) | ACP (LineItem) |
 |-------|----------------|----------------|

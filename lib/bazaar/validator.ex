@@ -45,7 +45,14 @@ if Code.ensure_loaded?(JSV) do
       delegate_payment_resp: {"delegate_payment.json", "DelegatePaymentResponse"}
     }
 
-    @ucp_schemas [:checkout, :order, :profile, :error_response]
+    # UCP catalog schemas live as $defs of one file per capability: {file, def_name}
+    @ucp_catalog_defs %{
+      catalog_search_response: {"shopping/catalog_search_resp.json", "search_response"},
+      catalog_lookup_response: {"shopping/catalog_lookup_resp.json", "lookup_response"},
+      catalog_product_response: {"shopping/catalog_lookup_resp.json", "get_product_response"}
+    }
+
+    @ucp_schemas [:checkout, :order, :profile, :error_response] ++ Map.keys(@ucp_catalog_defs)
     @acp_bundle_schemas Map.keys(@acp_bundle_defs)
 
     # Convenience functions
@@ -79,6 +86,10 @@ if Code.ensure_loaded?(JSV) do
     - `:checkout` - Checkout session response
     - `:order` - Order response
     - `:profile` - Discovery profile
+    - `:error_response` - Error document
+    - `:catalog_search_response` - Catalog search response
+    - `:catalog_lookup_response` - Catalog lookup response
+    - `:catalog_product_response` - Get product response
 
     ## ACP schemas (from open ACP repo)
 
@@ -159,10 +170,19 @@ if Code.ensure_loaded?(JSV) do
 
     # Private: UCP schema loading
 
-    defp get_ucp_schema(schema_name) do
-      ucp_schema_path(schema_name)
-      |> File.read()
-      |> case do
+    defp get_ucp_schema(schema_name) when is_map_key(@ucp_catalog_defs, schema_name) do
+      {file, def_name} = @ucp_catalog_defs[schema_name]
+
+      # The file keeps its $id so the relative refs inside the def resolve.
+      with {:ok, schema} <- read_json(Path.join(@ucp_schemas_dir, file)) do
+        {:ok, Map.put(schema, "$ref", "#/$defs/#{def_name}")}
+      end
+    end
+
+    defp get_ucp_schema(schema_name), do: read_json(ucp_schema_path(schema_name))
+
+    defp read_json(path) do
+      case File.read(path) do
         {:ok, content} -> JSON.decode(content)
         {:error, reason} -> {:error, {:file_read_error, reason}}
       end

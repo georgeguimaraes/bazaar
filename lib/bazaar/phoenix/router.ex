@@ -54,9 +54,9 @@ defmodule Bazaar.Phoenix.Router do
   | GET | `/orders/:id` | Get order |
   | PUT | `/orders/:id` | Update order (with `order_updates: true`) |
   | POST | `/orders/:id/actions/cancel` | Cancel order |
-  | GET | `/products` | List products |
-  | GET | `/products/search` | Search products |
-  | GET | `/products/:id` | Get product |
+  | POST | `/catalog/search` | Search products |
+  | POST | `/catalog/lookup` | Look up products by id |
+  | POST | `/catalog/product` | Get one product |
   | POST | `/webhooks/ucp` | Webhook endpoint |
 
   ## Generated Routes (ACP)
@@ -235,13 +235,17 @@ defmodule Bazaar.Phoenix.Router do
   defmacro mount_catalog(assigns, capabilities) do
     quote do
       if :catalog in unquote(capabilities) do
-        get("/products", Bazaar.Phoenix.Controller, :list_products, assigns: unquote(assigns))
-
-        get("/products/search", Bazaar.Phoenix.Controller, :search_products,
+        post("/catalog/search", Bazaar.Phoenix.Controller, :search_products,
           assigns: unquote(assigns)
         )
 
-        get("/products/:id", Bazaar.Phoenix.Controller, :get_product, assigns: unquote(assigns))
+        post("/catalog/lookup", Bazaar.Phoenix.Controller, :lookup_products,
+          assigns: unquote(assigns)
+        )
+
+        post("/catalog/product", Bazaar.Phoenix.Controller, :get_product,
+          assigns: unquote(assigns)
+        )
       end
     end
   end

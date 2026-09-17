@@ -56,7 +56,10 @@ defmodule Bazaar.Plugs.ValidateResponse do
     complete_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
     cancel_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
     get_order: Bazaar.Schemas.Shopping.OrderResp,
-    cancel_order: Bazaar.Schemas.Shopping.OrderResp
+    cancel_order: Bazaar.Schemas.Shopping.OrderResp,
+    search_products: Bazaar.Schemas.Shopping.CatalogSearchResp.SearchResponse,
+    lookup_products: Bazaar.Schemas.Shopping.CatalogLookupResp.LookupResponse,
+    get_product: Bazaar.Schemas.Shopping.CatalogLookupResp.GetProductResponse
   }
 
   @impl true

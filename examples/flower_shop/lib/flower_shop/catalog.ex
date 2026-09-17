@@ -9,41 +9,55 @@ defmodule FlowerShop.Catalog do
   @products %{
     "bouquet_roses" => %{
       title: "Bouquet of Red Roses",
+      description: "A dozen long-stemmed red roses, hand-tied",
+      category: "bouquets",
       price: 3500,
       stock: 1000,
       image_url: "https://example.com/roses.jpg"
     },
     "pot_ceramic" => %{
       title: "Ceramic Pot",
+      description: "Glazed ceramic pot with a drainage hole, 15cm",
+      category: "pots",
       price: 1500,
       stock: 2000,
       image_url: "https://example.com/pot.jpg"
     },
     "bouquet_sunflowers" => %{
       title: "Sunflower Bundle",
+      description: "Five bright sunflowers wrapped in kraft paper",
+      category: "bouquets",
       price: 2500,
       stock: 500,
       image_url: "https://example.com/sunflowers.jpg"
     },
     "bouquet_tulips" => %{
       title: "Spring Tulips",
+      description: "Twenty mixed tulips, fresh from the field",
+      category: "bouquets",
       price: 3000,
       stock: 1500,
       image_url: "https://example.com/tulips.jpg"
     },
     "orchid_white" => %{
       title: "White Orchid",
+      description: "Potted white phalaenopsis orchid with two stems",
+      category: "plants",
       price: 4500,
       stock: 800,
       image_url: "https://example.com/orchid.jpg"
     },
     "gardenias" => %{
       title: "Gardenias",
+      description: "Fragrant gardenia blooms, seasonal",
+      category: "bouquets",
       price: 2000,
       stock: 0,
       image_url: "https://example.com/gardenias.jpg"
     }
   }
+
+  @currency "USD"
 
   @discounts %{
     "10OFF" => %{type: :percentage, value: 10, title: "10% Off"},
@@ -122,6 +136,38 @@ defmodule FlowerShop.Catalog do
   @payment_handler %{namespace: "dev.flowershop.mock", id: "mock_payment_handler"}
 
   def product(id), do: Map.get(@products, id)
+
+  @doc """
+  Every product as the UCP catalog document. Each product has one variant
+  whose id is the product's, so a catalog id is what checkout expects as
+  `item.id`.
+  """
+  def products, do: Enum.map(@products, fn {id, product} -> product_document(id, product) end)
+
+  defp product_document(id, product) do
+    price = %{"amount" => product.price, "currency" => @currency}
+
+    variant = %{
+      "id" => id,
+      "title" => product.title,
+      "description" => %{"plain" => product.description},
+      "price" => price,
+      "availability" => %{
+        "available" => product.stock > 0,
+        "status" => if(product.stock > 0, do: "in_stock", else: "out_of_stock")
+      }
+    }
+
+    %{
+      "id" => id,
+      "title" => product.title,
+      "description" => %{"plain" => product.description},
+      "categories" => [%{"value" => product.category}],
+      "price_range" => %{"min" => price, "max" => price},
+      "media" => [%{"type" => "image", "url" => product.image_url, "alt_text" => product.title}],
+      "variants" => [variant]
+    }
+  end
 
   def discount(code) when is_binary(code), do: Map.get(@discounts, String.upcase(code))
   def discount(_), do: nil

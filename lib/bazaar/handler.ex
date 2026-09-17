@@ -47,9 +47,19 @@ defmodule Bazaar.Handler do
   - `cancel_order/2` - Cancel an order
 
   ### Catalog Capability
-  - `list_products/2` - List products with optional filters (category, limit, cursor)
-  - `get_product/2` - Get a single product by ID or SKU
-  - `search_products/2` - Search products by query string
+  - `search_products/2` - Search by `query`, `filters` and `pagination`
+  - `lookup_products/2` - Resolve a list of product or variant `ids`
+  - `get_product/2` - One product by `id`, with option `selected` narrowing
+
+  Catalog callbacks take the request body and return the response document
+  without its `ucp` metadata, which the controller adds:
+
+      {:ok, %{"products" => [...], "pagination" => %{"has_next_page" => false}}}
+      {:ok, %{"products" => [...]}}
+      {:ok, %{"product" => %{...}}} | {:error, :not_found}
+
+  `Bazaar.Catalog` has the filtering, pagination, id resolution and option
+  availability rules the spec asks of every implementation.
 
   ### Identity Capability
   - `link_identity/2` - Link a user identity via OAuth
@@ -89,12 +99,12 @@ defmodule Bazaar.Handler do
               {:ok, map()} | {:error, :not_found | term()}
 
   # Catalog capability
-  @callback list_products(params(), conn()) ::
-              {:ok, map()} | {:error, term()}
-  @callback get_product(id(), conn()) ::
-              {:ok, map()} | {:error, :not_found | term()}
   @callback search_products(params(), conn()) ::
               {:ok, map()} | {:error, term()}
+  @callback lookup_products(params(), conn()) ::
+              {:ok, map()} | {:error, term()}
+  @callback get_product(params(), conn()) ::
+              {:ok, map()} | {:error, :not_found | term()}
 
   # Identity capability
   @callback link_identity(params(), conn()) ::
@@ -118,9 +128,9 @@ defmodule Bazaar.Handler do
     update_order: 3,
     cancel_order: 2,
     # Catalog
-    list_products: 2,
-    get_product: 2,
     search_products: 2,
+    lookup_products: 2,
+    get_product: 2,
     # Identity
     link_identity: 2,
     # Webhooks
