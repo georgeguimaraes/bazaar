@@ -63,9 +63,9 @@ lib/bazaar/
 │   └── transformer.ex # Request/response translation between protocols
 ├── validator.ex       # Schema validation (UCP via JSV, ACP via JSV/$defs, product feed via Ecto)
 ├── checkout.ex        # Business logic: currency helpers
-├── order.ex           # Business logic: from_checkout helper
+├── order.ex           # Order documents: from a checkout, platform updates, fulfillment events
 ├── message.ex         # Business logic: error/warning/info factories
-├── fulfillment.ex     # Business logic: field definitions
+├── fulfillment.ex     # Fulfillment types and default configuration
 ├── handler.ex         # Handler behaviour
 ├── phoenix/           # Router and controller
 ├── plugs/             # Request validation, headers, idempotency
@@ -134,6 +134,7 @@ defmodule MyAppWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug Bazaar.Plugs.UCP   # UCP headers, version negotiation, idempotent replay
   end
 
   scope "/" do
@@ -295,13 +296,13 @@ Optional plugs for production use:
 
 ```elixir
 pipeline :ucp do
-  plug Bazaar.Plugs.UCPHeaders       # Read UCP headers, negotiate the protocol version
-  plug Bazaar.Plugs.Idempotency      # Replay responses for repeated Idempotency-Key requests
+  plug :accepts, ["json"]
+  plug Bazaar.Plugs.UCP              # UCPHeaders (version negotiation) then Idempotency (replay)
   plug Bazaar.Plugs.ValidateRequest  # Validate request body
 end
 ```
 
-`Idempotency` needs a store: `Bazaar.Idempotency.ETS` in your supervision tree for development and a single node, or a `Bazaar.Idempotency.Store` on [Cachex](https://hexdocs.pm/cachex) for production and any multi-node deployment. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
+`Bazaar.Plugs.UCP` composes `Bazaar.Plugs.UCPHeaders` and `Bazaar.Plugs.Idempotency`; use them individually if you need something in between. Idempotency needs a store: `Bazaar.Idempotency.ETS` in your supervision tree for development and a single node, or `Bazaar.Idempotency.Cachex` on a [Cachex](https://hexdocs.pm/cachex) cache for production and any multi-node deployment. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
 
 ## Guides
 

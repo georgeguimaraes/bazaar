@@ -3,78 +3,17 @@ defmodule Bazaar.FulfillmentTest do
 
   alias Bazaar.Fulfillment
 
-  describe "method_types/0" do
-    test "returns supported method types" do
-      types = Fulfillment.method_types()
-
-      assert :shipping in types
-      assert :pickup in types
-    end
+  test "lists the UCP method and destination types" do
+    assert Fulfillment.method_types() == [:shipping, :pickup]
+    assert Fulfillment.destination_types() == [:address, :pickup_location]
   end
 
-  describe "destination_types/0" do
-    test "returns supported destination types" do
-      types = Fulfillment.destination_types()
+  test "default configurations advertise nothing beyond the basics" do
+    assert Fulfillment.default_merchant_config() == %{
+             "multi_destination" => [],
+             "method_combinations" => []
+           }
 
-      assert :address in types
-      assert :pickup_location in types
-    end
-  end
-
-  describe "default_merchant_config/0" do
-    test "returns default merchant configuration" do
-      config = Fulfillment.default_merchant_config()
-
-      assert config["multi_destination"] == []
-      assert config["method_combinations"] == []
-    end
-  end
-
-  describe "default_platform_config/0" do
-    test "returns default platform configuration" do
-      config = Fulfillment.default_platform_config()
-
-      assert config["supports_multi_group"] == false
-    end
-  end
-
-  describe "field accessors" do
-    test "request_fields/0 returns field definitions" do
-      fields = Fulfillment.request_fields()
-      assert is_list(fields)
-    end
-
-    test "response_fields/0 returns field definitions" do
-      fields = Fulfillment.response_fields()
-      assert is_list(fields)
-    end
-
-    test "method_request_fields/0 returns field definitions" do
-      fields = Fulfillment.method_request_fields()
-      assert is_list(fields)
-      names = Enum.map(fields, & &1.name)
-      assert :type in names
-    end
-
-    test "method_response_fields/0 returns field definitions" do
-      fields = Fulfillment.method_response_fields()
-      assert is_list(fields)
-    end
-
-    test "address_fields/0 returns address field definitions" do
-      fields = Fulfillment.address_fields()
-      assert is_list(fields)
-      names = Enum.map(fields, & &1.name)
-      assert :street in names
-      assert :country in names
-    end
-
-    test "option_response_fields/0 returns option fields" do
-      fields = Fulfillment.option_response_fields()
-      assert is_list(fields)
-      names = Enum.map(fields, & &1.name)
-      assert :id in names
-      assert :title in names
-    end
+    assert Fulfillment.default_platform_config() == %{"supports_multi_group" => false}
   end
 end

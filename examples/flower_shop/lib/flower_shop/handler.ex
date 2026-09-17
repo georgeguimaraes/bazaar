@@ -10,7 +10,7 @@ defmodule FlowerShop.Handler do
   use Bazaar.Handler
 
   alias Bazaar.Signing.Key
-  alias Bazaar.{Platform, Webhook}
+  alias Bazaar.{Order, Platform, Webhook}
   alias FlowerShop.{Catalog, Checkout, Orders, Payments, Store}
 
   @impl true
@@ -104,7 +104,8 @@ defmodule FlowerShop.Handler do
   end
 
   defp place_order(state, checkout) do
-    order = Orders.from_checkout(checkout, base_url())
+    order_id = "order_" <> Checkout.uuid()
+    order = Order.from_checkout(checkout, order_id, base_url() <> "/orders/" <> order_id)
     webhook_url = webhook_url(state.profile_url)
     Store.put_order(%{id: order["id"], order: order, webhook_url: webhook_url})
 
@@ -126,7 +127,7 @@ defmodule FlowerShop.Handler do
   @impl true
   def update_order(id, params, _conn) do
     with %{order: order} = record <- Store.get_order(id) || {:error, :not_found},
-         {:ok, order} <- Orders.apply_update(order, params) do
+         {:ok, order} <- Order.apply_update(order, params) do
       Store.put_order(%{record | order: order})
       {:ok, order}
     end

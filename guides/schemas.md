@@ -16,9 +16,9 @@ lib/bazaar/
 │   ├── capability/             # Capability definitions
 │   └── ucp/                    # Discovery profile types
 ├── checkout.ex                 # Business logic: currency helpers
-├── order.ex                    # Business logic: from_checkout helper
+├── order.ex                    # Order documents: from a checkout, platform updates, fulfillment events
 ├── message.ex                  # Business logic: error/warning/info factories
-└── fulfillment.ex              # Business logic: field definitions
+└── fulfillment.ex              # Fulfillment types and default configuration
 ```
 
 **Generated schemas** provide `new/1` and `fields/0` functions.
@@ -170,12 +170,12 @@ checkout = %{
   "totals" => [...]
 }
 
-order_params = Bazaar.Order.from_checkout(
-  checkout,
-  "order_123",
-  "https://shop.example/orders/123"
-)
-# Returns a map ready to be validated with Bazaar.Schemas.Shopping.OrderResp.new/1
+order = Bazaar.Order.from_checkout(checkout, "order_123", "https://shop.example/orders/123")
+# A spec-valid order: line items with quantity totals and status, one fulfillment
+# expectation per method from the selected option and destination, empty events and adjustments.
+
+{:ok, order} = Bazaar.Order.apply_update(order, params)   # events and adjustments a platform PUTs
+order = Bazaar.Order.add_event(order, shipped_event)      # your own fulfillment events
 ```
 
 ### Order Fields

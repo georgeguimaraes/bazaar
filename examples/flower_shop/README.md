@@ -32,7 +32,7 @@ The script clones the suite at a pinned commit into `tmp/`, installs it with `uv
 |---|---|
 | `FlowerShop.Catalog` | products, stock, discounts, promotions, shipping rates, customers |
 | `FlowerShop.Checkout` | checkout state and the document built from it: pricing, stock messages, shipping options, discounts |
-| `FlowerShop.Orders` | order documents, `PUT /orders/:id` merges, shipping events |
+| `FlowerShop.Orders` | the shipped event (order documents and updates come from `Bazaar.Order`) |
 | `FlowerShop.Payments` | mock payment handler (`fail_token` declines) |
 | `FlowerShop.Http` | the Req calls bazaar's platform lookup and webhook delivery use |
 | `FlowerShop.Handler` | the `Bazaar.Handler` tying it together |

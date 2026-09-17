@@ -238,7 +238,7 @@ end
 defmodule Bazaar.Schemas.OrderTest do
   use ExUnit.Case, async: true
 
-  alias Bazaar.Schemas.Order
+  alias Bazaar.Order
 
   describe "from_checkout/3" do
     test "creates order from checkout data" do
@@ -258,14 +258,12 @@ defmodule Bazaar.Schemas.OrderTest do
         ]
       }
 
-      changeset = Order.from_checkout(checkout, "order_456", "https://shop.example/orders/456")
+      order = Order.from_checkout(checkout, "order_456", "https://shop.example/orders/456")
 
-      assert changeset.valid?
-
-      order = Ecto.Changeset.apply_changes(changeset)
-      assert order.id == "order_456"
-      assert order.checkout_id == "checkout_123"
-      assert order.permalink_url == "https://shop.example/orders/456"
+      assert {:ok, _} = Bazaar.Validator.validate_order(order)
+      assert order["id"] == "order_456"
+      assert order["checkout_id"] == "checkout_123"
+      assert [%{"quantity" => %{"total" => 1, "fulfilled" => 0}}] = order["line_items"]
     end
   end
 

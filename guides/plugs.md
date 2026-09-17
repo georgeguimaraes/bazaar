@@ -4,6 +4,7 @@ Bazaar provides plugs for UCP implementations:
 
 | Plug | Purpose |
 |------|---------|
+| `UCP` | `UCPHeaders` followed by `Idempotency`, one plug for the whole pipeline |
 | `UCPHeaders` | Read the UCP headers and negotiate the protocol version |
 | `Idempotency` | Replay responses for repeated `Idempotency-Key` requests |
 | `ValidateRequest` | Validate request bodies against the generated schemas |
@@ -27,8 +28,7 @@ defmodule MyAppWeb.Router do
 
   pipeline :ucp do
     plug :accepts, ["json"]
-    plug Bazaar.Plugs.UCPHeaders
-    plug Bazaar.Plugs.Idempotency
+    plug Bazaar.Plugs.UCP
   end
 
   scope "/" do
@@ -37,6 +37,8 @@ defmodule MyAppWeb.Router do
   end
 end
 ```
+
+`Bazaar.Plugs.UCP` runs `UCPHeaders` and then `Idempotency`, and hands its options to both (`store:`, `methods:`, `reservation_ttl:`, `version:`). The sections below describe each plug; use them directly when something has to run between the two.
 
 ## UCPHeaders
 
@@ -97,7 +99,21 @@ plug Bazaar.Plugs.Idempotency, store: {MyApp.RedisIdempotency, :orders}, methods
 
 `Bazaar.Idempotency.ETS` keeps records in memory, never expires them, and only knows about its own node. Use it for development and a single-node deployment. In production, and always with more than one node, back the plug with [Cachex](https://hexdocs.pm/cachex): its entries carry a TTL, so keys expire instead of growing forever, and its routers spread the cache across a cluster, so a retry that lands on another node still finds the record.
 
-A store implements the four callbacks of `Bazaar.Idempotency.Store`: `fetch/2`, `reserve/3`, `put/3` and `release/2`. `reserve/3` has to be atomic (with Cachex, wrap the read and write in `Cachex.transaction/3`), because that's what stops two identical requests in flight from both running. Pass the store with `plug Bazaar.Plugs.Idempotency, store: {MyApp.CachexIdempotency, :idempotency}`.
+`Bazaar.Idempotency.Cachex` is that store. Add `{:cachex, "~> 4.1"}` to your deps, start a cache with a default expiration, and point the plug at it:
+
+```elixir
+# application.ex
+import Cachex.Spec
+children = [
+  {Cachex, [:idempotency, [expiration: expiration(default: :timer.hours(24))]]},
+  MyAppWeb.Endpoint
+]
+
+# router.ex
+plug Bazaar.Plugs.UCP, store: {Bazaar.Idempotency.Cachex, :idempotency}
+```
+
+Any other backend implements the four callbacks of `Bazaar.Idempotency.Store`: `fetch/2`, `reserve/3`, `put/3` and `release/2`. `reserve/3` has to be atomic, because that's what stops two identical requests in flight from both running.
 
 Only 2xx and 4xx responses are recorded; a 5xx releases the key so the platform's retry runs the action again. A reservation left behind by a request that crashed before responding is taken over after `:reservation_ttl` (30 seconds by default).
 

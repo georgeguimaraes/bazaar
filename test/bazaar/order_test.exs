@@ -3,68 +3,165 @@ defmodule Bazaar.OrderTest do
 
   alias Bazaar.Order
 
-  describe "from_checkout/3" do
-    test "creates order params from checkout data" do
-      checkout = %{
-        "id" => "checkout_123",
-        "currency" => "USD",
-        "line_items" => [
-          %{"item" => %{"id" => "PROD-1"}, "quantity" => 2}
-        ],
+  @destination %{
+    "id" => "dest_1",
+    "street_address" => "123 Main St",
+    "address_locality" => "Springfield",
+    "address_region" => "IL",
+    "postal_code" => "62704",
+    "address_country" => "US"
+  }
+
+  @checkout %{
+    "id" => "checkout_123",
+    "currency" => "USD",
+    "buyer" => %{"email" => "jane@example.com"},
+    "line_items" => [
+      %{
+        "id" => "li_1",
+        "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1000},
+        "quantity" => 2,
         "totals" => [
           %{"type" => "subtotal", "amount" => 2000},
           %{"type" => "total", "amount" => 2000}
         ]
       }
+    ],
+    "totals" => [
+      %{"type" => "subtotal", "amount" => 2000},
+      %{"type" => "fulfillment", "amount" => 500},
+      %{"type" => "total", "amount" => 2500}
+    ],
+    "fulfillment" => %{
+      "methods" => [
+        %{
+          "id" => "m1",
+          "type" => "shipping",
+          "line_item_ids" => ["li_1"],
+          "destinations" => [@destination],
+          "selected_destination_id" => "dest_1",
+          "groups" => [
+            %{
+              "id" => "g1",
+              "line_item_ids" => ["li_1"],
+              "options" => [
+                %{
+                  "id" => "std",
+                  "title" => "Standard Shipping",
+                  "totals" => [%{"type" => "total", "amount" => 500}]
+                }
+              ],
+              "selected_option_id" => "std"
+            }
+          ]
+        }
+      ]
+    }
+  }
 
-      result = Order.from_checkout(checkout, "order_456", "https://shop.com/orders/456")
+  describe "from_checkout/3" do
+    test "builds an order the UCP order schema accepts" do
+      order = Order.from_checkout(@checkout, "order_456", "https://shop.example/orders/456")
 
-      assert result["id"] == "order_456"
-      assert result["checkout_id"] == "checkout_123"
-      assert result["permalink_url"] == "https://shop.com/orders/456"
-      assert result["currency"] == "USD"
-      assert result["line_items"] == checkout["line_items"]
-      assert result["totals"] == checkout["totals"]
-      assert result["fulfillment"] == %{"expectations" => [], "events" => []}
-      assert result["adjustments"] == []
-      assert result["ucp"]["version"] == Bazaar.DiscoveryProfile.version()
-      assert Map.has_key?(result["ucp"]["capabilities"], "dev.ucp.shopping.order")
+      assert {:ok, _} = Bazaar.Validator.validate_order(order)
+      assert order["checkout_id"] == "checkout_123"
+      assert order["currency"] == "USD"
+      assert order["buyer"] == %{"email" => "jane@example.com"}
+
+      assert [
+               %{
+                 "id" => "li_1",
+                 "quantity" => %{"total" => 2, "fulfilled" => 0},
+                 "status" => "processing"
+               }
+             ] =
+               order["line_items"]
     end
 
-    test "handles missing optional fields" do
-      checkout = %{
-        "id" => "checkout_minimal",
-        "currency" => "EUR"
-      }
+    test "describes the selected option and destination in the expectation" do
+      order = Order.from_checkout(@checkout, "order_456", "https://shop.example/orders/456")
 
-      result = Order.from_checkout(checkout, "order_min", "https://shop.com/orders/min")
-
-      assert result["line_items"] == []
-      assert result["totals"] == []
+      assert [expectation] = order["fulfillment"]["expectations"]
+      assert expectation["description"] == "Standard Shipping"
+      assert expectation["destination"] == Map.delete(@destination, "id")
+      assert expectation["line_items"] == [%{"id" => "li_1", "quantity" => 2}]
+      assert expectation["method_type"] == "shipping"
     end
 
     test "refuses a checkout without a currency" do
       assert_raise ArgumentError, ~r/has no currency/, fn ->
-        Order.from_checkout(%{"id" => "checkout_no_currency"}, "order_x", "https://shop.com/x")
+        Order.from_checkout(
+          %{"id" => "checkout_no_currency"},
+          "order_x",
+          "https://shop.example/x"
+        )
       end
     end
   end
 
-  describe "delegation to generated schema" do
-    test "embedded_schema has expected fields" do
-      alias Bazaar.Schemas.Shopping.OrderResp, as: OrderSchema
-
-      field_names = OrderSchema.__schema__(:fields)
-
-      assert :id in field_names
-      assert :checkout_id in field_names
-      assert :currency in field_names
+  describe "apply_update/2 and add_event/2" do
+    setup do
+      %{order: Order.from_checkout(@checkout, "order_456", "https://shop.example/orders/456")}
     end
 
-    test "new/1 creates a changeset" do
-      changeset = Order.new(%{})
+    test "appends events and adjustments by id", %{order: order} do
+      event = %{
+        "id" => "evt_1",
+        "type" => "shipped",
+        "occurred_at" => "2026-09-17T00:00:00Z",
+        "line_items" => [%{"id" => "li_1", "quantity" => 2}]
+      }
 
-      assert %Ecto.Changeset{} = changeset
+      adjustment = %{
+        "id" => "adj_1",
+        "type" => "refund",
+        "occurred_at" => "2026-09-17T00:00:00Z",
+        "status" => "pending",
+        "totals" => [%{"type" => "total", "amount" => -500}]
+      }
+
+      assert {:ok, updated} =
+               Order.apply_update(order, %{
+                 "fulfillment" => %{"events" => [event]},
+                 "adjustments" => [adjustment]
+               })
+
+      assert {:ok, again} =
+               Order.apply_update(updated, %{
+                 "fulfillment" => %{"events" => [event]},
+                 "adjustments" => [adjustment]
+               })
+
+      assert again["fulfillment"]["events"] == [event]
+      assert again["adjustments"] == [adjustment]
+      assert {:ok, _} = Bazaar.Validator.validate_order(again)
+    end
+
+    test "rejects adjustments that are not a list of entries with a known status", %{order: order} do
+      assert {:error, :invalid_adjustments} =
+               Order.apply_update(order, %{"adjustments" => %{"id" => "adj_1"}})
+
+      assert {:error, :invalid_adjustments} =
+               Order.apply_update(order, %{
+                 "adjustments" => [%{"id" => "adj_1", "status" => "INVALID"}]
+               })
+    end
+
+    test "add_event appends a fulfillment event", %{order: order} do
+      event = %{
+        "id" => "evt_2",
+        "type" => "delivered",
+        "occurred_at" => "2026-09-18T00:00:00Z",
+        "line_items" => []
+      }
+
+      assert Order.add_event(order, event)["fulfillment"]["events"] == [event]
+    end
+  end
+
+  describe "delegation to generated schema" do
+    test "new/1 creates a changeset" do
+      assert %Ecto.Changeset{} = Order.new(%{})
     end
   end
 end

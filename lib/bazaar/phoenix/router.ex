@@ -10,6 +10,7 @@ defmodule Bazaar.Phoenix.Router do
 
         pipeline :api do
           plug :accepts, ["json"]
+          plug Bazaar.Plugs.UCP
         end
 
         # Optional: Add schema validation

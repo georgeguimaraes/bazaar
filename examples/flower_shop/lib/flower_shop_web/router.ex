@@ -10,8 +10,7 @@ defmodule FlowerShopWeb.Router do
 
   pipeline :ucp do
     plug :accepts, ["json"]
-    plug Bazaar.Plugs.UCPHeaders
-    plug Bazaar.Plugs.Idempotency
+    plug Bazaar.Plugs.UCP
   end
 
   scope "/" do
