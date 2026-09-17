@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/location_summary.complete_req.json",
+  "title": "Location Summary Complete Request",
+  "description": "A summary of a physical business location.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable, opaque, Business-scoped Location identifier."
+    }
+  },
+  "required": [
+    "id"
+  ]
+}

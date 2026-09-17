@@ -35,7 +35,7 @@ defmodule Bazaar.MixProject do
 
   defp deps do
     [
-      {:smelter, "~> 0.1.1"},
+      {:smelter, "~> 0.1.4"},
       {:ecto, "~> 3.12"},
       {:jason, "~> 1.4"},
       {:jsv, "~> 0.15", optional: true},

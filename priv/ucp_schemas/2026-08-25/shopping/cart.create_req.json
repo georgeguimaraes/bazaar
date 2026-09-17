@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/shopping/cart.create_req.json",
+  "name": "dev.ucp.shopping.cart",
+  "title": "Cart Create Request",
+  "description": "Shopping cart with estimated pricing before checkout. Lightweight pre-purchase exploration with no payment info or complex status states.",
+  "$defs": {
+    "checkout": {
+      "title": "Checkout with Cart Create Request",
+      "description": "Checkout extended with cart capability. Adds cart_id to create_checkout for cart-to-checkout conversion.",
+      "allOf": [
+        {
+          "$ref": "checkout.create_req.json"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cart_id": {
+              "type": "string",
+              "description": "Cart ID to convert to checkout. Business MUST use cart contents (line_items, context, buyer) and MUST ignore overlapping fields in checkout payload."
+            }
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "line_items": {
+      "type": "array",
+      "items": {
+        "$ref": "types/line_item.create_req.json"
+      },
+      "description": "Cart line items. Same structure as checkout. Full replacement on update."
+    },
+    "context": {
+      "$ref": "../common/types/context.json",
+      "description": "Buyer signals for localization (country, region, postal_code). Merchant uses for pricing, availability, currency. Falls back to geo-IP if omitted."
+    },
+    "signals": {
+      "$ref": "../common/types/signals.json"
+    },
+    "attribution": {
+      "$ref": "types/attribution.json"
+    },
+    "buyer": {
+      "$ref": "types/buyer.json",
+      "description": "Optional buyer information for personalized estimates."
+    }
+  },
+  "required": [
+    "line_items"
+  ]
+}

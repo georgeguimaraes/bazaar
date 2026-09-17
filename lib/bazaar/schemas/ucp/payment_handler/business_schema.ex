@@ -8,8 +8,11 @@ defmodule Bazaar.Schemas.PaymentHandler.BusinessSchema do
   """
   use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Common.Types.AvailablePaymentInstrument
 
   @field_descriptions %{
+    available_instruments:
+      "Instrument types this handler supports, with optional constraints. When absent, every instrument should be considered available.",
     config: "Entity-specific configuration. Structure defined by each entity's schema.",
     id:
       "Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.",
@@ -29,12 +32,14 @@ defmodule Bazaar.Schemas.PaymentHandler.BusinessSchema do
     field(:schema, :string)
     field(:spec, :string)
     field(:version, :string)
+    embeds_many(:available_instruments, AvailablePaymentInstrument)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
     struct
     |> cast(params, [:config, :id, :schema, :spec, :version])
+    |> cast_embed(:available_instruments, required: false)
     |> validate_required([:version, :id])
   end
 

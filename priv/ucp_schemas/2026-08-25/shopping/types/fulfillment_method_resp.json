@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/shopping/types/fulfillment_method.json",
+  "title": "Fulfillment Method Response",
+  "description": "A fulfillment method with destinations and groups.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique fulfillment method identifier."
+    },
+    "type": {
+      "type": "string",
+      "description": "Fulfillment method type. Well-known values: `shipping`, `pickup`. Businesses MAY use additional values."
+    },
+    "line_item_ids": {
+      "type": "array",
+      "description": "Line item IDs fulfilled via this method.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "destinations": {
+      "type": "array",
+      "description": "Available destinations for this method. In Business responses, each destination carries a `type` and `id`.",
+      "items": {
+        "$ref": "fulfillment_destination_resp.json"
+      }
+    },
+    "selected_destination_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "ID of the selected destination. Accepts any stable, Business-scoped ID the Business recognizes for this method, including Location IDs not yet enumerated in `destinations`."
+    },
+    "groups": {
+      "type": "array",
+      "description": "Fulfillment groups for selecting options. Agent sets selected_option_id on groups to choose shipping method.",
+      "items": {
+        "$ref": "fulfillment_group_resp.json"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "shipping"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "destinations": {
+            "type": "array",
+            "description": "Platform-authored shipping addresses for this method.",
+            "items": {
+              "$ref": "shipping_destination_resp.json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "pickup"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "destinations": {
+            "type": "array",
+            "description": "Business-authored business locations able to fulfill this method. Response-only: the Platform selects one via `selected_destination_id`, never writes one.",
+            "items": {
+              "$ref": "location_destination_resp.json"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "dependentRequired": {
+    "destinations": [
+      "type"
+    ]
+  },
+  "required": [
+    "id",
+    "type",
+    "line_item_ids"
+  ]
+}

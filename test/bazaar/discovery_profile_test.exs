@@ -2,6 +2,9 @@ defmodule Bazaar.DiscoveryProfileTest do
   use ExUnit.Case, async: true
 
   alias Bazaar.DiscoveryProfile
+  alias Bazaar.Validator
+
+  @version DiscoveryProfile.version()
 
   defmodule TestHandler do
     use Bazaar.Handler
@@ -20,96 +23,100 @@ defmodule Bazaar.DiscoveryProfileTest do
     end
   end
 
-  defmodule IdentityHandler do
+  defmodule EverythingHandler do
     use Bazaar.Handler
 
     @impl true
-    def capabilities, do: [:checkout, :identity, :discount]
-
-    @impl true
-    def business_profile do
-      %{"name" => "Identity Store"}
-    end
-  end
-
-  defmodule PaymentHandler do
-    use Bazaar.Handler
-
-    @impl true
-    def capabilities, do: [:checkout]
+    def capabilities, do: [:checkout, :orders, :fulfillment, :identity, :discount, :catalog]
 
     @impl true
     def business_profile do
       %{
-        "name" => "Payment Store",
+        "name" => "Everything Store",
         "payment_handlers" => [
           %{
-            "type" => "stripe",
-            "name" => "Stripe",
+            "name" => "com.stripe",
+            "id" => "stripe",
+            "spec" => "https://stripe.com/docs/ucp",
             "config" => %{"publishable_key" => "pk_test"}
           },
-          %{"type" => "paypal", "name" => "PayPal", "config" => %{}}
+          %{"name" => "com.paypal", "id" => "paypal", "config" => %{}}
         ],
-        "signing_keys" => [
-          %{"kty" => "EC", "kid" => "key-1", "use" => "sig"}
+        "keys" => [
+          %{
+            "kty" => "EC",
+            "kid" => "key-1",
+            "use" => "sig",
+            "crv" => "P-256",
+            "x" => "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+            "y" => "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
+          }
         ]
+      }
+    end
+
+    @impl true
+    def fulfillment_config do
+      %{
+        "multi_destination" => [%{"method" => "shipping"}],
+        "method_combinations" => [["shipping", "pickup"]]
       }
     end
   end
 
   describe "from_handler/2" do
-    test "builds profile from handler module" do
+    test "builds merchant details from handler module" do
       profile = DiscoveryProfile.from_handler(TestHandler)
 
-      assert profile["ucp"]["merchant"]["name"] == "Test Handler Store"
-      assert profile["ucp"]["merchant"]["description"] == "A store for testing"
+      assert profile["merchant"]["name"] == "Test Handler Store"
+      assert profile["merchant"]["description"] == "A store for testing"
     end
 
-    test "includes capabilities from handler" do
-      profile = DiscoveryProfile.from_handler(TestHandler)
-      capabilities = profile["ucp"]["capabilities"]
-
-      assert length(capabilities) == 2
-
-      capability_names = Enum.map(capabilities, & &1["name"])
-      assert "dev.ucp.shopping.checkout" in capability_names
-      assert "dev.ucp.shopping.order" in capability_names
-    end
-
-    test "sets correct spec and schema URLs for capabilities" do
+    test "registers capabilities by reverse-domain name" do
       profile = DiscoveryProfile.from_handler(TestHandler)
       capabilities = profile["ucp"]["capabilities"]
 
-      checkout_cap = Enum.find(capabilities, &(&1["name"] == "dev.ucp.shopping.checkout"))
-      assert checkout_cap["spec"] == "https://ucp.dev/specification/checkout/"
-      assert checkout_cap["schema"] == "https://ucp.dev/schemas/shopping/checkout.json"
-      assert checkout_cap["version"] == "2026-01-23"
+      assert Map.keys(capabilities) |> Enum.sort() ==
+               ["dev.ucp.shopping.checkout", "dev.ucp.shopping.order"]
     end
 
-    test "includes base_url in services endpoint" do
+    test "sets versioned spec and schema URLs for capabilities" do
+      profile = DiscoveryProfile.from_handler(TestHandler)
+      [checkout_cap] = profile["ucp"]["capabilities"]["dev.ucp.shopping.checkout"]
+
+      assert checkout_cap["version"] == @version
+      assert checkout_cap["spec"] == "https://ucp.dev/#{@version}/specification/shopping/checkout"
+
+      assert checkout_cap["schema"] ==
+               "https://ucp.dev/#{@version}/schemas/shopping/checkout.json"
+    end
+
+    test "binds the shopping service to the REST transport at base_url" do
       profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
+      [service] = profile["ucp"]["services"]["dev.ucp.shopping"]
 
-      services = profile["ucp"]["services"]["dev.ucp.shopping"]
-      assert services["rest"]["endpoint"] == "https://api.mystore.com"
+      assert service["transport"] == "rest"
+      assert service["endpoint"] == "https://api.mystore.com"
+      assert service["version"] == @version
     end
 
     test "uses empty base_url by default" do
       profile = DiscoveryProfile.from_handler(TestHandler)
+      [service] = profile["ucp"]["services"]["dev.ucp.shopping"]
 
-      services = profile["ucp"]["services"]["dev.ucp.shopping"]
-      assert services["rest"]["endpoint"] == ""
+      assert service["endpoint"] == ""
     end
 
     test "extracts primary_domain from base_url" do
       profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
 
-      assert profile["ucp"]["merchant"]["primary_domain"] == "api.mystore.com"
+      assert profile["merchant"]["primary_domain"] == "api.mystore.com"
     end
 
     test "resolves relative logo_url with base_url" do
       profile = DiscoveryProfile.from_handler(TestHandler, base_url: "https://api.mystore.com")
 
-      assert profile["ucp"]["merchant"]["logo_url"] == "https://api.mystore.com/images/logo.png"
+      assert profile["merchant"]["logo_url"] == "https://api.mystore.com/images/logo.png"
     end
 
     test "preserves absolute logo_url" do
@@ -131,45 +138,72 @@ defmodule Bazaar.DiscoveryProfileTest do
       profile =
         DiscoveryProfile.from_handler(AbsoluteLogoHandler, base_url: "https://api.mystore.com")
 
-      assert profile["ucp"]["merchant"]["logo_url"] == "https://cdn.example.com/logo.png"
+      assert profile["merchant"]["logo_url"] == "https://cdn.example.com/logo.png"
+    end
+
+    test "omits keys and payment handlers when the handler declares none" do
+      profile = DiscoveryProfile.from_handler(TestHandler)
+
+      refute Map.has_key?(profile, "keys")
+      assert profile["ucp"]["payment_handlers"] == %{}
     end
   end
 
-  describe "from_handler/2 with identity capability" do
-    test "includes identity capability" do
-      profile = DiscoveryProfile.from_handler(IdentityHandler)
+  describe "from_handler/2 with every capability" do
+    test "maps identity, discount and catalog to their UCP capability names" do
+      profile = DiscoveryProfile.from_handler(EverythingHandler)
       capabilities = profile["ucp"]["capabilities"]
 
-      capability_names = Enum.map(capabilities, & &1["name"])
-      assert "dev.ucp.shopping.identity" in capability_names
+      assert [identity] = capabilities["dev.ucp.common.identity_linking"]
+      assert identity["schema"] =~ "/schemas/common/identity_linking.json"
+
+      assert [discount] = capabilities["dev.ucp.shopping.discount"]
+      assert discount["extends"] == "dev.ucp.shopping.checkout"
+
+      assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.search")
+      assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.lookup")
     end
 
-    test "includes discount capability" do
-      profile = DiscoveryProfile.from_handler(IdentityHandler)
-      capabilities = profile["ucp"]["capabilities"]
+    test "carries the fulfillment config on the fulfillment capability" do
+      profile = DiscoveryProfile.from_handler(EverythingHandler)
+      [fulfillment] = profile["ucp"]["capabilities"]["dev.ucp.shopping.fulfillment"]
 
-      capability_names = Enum.map(capabilities, & &1["name"])
-      assert "dev.ucp.shopping.discount" in capability_names
+      assert fulfillment["extends"] == "dev.ucp.shopping.checkout"
+      assert fulfillment["config"]["multi_destination"] == [%{"method" => "shipping"}]
+      assert fulfillment["config"]["method_combinations"] == [["shipping", "pickup"]]
     end
-  end
 
-  describe "from_handler/2 with payment handlers" do
-    test "includes payment handlers" do
-      profile = DiscoveryProfile.from_handler(PaymentHandler)
-      handlers = profile["payment"]["handlers"]
+    test "registers payment handlers by namespace" do
+      profile = DiscoveryProfile.from_handler(EverythingHandler)
+      handlers = profile["ucp"]["payment_handlers"]
 
-      assert length(handlers) == 2
+      assert Map.keys(handlers) |> Enum.sort() == ["com.paypal", "com.stripe"]
 
-      stripe = Enum.find(handlers, &(&1["id"] == "stripe"))
-      assert stripe["name"] == "Stripe"
+      [stripe] = handlers["com.stripe"]
+      assert stripe["id"] == "stripe"
+      assert stripe["version"] == @version
+      assert stripe["spec"] == "https://stripe.com/docs/ucp"
       assert stripe["config"]["publishable_key"] == "pk_test"
+
+      [paypal] = handlers["com.paypal"]
+      refute Map.has_key?(paypal, "spec")
     end
 
-    test "includes signing keys" do
-      profile = DiscoveryProfile.from_handler(PaymentHandler)
+    test "publishes signing keys as a JWK set" do
+      profile = DiscoveryProfile.from_handler(EverythingHandler)
 
-      assert length(profile["signing_keys"]) == 1
-      assert hd(profile["signing_keys"])["kid"] == "key-1"
+      assert [%{"kid" => "key-1", "kty" => "EC"}] = profile["keys"]
+    end
+
+    test "validates against the UCP business profile schema" do
+      for handler <- [TestHandler, EverythingHandler] do
+        profile = DiscoveryProfile.from_handler(handler, base_url: "https://api.mystore.com")
+
+        case Validator.validate_profile(profile) do
+          {:ok, _} -> :ok
+          {:error, errors} -> flunk("#{inspect(handler)} profile is invalid: #{inspect(errors)}")
+        end
+      end
     end
   end
 
@@ -181,7 +215,7 @@ defmodule Bazaar.DiscoveryProfileTest do
       assert is_binary(json)
 
       decoded = JSON.decode!(json)
-      assert decoded["ucp"]["merchant"]["name"] == "Test Handler Store"
+      assert decoded["merchant"]["name"] == "Test Handler Store"
     end
   end
 end

@@ -8,8 +8,15 @@ defmodule Bazaar.Schemas.Shopping.CheckoutCompleteReq do
   """
   use Ecto.Schema
   import Ecto.Changeset
-  alias Bazaar.Schemas.Shopping.Payment
-  @field_descriptions %{payment: nil}
+  alias Bazaar.Schemas.Common.Types.Payment
+  alias Bazaar.Schemas.Common.Types.Signals
+
+  @field_descriptions %{
+    attribution:
+      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
+    payment: nil,
+    signals: nil
+  }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
     Map.get(@field_descriptions, field)
@@ -17,12 +24,17 @@ defmodule Bazaar.Schemas.Shopping.CheckoutCompleteReq do
 
   @primary_key false
   embedded_schema do
+    field(:attribution, :map)
     embeds_one(:payment, Payment)
+    embeds_one(:signals, Signals)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, []) |> cast_embed(:payment, required: true)
+    struct
+    |> cast(params, [:attribution])
+    |> cast_embed(:payment, required: true)
+    |> cast_embed(:signals, required: false)
   end
 
   (

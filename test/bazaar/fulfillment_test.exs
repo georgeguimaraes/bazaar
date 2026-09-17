@@ -25,8 +25,8 @@ defmodule Bazaar.FulfillmentTest do
     test "returns default merchant configuration" do
       config = Fulfillment.default_merchant_config()
 
-      assert config["allows_multi_destination"] == false
-      assert config["allows_method_combinations"] == false
+      assert config["multi_destination"] == []
+      assert config["method_combinations"] == []
     end
   end
 

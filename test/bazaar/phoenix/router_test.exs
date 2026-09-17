@@ -259,8 +259,8 @@ defmodule Bazaar.Phoenix.RouterTest do
 
       assert conn.status == 200
       body = JSON.decode!(conn.resp_body)
-      assert body["ucp"]["merchant"]["name"] == "Test Store"
-      assert is_list(body["ucp"]["capabilities"])
+      assert body["merchant"]["name"] == "Test Store"
+      assert is_map(body["ucp"]["capabilities"])
     end
 
     test "create_checkout returns 201 on success", %{conn: conn} do
@@ -685,7 +685,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.discovery(%{})
 
       body = JSON.decode!(conn.resp_body)
-      endpoint = body["ucp"]["services"]["dev.ucp.shopping"]["rest"]["endpoint"]
+      [%{"endpoint" => endpoint}] = body["ucp"]["services"]["dev.ucp.shopping"]
       assert endpoint == "https://api.example.com"
     end
 
@@ -700,7 +700,7 @@ defmodule Bazaar.Phoenix.RouterTest do
         |> Bazaar.Phoenix.Controller.discovery(%{})
 
       body = JSON.decode!(conn.resp_body)
-      endpoint = body["ucp"]["services"]["dev.ucp.shopping"]["rest"]["endpoint"]
+      [%{"endpoint" => endpoint}] = body["ucp"]["services"]["dev.ucp.shopping"]
       assert endpoint == "http://localhost:4000"
     end
   end

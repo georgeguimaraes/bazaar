@@ -2,7 +2,7 @@ defmodule Bazaar.Schemas.Transports.EmbeddedConfig do
   @moduledoc """
   Embedded Transport Config
 
-  Per-checkout configuration for embedded transport binding. Allows businesses to vary ECP availability and delegations based on cart contents, agent authorization, or policy.
+  Per-session configuration for embedded transport binding. Allows businesses to vary EP availability and delegations based on cart contents, agent authorization, or policy.
 
   Generated from: embedded_config.json
   """
@@ -10,8 +10,10 @@ defmodule Bazaar.Schemas.Transports.EmbeddedConfig do
   import Ecto.Changeset
 
   @field_descriptions %{
+    color_scheme:
+      "Color schemes the business supports. Hosts use ec_color_scheme query parameter to request a scheme from this list.",
     delegate:
-      "Delegations the business allows. At service-level, declares available delegations. In checkout responses, confirms accepted delegations for this session."
+      "Delegations the business allows. At service-level, declares available delegations. In UCP responses, confirms accepted delegations for this session."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
@@ -20,12 +22,13 @@ defmodule Bazaar.Schemas.Transports.EmbeddedConfig do
 
   @primary_key false
   embedded_schema do
+    field(:color_scheme, {:array, :map})
     field(:delegate, {:array, :map})
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, [:delegate])
+    struct |> cast(params, [:color_scheme, :delegate])
   end
 
   (

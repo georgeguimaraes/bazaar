@@ -8,7 +8,7 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
+  @type_values [:shipping_address]
   @field_descriptions %{
     address_country:
       "The country. Recommended to be in 2-letter ISO 3166-1 alpha-2 format, for example \"US\". For backward compatibility, a 3-letter ISO 3166-1 alpha-3 country code such as \"SGP\" or a full country name such as \"Singapore\" can also be used.",
@@ -23,7 +23,8 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
     last_name: "Optional. Last name of the contact associated with the address.",
     phone_number: "Optional. Phone number of the contact associated with the address.",
     postal_code: "The postal code. For example, 94043.",
-    street_address: "The street address."
+    street_address: "The street address.",
+    type: "Destination type discriminator."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
@@ -42,6 +43,7 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
     field(:phone_number, :string)
     field(:postal_code, :string)
     field(:street_address, :string)
+    field(:type, Ecto.Enum, values: @type_values)
   end
 
   @doc "Creates a changeset for validating and casting params."
@@ -57,9 +59,10 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
       :last_name,
       :phone_number,
       :postal_code,
-      :street_address
+      :street_address,
+      :type
     ])
-    |> validate_required([:id])
+    |> validate_required([:id, :type])
   end
 
   (

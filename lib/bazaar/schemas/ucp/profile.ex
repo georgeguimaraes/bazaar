@@ -1,26 +1,45 @@
 defmodule Bazaar.Schemas.Profile do
   @moduledoc """
-  UCP Discovery Profile
+  UCP Profile Document
 
-  Schema for UCP discovery profiles. Business profiles are hosted at /.well-known/ucp; platform profiles are hosted at URIs advertised in request headers.
+  Variant-neutral wrapper schema for UCP profile documents. Use the business_schema definition to validate business profiles and the platform_schema definition to validate platform profiles.
 
   Generated from: profile.json
   """
-  alias Bazaar.Schemas.Profile.BusinessProfile
-  alias Bazaar.Schemas.Profile.PlatformProfile
-  @variants [Bazaar.Schemas.Profile.PlatformProfile, Bazaar.Schemas.Profile.BusinessProfile]
-  @doc "Returns the variant modules for this union type."
-  def variants do
-    @variants
+  use Ecto.Schema
+  import Ecto.Changeset
+  alias Bazaar.Schemas.Profile.JwkPublicKey
+  alias Bazaar.Schemas.UcpResp.Base
+
+  @field_descriptions %{
+    keys:
+      "Canonical UCP profile field for publishing signing keys, as a JWK Set per RFC 7517. When a profile publishes signing keys, they MUST appear here; this is where every UCP verifier reads them. Publishing keys[] makes the UCP profile a valid JWK Set that a signer can reuse as its Web Bot Auth key source: a WBA-shape verifier resolving via Signature-Agent type=jwks_uri pointed at this profile reads these keys, and the cimd and directory variants reach them through their own documents. See the Deployment Patterns for WBA Interop section in the overview for hosting patterns.",
+    ucp:
+      "Protocol metadata, capabilities, services, and payment handlers advertised by this party."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Casts params to one of the variant types."
-  def cast(params) when is_map(params) do
-    Enum.find_value([PlatformProfile, BusinessProfile], {:error, :no_matching_variant}, fn mod ->
-      case mod.new(params) do
-        %Ecto.Changeset{valid?: true} = changeset -> {:ok, changeset}
-        _ -> nil
-      end
-    end)
+  @primary_key false
+  embedded_schema do
+    embeds_many(:keys, JwkPublicKey)
+    embeds_one(:ucp, Base)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [])
+    |> cast_embed(:keys, required: false)
+    |> cast_embed(:ucp, required: true)
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/exception_hour.update_req.json",
+  "title": "Exception Hour Update Request",
+  "description": "A date-specific operating interval or full closure. Its `valid_from`, `valid_through`, `opens`, and `closes` are local civil values interpreted in the containing Location's `timezone`. Date bounds are inclusive.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "time_interval.update_req.json"
+    },
+    {
+      "type": "object",
+      "properties": {}
+    }
+  ],
+  "required": [
+    "valid_from",
+    "valid_through"
+  ]
+}

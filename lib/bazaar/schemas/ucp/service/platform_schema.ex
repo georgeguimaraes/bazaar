@@ -2,7 +2,7 @@ defmodule Bazaar.Schemas.Service.PlatformSchema do
   @moduledoc """
   Service (Platform Schema)
 
-  Full service declaration for platform-level discovery. Different transports require different fields.
+  Full service declaration for platform-level discovery. All transports require `version`, `spec`, and `transport`. REST, MCP, and embedded additionally require `schema`.
 
   Generated from: service.json
   """

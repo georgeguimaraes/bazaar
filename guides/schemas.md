@@ -158,7 +158,7 @@ end
 
 ## Order Schema
 
-Use `Bazaar.Schemas.Shopping.Order` for order validation and `Bazaar.Order` for business logic.
+Use `Bazaar.Schemas.Shopping.OrderResp` for order validation and `Bazaar.Order` for business logic.
 
 ### Creating from Checkout
 
@@ -175,7 +175,7 @@ order_params = Bazaar.Order.from_checkout(
   "order_123",
   "https://shop.example/orders/123"
 )
-# Returns a map ready to be validated with Bazaar.Schemas.Shopping.Order.new/1
+# Returns a map ready to be validated with Bazaar.Schemas.Shopping.OrderResp.new/1
 ```
 
 ### Order Fields
@@ -313,7 +313,7 @@ Access raw field definitions for custom use:
 Bazaar.Schemas.Shopping.CheckoutResp.fields()
 
 # All order fields
-Bazaar.Schemas.Shopping.Order.fields()
+Bazaar.Schemas.Shopping.OrderResp.fields()
 
 # Fulfillment configuration
 Bazaar.Fulfillment.default_merchant_config()

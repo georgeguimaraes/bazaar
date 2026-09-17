@@ -8,14 +8,15 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp do
   """
   use Ecto.Schema
   import Ecto.Changeset
-  @type_values [:shipping, :pickup]
+
   @field_descriptions %{
     description:
       "Human-readable availability info (e.g., 'Available for pickup at Downtown Store today').",
     fulfillable_on:
       "'now' for immediate availability, or ISO 8601 date for future (preorders, transfers).",
     line_item_ids: "Line items available for this fulfillment method.",
-    type: "Fulfillment method type this availability applies to."
+    type:
+      "Fulfillment method type this availability applies to. Well-known values: `shipping`, `pickup`; businesses MAY use additional values."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
@@ -27,7 +28,7 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp do
     field(:description, :string)
     field(:fulfillable_on, :string)
     field(:line_item_ids, {:array, :map})
-    field(:type, Ecto.Enum, values: @type_values)
+    field(:type, :string)
   end
 
   @doc "Creates a changeset for validating and casting params."

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/payment_authentication.create_req.json",
+  "name": "dev.ucp.common.payment.authentication",
+  "title": "Payment Authentication Extension Create Request",
+  "description": "Extends capabilities (e.g., checkout in retail shopping) with standard device data collection and 3DS challenge Action types used during payment authentication.",
+  "$defs": {
+    "dev.ucp.shopping.checkout": {
+      "allOf": [
+        {
+          "$ref": "../shopping/checkout.create_req.json"
+        },
+        {
+          "type": "object",
+          "properties": {}
+        }
+      ]
+    }
+  }
+}

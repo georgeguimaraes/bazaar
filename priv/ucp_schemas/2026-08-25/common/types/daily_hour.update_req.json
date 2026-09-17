@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/daily_hour.update_req.json",
+  "title": "Daily Hour Update Request",
+  "description": "A regular weekly operating interval. Its `day`, `opens`, and `closes` are recurring local civil values interpreted in the containing Location's `timezone`. Multiple entries for the same day support split shifts.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "time_interval.update_req.json"
+    },
+    {
+      "type": "object",
+      "properties": {}
+    }
+  ],
+  "required": [
+    "day",
+    "opens",
+    "closes"
+  ]
+}

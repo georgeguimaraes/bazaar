@@ -2,7 +2,7 @@ defmodule Bazaar.Schemas.Capability.BusinessSchema do
   @moduledoc """
   Capability (Business Schema)
 
-  Capability configuration for business/merchant level. May include business-specific config overrides.
+  Capability declaration for business/merchant discovery. Requires the `schema` URL so platforms can fetch and compose it during negotiation; may also include business-specific config overrides.
 
   Generated from: capability.json
   """
@@ -12,7 +12,7 @@ defmodule Bazaar.Schemas.Capability.BusinessSchema do
   @field_descriptions %{
     config: "Entity-specific configuration. Structure defined by each entity's schema.",
     extends:
-      "Parent capability this extends. Present for extensions, absent for root capabilities.",
+      "Parent capability(s) this extends. Present for extensions, absent for root capabilities. Use array for multi-parent extensions.",
     id:
       "Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.",
     schema: "URL to JSON Schema defining this entity's structure and payloads.",
@@ -27,7 +27,7 @@ defmodule Bazaar.Schemas.Capability.BusinessSchema do
   @primary_key false
   embedded_schema do
     field(:config, :map)
-    field(:extends, :string)
+    field(:extends, :map)
     field(:id, :string)
     field(:schema, :string)
     field(:spec, :string)
@@ -38,7 +38,7 @@ defmodule Bazaar.Schemas.Capability.BusinessSchema do
   def changeset(struct \\ %__MODULE__{}, params) do
     struct
     |> cast(params, [:config, :extends, :id, :schema, :spec, :version])
-    |> validate_required([:version])
+    |> validate_required([:version, :schema])
   end
 
   (

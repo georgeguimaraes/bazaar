@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/totals.complete_req.json",
+  "title": "Totals Complete Request",
+  "description": "Pricing breakdown provided by the business. MUST contain exactly one subtotal and one total entry. Detail types (tax, fee, discount, fulfillment) may appear multiple times for itemization. Platforms MUST render all entries in order using display_text and amount.",
+  "type": "array",
+  "items": {
+    "allOf": [
+      {
+        "$ref": "total.complete_req.json"
+      },
+      {
+        "type": "object",
+        "properties": {}
+      },
+      {
+        "if": {
+          "properties": {
+            "type": {
+              "not": {
+                "enum": [
+                  "subtotal",
+                  "items_discount",
+                  "discount",
+                  "fulfillment",
+                  "tax",
+                  "fee",
+                  "total"
+                ]
+              }
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        "then": {
+          "required": [
+            "display_text"
+          ]
+        }
+      }
+    ]
+  },
+  "allOf": [
+    {
+      "contains": {
+        "properties": {
+          "type": {
+            "const": "subtotal"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    {
+      "contains": {
+        "properties": {
+          "type": {
+            "const": "total"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    }
+  ]
+}

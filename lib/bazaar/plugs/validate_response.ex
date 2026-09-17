@@ -37,8 +37,8 @@ defmodule Bazaar.Plugs.ValidateResponse do
   - `update_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
   - `complete_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
   - `cancel_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
-  - `get_order` -> `Bazaar.Schemas.Shopping.Order`
-  - `cancel_order` -> `Bazaar.Schemas.Shopping.Order`
+  - `get_order` -> `Bazaar.Schemas.Shopping.OrderResp`
+  - `cancel_order` -> `Bazaar.Schemas.Shopping.OrderResp`
   """
 
   import Plug.Conn
@@ -55,8 +55,8 @@ defmodule Bazaar.Plugs.ValidateResponse do
     update_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
     complete_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
     cancel_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
-    get_order: Bazaar.Schemas.Shopping.Order,
-    cancel_order: Bazaar.Schemas.Shopping.Order
+    get_order: Bazaar.Schemas.Shopping.OrderResp,
+    cancel_order: Bazaar.Schemas.Shopping.OrderResp
   }
 
   @impl true

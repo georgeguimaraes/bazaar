@@ -10,8 +10,9 @@ defmodule Bazaar.Schemas.Shopping.DiscountCreateReq.Allocation do
   import Ecto.Changeset
 
   @field_descriptions %{
-    amount: "Amount allocated to this target in minor (cents) currency units.",
-    path: "JSONPath to the allocation target (e.g., '$.line_items[0]', '$.totals.shipping')."
+    amount: "Amount allocated to this target in ISO 4217 minor units.",
+    path:
+      "RFC 9535 JSONPath to the allocation target (e.g., '$.line_items[0]', '$.totals[?@.type == \"fulfillment\"]')."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do

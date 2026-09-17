@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/time_interval.complete_req.json",
+  "title": "Time Interval Complete Request",
+  "description": "Reusable opening and closing time fields for a containing schedule schema. Containing schemas determine whether the `opens` and `closes` pair is required; this fragment's standalone `{}` is not an interval.",
+  "type": "object",
+  "properties": {},
+  "dependentRequired": {
+    "opens": [
+      "closes"
+    ],
+    "closes": [
+      "opens"
+    ]
+  }
+}

@@ -9,7 +9,12 @@ defmodule Bazaar.Schemas.Shopping.Types.LineItemCreateReq do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Shopping.Types.ItemCreateReq
-  @field_descriptions %{item: nil, quantity: "Quantity of the item being purchased."}
+
+  @field_descriptions %{
+    item: nil,
+    quantity:
+      "Always an integer step count. On Platform requests, steps use the item's Business-authoritative sale basis; omitting `item.quantity_unit` makes no assertion and does not imply `each`. On Business responses, `item.quantity_unit` describes the basis; if absent, it encodes the `each` machine identity (`C62`, 0) and `quantity` counts whole items."
+  }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
     Map.get(@field_descriptions, field)

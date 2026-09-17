@@ -8,10 +8,8 @@ defmodule Bazaar.Schemas.Shopping.DiscountCreateReq.DiscountsObject do
   """
   use Ecto.Schema
   import Ecto.Changeset
-  alias Bazaar.Schemas.Shopping.DiscountCreateReq.AppliedDiscount
 
   @field_descriptions %{
-    applied: "Discounts successfully applied (code-based and automatic).",
     codes:
       "Discount codes to apply. Case-insensitive. Replaces previously submitted codes. Send empty array to clear."
   }
@@ -23,12 +21,11 @@ defmodule Bazaar.Schemas.Shopping.DiscountCreateReq.DiscountsObject do
   @primary_key false
   embedded_schema do
     field(:codes, {:array, :map})
-    embeds_many(:applied, AppliedDiscount)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, [:codes]) |> cast_embed(:applied, required: false)
+    struct |> cast(params, [:codes])
   end
 
   (

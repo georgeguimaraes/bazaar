@@ -56,7 +56,7 @@ defmodule Bazaar.Fulfillment do
   ## After Order
 
   Fulfillment events track shipment status (shipped, delivered, etc.)
-  See `Bazaar.Schemas.Shopping.Order` for order fulfillment fields.
+  See `Bazaar.Schemas.Shopping.OrderResp` for order fulfillment fields.
   """
 
   # Fulfillment method types
@@ -230,16 +230,18 @@ defmodule Bazaar.Fulfillment do
 
   @merchant_config_fields [
     %{
-      name: :allows_multi_destination,
-      type: :boolean,
-      default: false,
-      description: "Whether multiple destinations per method type are allowed"
+      name: :multi_destination,
+      type: {:array, :map},
+      default: [],
+      description:
+        "Method types that permit multiple destinations within one cart, as %{\"method\" => type} entries"
     },
     %{
-      name: :allows_method_combinations,
-      type: :boolean,
-      default: false,
-      description: "Whether different method types can be combined"
+      name: :method_combinations,
+      type: {:array, {:array, :string}},
+      default: [],
+      description:
+        "Method type combinations permitted within one cart, e.g. [[\"shipping\", \"pickup\"]]"
     }
   ]
 
@@ -313,8 +315,8 @@ defmodule Bazaar.Fulfillment do
   @doc "Returns default merchant fulfillment configuration."
   def default_merchant_config do
     %{
-      "allows_multi_destination" => false,
-      "allows_method_combinations" => false
+      "multi_destination" => [],
+      "method_combinations" => []
     }
   end
 

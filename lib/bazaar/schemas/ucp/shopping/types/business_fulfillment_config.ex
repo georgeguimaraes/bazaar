@@ -10,8 +10,10 @@ defmodule Bazaar.Schemas.Shopping.Types.BusinessFulfillmentConfig do
   import Ecto.Changeset
 
   @field_descriptions %{
-    allows_method_combinations: "Allowed method type combinations.",
-    allows_multi_destination: "Permits multiple destinations per method type."
+    method_combinations:
+      "Method-type combinations the business permits within one cart. Each inner array is a permitted set of method `type` values (e.g. shipping + pickup).",
+    multi_destination:
+      "Method types that permit multiple destinations within one cart (e.g. split shipping across addresses). Listing a method permits it; an omitted method does not. Open — businesses MAY list any method type."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
@@ -20,13 +22,13 @@ defmodule Bazaar.Schemas.Shopping.Types.BusinessFulfillmentConfig do
 
   @primary_key false
   embedded_schema do
-    field(:allows_method_combinations, {:array, :map})
-    field(:allows_multi_destination, :map)
+    field(:method_combinations, {:array, :map})
+    field(:multi_destination, {:array, :map})
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, [:allows_method_combinations, :allows_multi_destination])
+    struct |> cast(params, [:method_combinations, :multi_destination])
   end
 
   (

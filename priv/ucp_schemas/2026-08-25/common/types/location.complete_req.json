@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/location.complete_req.json",
+  "title": "Location Complete Request",
+  "description": "The full, rich representation of a physical business location. Builds on the Location Summary schema with discovery-centric details such as geographic coordinates, operating hours, timezone, and amenities.",
+  "$defs": {
+    "amenity": {
+      "title": "Amenity Complete Request",
+      "description": "Buyer-facing presentation metadata for one amenity identifier. The containing map key, not this metadata, defines amenity identity and filter matching.",
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {},
+      "required": []
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "$ref": "location_summary.complete_req.json"
+    },
+    {
+      "type": "object",
+      "properties": {}
+    }
+  ],
+  "if": {
+    "anyOf": [
+      {
+        "required": [
+          "hours"
+        ]
+      },
+      {
+        "required": [
+          "exception_hours"
+        ]
+      }
+    ]
+  },
+  "then": {
+    "required": [
+      "timezone"
+    ]
+  }
+}

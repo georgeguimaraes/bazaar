@@ -224,7 +224,7 @@ Bazaar.Validator.available_schemas()
 # => %{ucp: [:checkout, :order, :profile], acp: [:checkout_session, ...]}
 ```
 
-UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-01-23`). ACP schemas track the [open ACP repo](https://github.com/agentic-commerce-protocol/agentic-commerce-protocol) (currently `2026-01-30`).
+UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-08-25`). ACP schemas track the [open ACP repo](https://github.com/agentic-commerce-protocol/agentic-commerce-protocol) (currently `2026-01-30`).
 
 ## Capabilities
 

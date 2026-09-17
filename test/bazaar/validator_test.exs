@@ -36,12 +36,12 @@ defmodule Bazaar.ValidatorTest do
     test "validates a complete checkout response" do
       checkout = %{
         "ucp" => %{
-          "version" => "2026-01-23",
+          "version" => "2026-08-25",
           "capabilities" => %{
-            "dev.ucp.shopping.checkout" => [%{"version" => "2026-01-23"}]
+            "dev.ucp.shopping.checkout" => [%{"version" => "2026-08-25"}]
           },
           "payment_handlers" => %{
-            "com.stripe" => [%{"version" => "2026-01-23", "id" => "stripe_1"}]
+            "com.stripe" => [%{"version" => "2026-08-25", "id" => "stripe_1"}]
           }
         },
         "id" => "checkout_123",
@@ -94,7 +94,7 @@ defmodule Bazaar.ValidatorTest do
       checkout = %{
         "ucp" => %{
           "name" => "dev.ucp.shopping.checkout",
-          "version" => "2026-01-23"
+          "version" => "2026-08-25"
         },
         "id" => "checkout_123",
         "status" => "invalid_status",
@@ -116,14 +116,15 @@ defmodule Bazaar.ValidatorTest do
     test "validates a complete order response" do
       order = %{
         "ucp" => %{
-          "version" => "2026-01-23",
+          "version" => "2026-08-25",
           "capabilities" => %{
-            "dev.ucp.shopping.order" => [%{"version" => "2026-01-23"}]
+            "dev.ucp.shopping.order" => [%{"version" => "2026-08-25"}]
           }
         },
         "id" => "order_123",
         "checkout_id" => "checkout_456",
         "permalink_url" => "https://shop.example.com/orders/123",
+        "currency" => "USD",
         "line_items" => [
           %{
             "id" => "li_1",
@@ -138,6 +139,7 @@ defmodule Bazaar.ValidatorTest do
           "events" => []
         },
         "totals" => [
+          %{"type" => "subtotal", "amount" => 1000},
           %{"type" => "total", "amount" => 1000}
         ]
       }

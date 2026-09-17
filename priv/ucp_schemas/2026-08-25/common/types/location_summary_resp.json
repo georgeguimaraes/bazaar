@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/location_summary.json",
+  "title": "Location Summary Response",
+  "description": "A summary of a physical business location.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable, opaque, Business-scoped Location identifier."
+    },
+    "name": {
+      "type": "string",
+      "description": "Buyer-facing, Business-owned display name."
+    },
+    "address": {
+      "$ref": "postal_address.json",
+      "description": "Physical address of the location."
+    }
+  },
+  "required": [
+    "id",
+    "name"
+  ]
+}

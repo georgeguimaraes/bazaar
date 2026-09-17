@@ -30,9 +30,9 @@ defmodule Bazaar.Message do
 
   import Ecto.Changeset
 
-  alias Bazaar.Schemas.Shopping.Types.MessageError
-  alias Bazaar.Schemas.Shopping.Types.MessageInfo
-  alias Bazaar.Schemas.Shopping.Types.MessageWarning
+  alias Bazaar.Schemas.Common.Types.MessageError
+  alias Bazaar.Schemas.Common.Types.MessageInfo
+  alias Bazaar.Schemas.Common.Types.MessageWarning
 
   @type_values [:error, :warning, :info]
   @severity_values [:recoverable, :requires_buyer_input, :requires_buyer_review]

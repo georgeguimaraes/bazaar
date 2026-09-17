@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/types/total.create_req.json",
+  "title": "Total Create Request",
+  "description": "A cost breakdown entry with a category, amount, and optional display text.",
+  "type": "object",
+  "properties": {},
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "discount",
+              "items_discount"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "amount": {
+            "exclusiveMaximum": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "subtotal",
+              "fulfillment",
+              "tax",
+              "fee"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "amount": {
+            "minimum": 0
+          }
+        }
+      }
+    }
+  ],
+  "required": []
+}

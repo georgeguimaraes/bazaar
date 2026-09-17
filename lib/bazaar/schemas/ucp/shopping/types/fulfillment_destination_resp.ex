@@ -6,29 +6,34 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentDestinationResp do
 
   Generated from: fulfillment_destination_resp.json
   """
-  alias Bazaar.Schemas.Shopping.Types.RetailLocationResp
-  alias Bazaar.Schemas.Shopping.Types.ShippingDestinationResp
+  use Ecto.Schema
+  import Ecto.Changeset
 
-  @variants [
-    Bazaar.Schemas.Shopping.Types.ShippingDestinationResp,
-    Bazaar.Schemas.Shopping.Types.RetailLocationResp
-  ]
-  @doc "Returns the variant modules for this union type."
-  def variants do
-    @variants
+  @field_descriptions %{
+    id: "Fulfillment destination identifier.",
+    type:
+      "Destination contract discriminator. Required in Business responses and optional in Platform requests. Well-known values: `shipping_address`, `business_location`. The enclosing method contract defines request defaults and which fields the Platform may write; negotiated extensions define additional values."
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
   end
 
-  @doc "Casts params to one of the variant types."
-  def cast(params) when is_map(params) do
-    Enum.find_value(
-      [ShippingDestinationResp, RetailLocationResp],
-      {:error, :no_matching_variant},
-      fn mod ->
-        case mod.new(params) do
-          %Ecto.Changeset{valid?: true} = changeset -> {:ok, changeset}
-          _ -> nil
-        end
-      end
-    )
+  @primary_key false
+  embedded_schema do
+    field(:id, :string)
+    field(:type, :string)
   end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct |> cast(params, [:id, :type]) |> validate_required([:type, :id])
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
 end

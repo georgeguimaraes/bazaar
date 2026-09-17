@@ -30,7 +30,7 @@ if Code.ensure_loaded?(JSV) do
     - `validate/2` - Generic validation against any schema (UCP, ACP, OpenAI)
     """
 
-    @ucp_schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-01-23")
+    @ucp_schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-08-25")
     @acp_schemas_dir :code.priv_dir(:bazaar) |> Path.join("acp_schemas/2026-01-30")
 
     # ACP bundle schemas: {bundle_file, def_name}
@@ -171,7 +171,7 @@ if Code.ensure_loaded?(JSV) do
     defp ucp_schema_path(:checkout),
       do: Path.join([@ucp_schemas_dir, "shopping", "checkout_resp.json"])
 
-    defp ucp_schema_path(:order), do: Path.join([@ucp_schemas_dir, "shopping", "order.json"])
+    defp ucp_schema_path(:order), do: Path.join([@ucp_schemas_dir, "shopping", "order_resp.json"])
     defp ucp_schema_path(:profile), do: Path.join(@ucp_schemas_dir, "profile.json")
 
     # Private: ACP bundle schema loading

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/payment_terms.create_req.json",
+  "name": "dev.ucp.common.payment.terms",
+  "title": "Payment Terms Extension Create Request",
+  "description": "Extends capabilities (e.g., checkout in retail shopping) with selectable payment terms, letting a Business offer alternative schedules for when payment for the checkout is due, and projects the accepted term onto the resulting Order.",
+  "$defs": {
+    "payment_term": {
+      "$ref": "types/payment_term.json"
+    },
+    "payment": {
+      "title": "Payment with Terms Create Request",
+      "description": "Payment object extended with selectable payment terms.",
+      "type": "object",
+      "properties": {}
+    },
+    "order_payment": {
+      "title": "Order Payment with Accepted Term Create Request",
+      "description": "Order payment details carrying the term the Buyer accepted at checkout.",
+      "type": "object",
+      "properties": {
+        "accepted_term": {
+          "$ref": "#/$defs/payment_term",
+          "description": "The payment term the Buyer accepted at checkout. Businesses MUST carry it forward so the Order states the amounts owed and when, and MUST ensure its schedule amounts sum to the Order total. The available terms are checkout state and are not projected."
+        }
+      }
+    },
+    "dev.ucp.shopping.checkout": {
+      "title": "Checkout with Payment Terms Create Request",
+      "description": "Checkout extended with selectable payment terms.",
+      "allOf": [
+        {
+          "$ref": "../shopping/checkout.create_req.json"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payment": {
+              "$ref": "#/$defs/payment",
+              "description": "Payment details with available and selected payment terms."
+            }
+          }
+        }
+      ]
+    },
+    "dev.ucp.shopping.order": {
+      "title": "Order with Accepted Payment Term Create Request",
+      "description": "Order extended with the payment term accepted at checkout.",
+      "allOf": [
+        {
+          "$ref": "../shopping/order.create_req.json"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "payment": {
+              "$ref": "#/$defs/order_payment",
+              "description": "Payment details for the Order, including the accepted payment term."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

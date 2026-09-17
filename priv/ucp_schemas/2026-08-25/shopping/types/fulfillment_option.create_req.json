@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/shopping/types/fulfillment_option.create_req.json",
+  "title": "Fulfillment Option Create Request",
+  "description": "A fulfillment option within a group (e.g., Standard Shipping $5, Express $15). Extends the fulfillment option base with cost and timing.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "fulfillment_option_base.create_req.json"
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {},
+      "required": []
+    }
+  ]
+}

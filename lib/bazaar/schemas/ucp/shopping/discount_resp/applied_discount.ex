@@ -13,12 +13,15 @@ defmodule Bazaar.Schemas.Shopping.DiscountResp.AppliedDiscount do
   @field_descriptions %{
     allocations:
       "Breakdown of where this discount was allocated. Sum of allocation amounts equals total amount.",
-    amount: "Total discount amount in minor (cents) currency units.",
+    amount: "Total discount amount in ISO 4217 minor units.",
     automatic: "True if applied automatically by merchant rules (no code required).",
     code: "The discount code. Omitted for automatic discounts.",
+    eligibility:
+      "The eligibility claim accepted by the Business for this discount. Corresponds to a value from context.eligibility. Omitted for code-based and non-eligibility automatic discounts.",
     method:
       "Allocation method. 'each' = applied independently per item. 'across' = split proportionally by value.",
     priority: "Stacking order for discount calculation. Lower numbers applied first (1 = first).",
+    provisional: "True if this discount requires additional verification.",
     title: "Human-readable discount name (e.g., 'Summer Sale 20% Off')."
   }
   @doc "Returns the description for a field, if available."
@@ -31,7 +34,9 @@ defmodule Bazaar.Schemas.Shopping.DiscountResp.AppliedDiscount do
     field(:amount, :integer)
     field(:automatic, :boolean)
     field(:code, :string)
+    field(:eligibility, :string)
     field(:priority, :integer)
+    field(:provisional, :boolean)
     field(:title, :string)
     field(:method, Ecto.Enum, values: @method_values)
     embeds_many(:allocations, Allocation)
@@ -40,7 +45,16 @@ defmodule Bazaar.Schemas.Shopping.DiscountResp.AppliedDiscount do
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
     struct
-    |> cast(params, [:amount, :automatic, :code, :priority, :title, :method])
+    |> cast(params, [
+      :amount,
+      :automatic,
+      :code,
+      :eligibility,
+      :priority,
+      :provisional,
+      :title,
+      :method
+    ])
     |> cast_embed(:allocations, required: false)
     |> validate_required([:title, :amount])
   end

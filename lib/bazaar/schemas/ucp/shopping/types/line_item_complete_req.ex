@@ -14,7 +14,8 @@ defmodule Bazaar.Schemas.Shopping.Types.LineItemCompleteReq do
     id: nil,
     item: nil,
     parent_id: "Parent line item identifier for any nested structures.",
-    quantity: "Quantity of the item being purchased."
+    quantity:
+      "Always an integer step count. On Platform requests, steps use the item's Business-authoritative sale basis; omitting `item.quantity_unit` makes no assertion and does not imply `each`. On Business responses, `item.quantity_unit` describes the basis; if absent, it encodes the `each` machine identity (`C62`, 0) and `quantity` counts whole items."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do

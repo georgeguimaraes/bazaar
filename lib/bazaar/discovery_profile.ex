@@ -5,14 +5,27 @@ defmodule Bazaar.DiscoveryProfile do
   This is the manifest served at `/.well-known/ucp` that describes
   the merchant's capabilities, endpoints, and configuration.
 
-  Follows the official UCP spec format from https://ucp.dev
+  Follows the UCP business profile document from https://ucp.dev:
+  a `ucp` envelope with `services`, `capabilities` and `payment_handlers`
+  registries keyed by reverse-domain name, plus an optional `keys` JWK set.
   """
 
-  @ucp_version "2026-01-23"
-  @ucp_spec_base "https://ucp.dev"
+  @ucp_version "2026-08-25"
+  @ucp_base "https://ucp.dev/#{@ucp_version}"
+
+  @doc "The UCP spec version this library implements."
+  def version, do: @ucp_version
 
   @doc """
   Builds a UCP-compliant discovery profile from handler module configuration.
+
+  The handler's `business_profile/0` may include:
+
+  - `"name"`, `"description"`, `"logo_url"`, `"support_email"`, `"website"`:
+    merchant details, exposed under a top-level `merchant` key
+  - `"payment_handlers"`: a list of `%{"name" => "com.stripe", "id" => "stripe", "config" => %{}}`
+    entries, where `name` is the handler's reverse-domain namespace
+  - `"keys"`: public signing keys as a JWK set
 
   ## Example
 
@@ -22,36 +35,31 @@ defmodule Bazaar.DiscoveryProfile do
     base_url = Keyword.get(opts, :base_url, "")
     capabilities = handler_module.capabilities()
     business = handler_module.business_profile()
-    payment_handlers = Map.get(business, "payment_handlers", [])
-    signing_keys = Map.get(business, "signing_keys", [])
 
-    base_profile = %{
+    profile = %{
       "ucp" => %{
         "version" => @ucp_version,
-        "merchant" => build_merchant(business, base_url),
-        "services" => %{
-          "dev.ucp.shopping" => %{
-            "version" => @ucp_version,
-            "spec" => "#{@ucp_spec_base}/specification/overview/",
-            "rest" => %{
-              "schema" => "#{@ucp_spec_base}/services/shopping/rest.openapi.json",
-              "endpoint" => base_url
-            }
-          }
-        },
-        "capabilities" => build_capabilities(capabilities)
+        "services" => %{"dev.ucp.shopping" => [rest_service(base_url)]},
+        "capabilities" => build_capabilities(capabilities, handler_module),
+        "payment_handlers" => build_payment_handlers(Map.get(business, "payment_handlers", []))
       },
-      "payment" => build_payment(payment_handlers),
-      "signing_keys" => signing_keys
+      "merchant" => build_merchant(business, base_url)
     }
 
-    # Add fulfillment config if capability is declared
-    if :fulfillment in capabilities do
-      fulfillment_config = handler_module.fulfillment_config()
-      put_in(base_profile, ["ucp", "fulfillment"], fulfillment_config)
-    else
-      base_profile
+    case Map.get(business, "keys") do
+      keys when is_list(keys) and keys != [] -> Map.put(profile, "keys", keys)
+      _ -> profile
     end
+  end
+
+  defp rest_service(base_url) do
+    %{
+      "version" => @ucp_version,
+      "spec" => "#{@ucp_base}/specification/overview/",
+      "transport" => "rest",
+      "schema" => "#{@ucp_base}/services/shopping/rest.openapi.json",
+      "endpoint" => base_url
+    }
   end
 
   defp build_merchant(business, base_url) do
@@ -74,77 +82,82 @@ defmodule Bazaar.DiscoveryProfile do
   defp resolve_url("/" <> _ = path, base_url), do: base_url <> path
   defp resolve_url(url, _base_url), do: url
 
-  defp build_capabilities(capabilities) do
-    Enum.map(capabilities, fn
-      :checkout ->
-        %{
-          "name" => "dev.ucp.shopping.checkout",
-          "version" => @ucp_version,
-          "spec" => "#{@ucp_spec_base}/specification/checkout/",
-          "schema" => "#{@ucp_spec_base}/schemas/shopping/checkout.json"
-        }
-
-      :orders ->
-        %{
-          "name" => "dev.ucp.shopping.order",
-          "version" => @ucp_version,
-          "spec" => "#{@ucp_spec_base}/specification/order/",
-          "schema" => "#{@ucp_spec_base}/schemas/shopping/order.json"
-        }
-
-      :fulfillment ->
-        %{
-          "name" => "dev.ucp.shopping.fulfillment",
-          "version" => @ucp_version,
-          "spec" => "#{@ucp_spec_base}/specification/fulfillment/",
-          "schema" => "#{@ucp_spec_base}/schemas/shopping/fulfillment.json",
-          "extends" => "dev.ucp.shopping.order"
-        }
-
-      :identity ->
-        %{
-          "name" => "dev.ucp.shopping.identity",
-          "version" => @ucp_version,
-          "spec" => "#{@ucp_spec_base}/specification/identity/",
-          "schema" => "#{@ucp_spec_base}/schemas/shopping/identity.json"
-        }
-
-      :discount ->
-        %{
-          "name" => "dev.ucp.shopping.discount",
-          "version" => @ucp_version,
-          "spec" => "#{@ucp_spec_base}/specification/discount/",
-          "schema" => "#{@ucp_spec_base}/schemas/shopping/discount.json"
-        }
-
-      :catalog ->
-        %{
-          "name" => "dev.ucp.shopping.catalog",
-          "version" => @ucp_version,
-          "spec" => "#{@ucp_spec_base}/specification/catalog/",
-          "schema" => "#{@ucp_spec_base}/schemas/shopping/catalog.json"
-        }
-    end)
+  defp build_capabilities(capabilities, handler_module) do
+    capabilities
+    |> Enum.flat_map(&capability_entries(&1, handler_module))
+    |> Map.new(fn {name, entry} -> {name, [entry]} end)
   end
 
-  defp build_payment([_ | _] = handlers) do
+  defp capability_entries(:checkout, _handler) do
+    [{"dev.ucp.shopping.checkout", capability("shopping/checkout", "shopping/checkout")}]
+  end
+
+  defp capability_entries(:orders, _handler) do
+    [{"dev.ucp.shopping.order", capability("shopping/order", "shopping/order")}]
+  end
+
+  defp capability_entries(:fulfillment, handler) do
+    entry =
+      "shopping/extensions/fulfillment"
+      |> capability("shopping/fulfillment")
+      |> Map.put("extends", "dev.ucp.shopping.checkout")
+      |> Map.put("config", handler.fulfillment_config())
+
+    [{"dev.ucp.shopping.fulfillment", entry}]
+  end
+
+  defp capability_entries(:discount, _handler) do
+    entry =
+      "shopping/extensions/discount"
+      |> capability("shopping/discount")
+      |> Map.put("extends", "dev.ucp.shopping.checkout")
+
+    [{"dev.ucp.shopping.discount", entry}]
+  end
+
+  defp capability_entries(:identity, _handler) do
+    [
+      {"dev.ucp.common.identity_linking",
+       capability("common/identity-linking/", "common/identity_linking")}
+    ]
+  end
+
+  defp capability_entries(:catalog, _handler) do
+    [
+      {"dev.ucp.shopping.catalog.search",
+       capability("shopping/catalog/search", "shopping/catalog_search")},
+      {"dev.ucp.shopping.catalog.lookup",
+       capability("shopping/catalog/lookup", "shopping/catalog_lookup")}
+    ]
+  end
+
+  defp capability(spec_path, schema_path) do
     %{
-      "handlers" =>
-        Enum.map(handlers, fn handler ->
-          %{
-            "id" => Map.get(handler, "type") || Map.get(handler, "id"),
-            "name" => Map.get(handler, "name") || String.capitalize(Map.get(handler, "type", "")),
-            "version" => @ucp_version,
-            "spec" => "#{@ucp_spec_base}/handlers/tokenization/#{Map.get(handler, "type")}/",
-            "config" => Map.get(handler, "config", %{})
-          }
-          |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
-          |> Map.new()
-        end)
+      "version" => @ucp_version,
+      "spec" => "#{@ucp_base}/specification/#{spec_path}",
+      "schema" => "#{@ucp_base}/schemas/#{schema_path}.json"
     }
   end
 
-  defp build_payment(_), do: %{"handlers" => []}
+  defp build_payment_handlers(handlers) when is_list(handlers) do
+    Map.new(handlers, fn handler ->
+      namespace = Map.get(handler, "name") || Map.get(handler, "type")
+
+      entry =
+        %{
+          "id" => Map.get(handler, "id") || Map.get(handler, "type"),
+          "version" => @ucp_version,
+          "spec" => Map.get(handler, "spec"),
+          "config" => Map.get(handler, "config", %{})
+        }
+        |> Enum.reject(fn {_k, v} -> is_nil(v) or v == "" end)
+        |> Map.new()
+
+      {namespace, [entry]}
+    end)
+  end
+
+  defp build_payment_handlers(_), do: %{}
 
   defp extract_domain(url) when is_binary(url) do
     case URI.parse(url) do

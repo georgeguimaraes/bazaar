@@ -1,0 +1,52 @@
+defmodule Bazaar.Schemas.Shopping.CatalogSearchCompleteReq.SearchResponse do
+  @moduledoc """
+  Schema
+
+  Generated from: catalog_search.complete_req.json
+  """
+  use Ecto.Schema
+  import Ecto.Changeset
+  alias Bazaar.Schemas.Common.Types.Pagination.Response
+  alias Bazaar.Schemas.Common.Types.Policy
+  alias Bazaar.Schemas.Shopping.Types.Product
+  alias Bazaar.Schemas.UcpCompleteReq.ResponseCatalogSchema
+
+  @field_descriptions %{
+    messages: "Errors, warnings, or informational messages about the search results.",
+    pagination: nil,
+    policies:
+      "Policies (e.g., return/refund terms) that apply to the products in these search results. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
+    products: "Products matching the search criteria.",
+    ucp: nil
+  }
+  @doc "Returns the description for a field, if available."
+  def field_description(field) when is_atom(field) do
+    Map.get(@field_descriptions, field)
+  end
+
+  @primary_key false
+  embedded_schema do
+    field(:messages, {:array, :map})
+    embeds_one(:pagination, Response)
+    embeds_many(:policies, Policy)
+    embeds_many(:products, Product)
+    embeds_one(:ucp, ResponseCatalogSchema)
+  end
+
+  @doc "Creates a changeset for validating and casting params."
+  def changeset(struct \\ %__MODULE__{}, params) do
+    struct
+    |> cast(params, [:messages])
+    |> cast_embed(:pagination, required: false)
+    |> cast_embed(:policies, required: false)
+    |> cast_embed(:products, required: true)
+    |> cast_embed(:ucp, required: true)
+  end
+
+  (
+    @doc "Creates a new changeset from params."
+    def new(params \\ %{}) do
+      changeset(params)
+    end
+  )
+end

@@ -11,6 +11,8 @@ defmodule Bazaar.Schemas.Shopping.Types.OrderConfirmation do
 
   @field_descriptions %{
     id: "Unique order identifier.",
+    label:
+      "Human-readable label for identifying the order. MUST only be provided by the business.",
     permalink_url: "Permalink to access the order on merchant site."
   }
   @doc "Returns the description for a field, if available."
@@ -21,12 +23,15 @@ defmodule Bazaar.Schemas.Shopping.Types.OrderConfirmation do
   @primary_key false
   embedded_schema do
     field(:id, :string)
+    field(:label, :string)
     field(:permalink_url, :string)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
-    struct |> cast(params, [:id, :permalink_url]) |> validate_required([:id, :permalink_url])
+    struct
+    |> cast(params, [:id, :label, :permalink_url])
+    |> validate_required([:id, :permalink_url])
   end
 
   (

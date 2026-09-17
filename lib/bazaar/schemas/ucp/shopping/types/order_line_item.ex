@@ -6,16 +6,17 @@ defmodule Bazaar.Schemas.Shopping.Types.OrderLineItem do
   """
   use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Common.Types.TotalResp
   alias Bazaar.Schemas.Shopping.Types.ItemResp
-  alias Bazaar.Schemas.Shopping.Types.TotalResp
-  @status_values [:processing, :partial, :fulfilled]
+  @status_values [:processing, :partial, :fulfilled, :removed]
   @field_descriptions %{
     id: "Line item identifier.",
-    item: "Product data (id, title, price, image_url).",
+    item: "Purchased item data, including identity, price, and sale basis.",
     parent_id: "Parent line item identifier for any nested structures.",
-    quantity: "Quantity tracking. Both total and fulfilled are derived from events.",
+    quantity:
+      "Tracks the line item's original, current active, and fulfilled quantities. All three values use the same inherited `item.quantity_unit`. When `item.quantity_unit` is absent on an authoritative order response, each step is one whole item (`each`) under the shared default.",
     status:
-      "Derived status: fulfilled if quantity.fulfilled == quantity.total, partial if quantity.fulfilled > 0, otherwise processing.",
+      "Derived status: removed if quantity.total == 0, fulfilled if quantity.total > 0 and quantity.fulfilled == quantity.total, partial if quantity.total > 0 and quantity.fulfilled > 0, otherwise processing.",
     totals: "Line item totals breakdown."
   }
   @doc "Returns the description for a field, if available."

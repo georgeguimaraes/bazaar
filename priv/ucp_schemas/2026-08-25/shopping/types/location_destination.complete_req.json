@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/shopping/types/location_destination.complete_req.json",
+  "title": "Business Location Destination Complete Request",
+  "description": "A business location fulfillment destination. Business-authored and response-only: the Platform selects a location via `selected_destination_id` rather than writing destinations.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "../../common/types/location_summary.complete_req.json"
+    },
+    {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  ]
+}

@@ -32,7 +32,7 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
 
       assert opts.schemas[:create_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
       assert opts.schemas[:get_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
-      assert opts.schemas[:get_order] == Bazaar.Schemas.Shopping.Order
+      assert opts.schemas[:get_order] == Bazaar.Schemas.Shopping.OrderResp
       assert opts.enabled == true
       assert opts.strict == false
     end

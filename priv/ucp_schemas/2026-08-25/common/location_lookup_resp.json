@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/common/location_lookup.json",
+  "name": "dev.ucp.common.location.lookup",
+  "title": "Location Lookup Response",
+  "description": "Location lookup by identifiers. Supports batch retrieval and single-location detail.",
+  "type": "object",
+  "$defs": {
+    "lookup_location": {
+      "description": "Location with required correlation metadata for lookup responses.",
+      "allOf": [
+        {
+          "$ref": "types/location_resp.json"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "The identifier exactly as supplied in the lookup request."
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              },
+              "minItems": 1,
+              "description": "Which request identifiers resolved to this Location. Each entry preserves one identifier exactly as supplied in the request."
+            }
+          },
+          "required": [
+            "inputs"
+          ]
+        }
+      ]
+    },
+    "lookup_request": {
+      "type": "object",
+      "description": "Request body for batch location lookup. The Business resolves and deduplicates `ids` before applying `distance`, `serves`, and every supplied `filters` predicate; all structured predicates combine with AND.",
+      "properties": {
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Identifiers of the Locations to look up. The Business MUST support canonical `Location.id` values and MAY support secondary or alias identifiers."
+        },
+        "distance": {
+          "$ref": "types/location_distance.json",
+          "description": "Optional explicit-center radius predicate applied after ID resolution. It combines with `serves` and every supplied `filters` predicate using AND."
+        },
+        "serves": {
+          "$ref": "types/location_serves_resp.json",
+          "description": "Optional authoritative service-target predicate applied after ID resolution. It combines with `distance` and every supplied `filters` predicate using AND."
+        },
+        "filters": {
+          "$ref": "types/location_filter.json"
+        },
+        "context": {
+          "$ref": "types/context.json"
+        },
+        "signals": {
+          "$ref": "types/signals.json"
+        }
+      },
+      "required": [
+        "ids"
+      ]
+    },
+    "lookup_response": {
+      "type": "object",
+      "properties": {
+        "ucp": {
+          "$ref": "../ucp_resp.json#/$defs/response_location_schema"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/lookup_location"
+          },
+          "description": "Locations matching the requested identifiers and refinements. May contain fewer Locations if some identifiers do not resolve or their resolved Locations are filtered out, or more if one identifier resolves to multiple Locations. When multiple identifiers resolve to the same Location, one returned Location carries all corresponding `inputs` entries."
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "types/message.json"
+          },
+          "description": "Errors, warnings, or informational messages about the requested Locations, including `batch_limit_applied` when the Business processes only its configured maximum number of identifiers."
+        }
+      },
+      "required": [
+        "ucp",
+        "locations"
+      ]
+    }
+  }
+}

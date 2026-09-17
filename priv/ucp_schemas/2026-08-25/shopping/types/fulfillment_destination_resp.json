@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ucp.dev/schemas/shopping/types/fulfillment_destination.json",
+  "title": "Fulfillment Destination Response",
+  "description": "A destination for fulfillment.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "Destination contract discriminator. Required in Business responses and optional in Platform requests. Well-known values: `shipping_address`, `business_location`. The enclosing method contract defines request defaults and which fields the Platform may write; negotiated extensions define additional values."
+    },
+    "id": {
+      "type": "string",
+      "description": "Fulfillment destination identifier."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "shipping_address"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "shipping_destination_resp.json"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "business_location"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "location_destination_resp.json"
+      }
+    }
+  ],
+  "required": [
+    "type",
+    "id"
+  ]
+}

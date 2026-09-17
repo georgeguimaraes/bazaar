@@ -8,8 +8,8 @@ defmodule Bazaar.Schemas.Shopping.Types.Expectation do
   """
   use Ecto.Schema
   import Ecto.Changeset
-  alias Bazaar.Schemas.Shopping.Types.PostalAddress
-  @method_type_values [:shipping, :pickup, :digital]
+  alias Bazaar.Schemas.Common.Types.PostalAddress
+
   @field_descriptions %{
     description: "Human-readable delivery description (e.g., 'Arrives in 5-8 business days').",
     destination: "Delivery destination address.",
@@ -17,7 +17,8 @@ defmodule Bazaar.Schemas.Shopping.Types.Expectation do
       "When this expectation can be fulfilled: 'now' or ISO 8601 timestamp for future date (backorder, pre-order).",
     id: "Expectation identifier.",
     line_items: "Which line items and quantities are in this expectation.",
-    method_type: "Delivery method type (shipping, pickup, digital)."
+    method_type:
+      "Delivery method type. Well-known values: `shipping`, `pickup`, `digital`; additional values MAY be used."
   }
   @doc "Returns the description for a field, if available."
   def field_description(field) when is_atom(field) do
@@ -30,7 +31,7 @@ defmodule Bazaar.Schemas.Shopping.Types.Expectation do
     field(:fulfillable_on, :string)
     field(:id, :string)
     field(:line_items, {:array, :map})
-    field(:method_type, Ecto.Enum, values: @method_type_values)
+    field(:method_type, :string)
     embeds_one(:destination, PostalAddress)
   end
 
