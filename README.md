@@ -278,7 +278,7 @@ pipeline :ucp do
 end
 ```
 
-`Idempotency` needs a store in your supervision tree, `Bazaar.Idempotency.ETS` for a single node or your own `Bazaar.Idempotency.Store` for several. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
+`Idempotency` needs a store: `Bazaar.Idempotency.ETS` in your supervision tree for development and a single node, or a `Bazaar.Idempotency.Store` on [Cachex](https://hexdocs.pm/cachex) for production and any multi-node deployment. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
 
 ## Guides
 

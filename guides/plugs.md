@@ -84,7 +84,7 @@ Replays responses for repeated requests that carry an `Idempotency-Key` header.
 3. On a repeat with the same key but a different body, answers 409 with an error document
 4. Only `POST`, `PUT` and `PATCH` take part; other methods just get the key in `conn.assigns.idempotency_key`
 
-The lookup runs before the action, so replaying a completed checkout's completion still returns the original response. The plug fingerprints `conn.body_params`, so it must run after `Plug.Parsers` (any Phoenix endpoint does this). Two identical requests in flight at the same time both run; the record is written when the first response is sent.
+The lookup runs before the action, so replaying a completed checkout's completion still returns the original response. The key is reserved before the action runs, so a second identical request arriving while the first is still in flight gets a 409 instead of running twice. The plug fingerprints `conn.body_params`, so it must run after `Plug.Parsers` (any Phoenix endpoint does this).
 
 ### Usage
 
@@ -95,7 +95,11 @@ plug Bazaar.Plugs.Idempotency, store: {MyApp.RedisIdempotency, :orders}, methods
 
 ### Stores
 
-`Bazaar.Idempotency.ETS` keeps records in memory for the life of the process, which suits a single node and development. For several nodes, implement `Bazaar.Idempotency.Store` (`fetch/2` and `put/3`) on top of shared storage and pass it with `:store`.
+`Bazaar.Idempotency.ETS` keeps records in memory, never expires them, and only knows about its own node. Use it for development and a single-node deployment. In production, and always with more than one node, back the plug with [Cachex](https://hexdocs.pm/cachex): its entries carry a TTL, so keys expire instead of growing forever, and its routers spread the cache across a cluster, so a retry that lands on another node still finds the record.
+
+A store implements the four callbacks of `Bazaar.Idempotency.Store`: `fetch/2`, `reserve/3`, `put/3` and `release/2`. `reserve/3` has to be atomic (with Cachex, wrap the read and write in `Cachex.transaction/3`), because that's what stops two identical requests in flight from both running. Pass the store with `plug Bazaar.Plugs.Idempotency, store: {MyApp.CachexIdempotency, :idempotency}`.
+
+Only 2xx and 4xx responses are recorded; a 5xx releases the key so the platform's retry runs the action again. A reservation left behind by a request that crashed before responding is taken over after `:reservation_ttl` (30 seconds by default).
 
 ## Plug Order
 

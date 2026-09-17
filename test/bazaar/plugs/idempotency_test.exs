@@ -58,6 +58,38 @@ defmodule Bazaar.Plugs.IdempotencyTest do
     assert again.assigns.idempotency_key == "key-3"
   end
 
+  test "refuses a concurrent duplicate while the first request is in flight", %{opts: opts} do
+    in_flight = request(opts, "key-5", %{"currency" => "USD"})
+    refute in_flight.halted
+
+    duplicate = request(opts, "key-5", %{"currency" => "USD"})
+    assert duplicate.status == 409
+
+    assert [%{"code" => "idempotency_in_progress"}] =
+             JSON.decode!(duplicate.resp_body)["messages"]
+
+    respond(in_flight)
+    assert request(opts, "key-5", %{"currency" => "USD"}).status == 201
+  end
+
+  test "takes over a reservation left behind by a crashed request", %{opts: opts} do
+    stale = Idempotency.init(store: opts.store, reservation_ttl: 0)
+    request(stale, "key-6", %{})
+    Process.sleep(1)
+
+    retry = request(stale, "key-6", %{})
+    refute retry.halted
+  end
+
+  test "does not keep server errors, so the retry runs the action again", %{opts: opts} do
+    request(opts, "key-7", %{})
+    |> put_resp_content_type("application/json")
+    |> send_resp(500, "{}")
+
+    retry = request(opts, "key-7", %{})
+    refute retry.halted
+  end
+
   test "raises a helpful error when the store is not running" do
     opts = Idempotency.init(store: {Bazaar.Idempotency.ETS, :missing_idempotency_table})
 

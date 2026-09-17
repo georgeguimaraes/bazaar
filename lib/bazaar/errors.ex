@@ -27,6 +27,8 @@ defmodule Bazaar.Errors do
     invalid_state: {"Operation not allowed in current state", "unrecoverable"},
     idempotency_conflict:
       {"Idempotency-Key was already used with a different request", "unrecoverable"},
+    idempotency_in_progress:
+      {"A request with this Idempotency-Key is still being processed", "recoverable"},
     unauthorized: {"Authentication required", "unrecoverable"},
     forbidden: {"Access denied", "unrecoverable"},
     already_cancelled: {"Resource is already cancelled", "unrecoverable"},
@@ -132,7 +134,10 @@ defmodule Bazaar.Errors do
 
   defp acp_type(%Ecto.Changeset{}), do: "invalid_request"
   defp acp_type(reason) when reason in [:not_found, :invalid_state], do: "invalid_request"
-  defp acp_type(:idempotency_conflict), do: "request_not_idempotent"
+
+  defp acp_type(reason) when reason in [:idempotency_conflict, :idempotency_in_progress],
+    do: "request_not_idempotent"
+
   defp acp_type({:unsupported_version, _, _}), do: "invalid_request"
   defp acp_type(_), do: "processing_error"
 

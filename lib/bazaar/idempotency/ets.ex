@@ -9,9 +9,9 @@ defmodule Bazaar.Idempotency.ETS do
         MyAppWeb.Endpoint
       ]
 
-  Records live until the process restarts. That is fine for a single node and
-  for development; a multi-node deployment needs a `Bazaar.Idempotency.Store`
-  backed by shared storage.
+  Records never expire and live until the process restarts, which is fine for
+  development and a single node. In production, and always with more than one
+  node, use a `Bazaar.Idempotency.Store` on Cachex or your database instead.
   """
 
   @behaviour Bazaar.Idempotency.Store
@@ -42,8 +42,19 @@ defmodule Bazaar.Idempotency.ETS do
   end
 
   @impl Bazaar.Idempotency.Store
-  def put(table, key, record) do
-    :ets.insert(running!(table), {key, record})
+  def reserve(table, key, reservation) do
+    if :ets.insert_new(running!(table), {key, reservation}), do: :ok, else: {:error, :taken}
+  end
+
+  @impl Bazaar.Idempotency.Store
+  def put(table, key, response) do
+    :ets.insert(running!(table), {key, response})
+    :ok
+  end
+
+  @impl Bazaar.Idempotency.Store
+  def release(table, key) do
+    :ets.delete(running!(table), key)
     :ok
   end
 
