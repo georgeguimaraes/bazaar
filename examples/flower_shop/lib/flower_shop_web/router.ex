@@ -1,9 +1,8 @@
 defmodule FlowerShopWeb.Router do
   @moduledoc """
-  `bazaar_routes` mounts discovery, checkout and order routes for the handler.
-  The app adds the pipeline it wants in front of them (protocol headers,
-  version negotiation, idempotent replay) and the few routes the conformance
-  suite needs that the UCP REST binding doesn't define.
+  `bazaar_routes` mounts discovery, checkout and order routes for the handler
+  behind bazaar's header and idempotency plugs. The app adds the few routes
+  the conformance suite needs that the UCP REST binding doesn't define.
   """
 
   use Phoenix.Router
@@ -12,8 +11,7 @@ defmodule FlowerShopWeb.Router do
   pipeline :ucp do
     plug :accepts, ["json"]
     plug Bazaar.Plugs.UCPHeaders
-    plug FlowerShopWeb.Plugs.UcpVersion
-    plug FlowerShopWeb.Plugs.Idempotency
+    plug Bazaar.Plugs.Idempotency
   end
 
   scope "/" do

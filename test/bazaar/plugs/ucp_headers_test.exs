@@ -7,9 +7,9 @@ defmodule Bazaar.Plugs.UCPHeadersTest do
   alias Bazaar.Plugs.UCPHeaders
 
   describe "init/1" do
-    test "returns options unchanged" do
-      opts = [some: :option]
-      assert UCPHeaders.init(opts) == opts
+    test "defaults the negotiated version to the library's spec version" do
+      assert UCPHeaders.init([]) == %{version: Bazaar.DiscoveryProfile.version()}
+      assert UCPHeaders.init(version: false) == %{version: false}
     end
   end
 
@@ -158,6 +158,53 @@ defmodule Bazaar.Plugs.UCPHeadersTest do
 
       refute conn.halted
       assert conn.assigns[:ucp_request_id] != nil
+    end
+  end
+
+  describe "UCP-Agent parsing and version negotiation" do
+    test "assigns the profile URL and version from the header" do
+      conn =
+        conn(:get, "/")
+        |> put_req_header(
+          "ucp-agent",
+          ~s(profile="https://p.example/.well-known/ucp"; version="#{Bazaar.DiscoveryProfile.version()}")
+        )
+        |> UCPHeaders.call(UCPHeaders.init([]))
+
+      refute conn.halted
+      assert conn.assigns.ucp_agent_profile == "https://p.example/.well-known/ucp"
+      assert conn.assigns.ucp_agent_version == Bazaar.DiscoveryProfile.version()
+    end
+
+    test "rejects a version this server does not speak" do
+      conn =
+        conn(:get, "/")
+        |> put_req_header(
+          "ucp-agent",
+          ~s(profile="https://p.example/profile.json"; version="2099-01-01")
+        )
+        |> UCPHeaders.call(UCPHeaders.init([]))
+
+      assert conn.halted
+      assert conn.status == 422
+      assert [%{"code" => "unsupported_version"}] = JSON.decode!(conn.resp_body)["messages"]
+    end
+
+    test "passes without a version parameter and when negotiation is off" do
+      conn =
+        conn(:get, "/")
+        |> put_req_header("ucp-agent", ~s(profile="https://p.example/profile.json"))
+        |> UCPHeaders.call(UCPHeaders.init([]))
+
+      refute conn.halted
+      assert conn.assigns.ucp_agent_version == nil
+
+      conn =
+        conn(:get, "/")
+        |> put_req_header("ucp-agent", ~s(version="2099-01-01"))
+        |> UCPHeaders.call(UCPHeaders.init(version: false))
+
+      refute conn.halted
     end
   end
 end

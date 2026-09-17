@@ -3,366 +3,84 @@ defmodule Bazaar.ErrorsTest do
 
   alias Bazaar.Errors
 
-  describe "from_changeset/1" do
-    test "converts simple validation errors" do
-      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
+  describe "response/2 for UCP" do
+    test "renders a reason as an error document that validates against the spec" do
+      doc = Errors.response(:not_found)
 
-      result = Errors.from_changeset(changeset)
+      assert doc["ucp"]["status"] == "error"
+      assert doc["ucp"]["version"] == Bazaar.DiscoveryProfile.version()
 
-      assert result["error"] == "validation_error"
-      assert result["message"] == "Validation failed"
-      assert is_list(result["details"])
+      assert [%{"type" => "error", "code" => "not_found", "severity" => "unrecoverable"}] =
+               doc["messages"]
+
+      assert {:ok, _} = Bazaar.Validator.validate(doc, :error_response)
     end
 
-    test "includes field names in details" do
-      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
+    test "renders a changeset as one message per field with a JSONPath" do
+      doc = Bazaar.Schemas.Shopping.CheckoutResp.new(%{}) |> Errors.response()
 
-      result = Errors.from_changeset(changeset)
-
-      fields = Enum.map(result["details"], & &1["field"])
-      assert "currency" in fields
-      assert "line_items" in fields
+      assert Enum.all?(doc["messages"], &(&1["code"] == "invalid_request"))
+      paths = Enum.map(doc["messages"], & &1["path"])
+      assert "$.currency" in paths
+      assert {:ok, _} = Bazaar.Validator.validate(doc, :error_response)
     end
 
-    test "includes error messages in details" do
-      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
+    test "interpolates changeset message variables" do
+      changeset =
+        {%{}, %{name: :string}}
+        |> Ecto.Changeset.cast(%{name: "ab"}, [:name])
+        |> Ecto.Changeset.validate_length(:name, min: 3)
 
-      result = Errors.from_changeset(changeset)
-
-      currency_error = Enum.find(result["details"], &(&1["field"] == "currency"))
-      assert currency_error["message"] == "can't be blank"
+      [message] = Errors.response(changeset)["messages"]
+      assert message["content"] == "name should be at least 3 character(s)"
     end
 
-    test "handles interpolated error messages" do
-      # Create a changeset with a number validation error
-      defmodule TestAmountSchema do
-        use Ecto.Schema
-        import Ecto.Changeset
+    test "explains a version mismatch" do
+      [message] = Errors.response({:unsupported_version, "2099-01-01", "2026-08-25"})["messages"]
 
-        @primary_key false
-        embedded_schema do
-          field(:amount, :integer)
-        end
-
-        def changeset(struct \\ %__MODULE__{}, params) do
-          struct
-          |> cast(params, [:amount])
-          |> validate_number(:amount, greater_than: 0)
-        end
-      end
-
-      changeset = TestAmountSchema.changeset(%{"amount" => "-5"})
-      result = Errors.from_changeset(changeset)
-
-      amount_error = Enum.find(result["details"], &(&1["field"] == "amount"))
-      assert amount_error["message"] =~ "greater than"
+      assert message["code"] == "unsupported_version"
+      assert message["content"] =~ "2099-01-01"
     end
 
-    test "handles enum validation errors" do
-      # Test with a schema that has enum validation
-      defmodule TestStatusSchema do
-        use Ecto.Schema
-        import Ecto.Changeset
+    test "humanizes unknown atoms and passes strings through" do
+      assert [%{"code" => "invalid_token", "content" => "Invalid token"}] =
+               Errors.response(:invalid_token)["messages"]
 
-        @primary_key false
-        embedded_schema do
-          field(:status, Ecto.Enum, values: [:active, :inactive])
-        end
-
-        def changeset(struct \\ %__MODULE__{}, params) do
-          struct
-          |> cast(params, [:status])
-          |> validate_required([:status])
-        end
-      end
-
-      changeset = TestStatusSchema.changeset(%{"status" => "INVALID"})
-      result = Errors.from_changeset(changeset)
-
-      status_error = Enum.find(result["details"], &(&1["field"] == "status"))
-      assert status_error["message"] == "is invalid"
-    end
-
-    test "flattens nested errors with dot notation" do
-      # Create a changeset with nested embedded errors
-      defmodule NestedItemSchema do
-        use Ecto.Schema
-        import Ecto.Changeset
-
-        @primary_key false
-        embedded_schema do
-          field(:name, :string)
-        end
-
-        def changeset(struct \\ %__MODULE__{}, params) do
-          struct
-          |> cast(params, [:name])
-          |> validate_required([:name])
-        end
-      end
-
-      defmodule NestedSchema do
-        use Ecto.Schema
-        import Ecto.Changeset
-
-        @primary_key false
-        embedded_schema do
-          embeds_many(:items, Bazaar.ErrorsTest.NestedItemSchema)
-        end
-
-        def changeset(struct \\ %__MODULE__{}, params) do
-          struct
-          |> cast(params, [])
-          |> cast_embed(:items, with: &Bazaar.ErrorsTest.NestedItemSchema.changeset/2)
-        end
-      end
-
-      changeset = NestedSchema.changeset(%{"items" => [%{}]})
-      result = Errors.from_changeset(changeset)
-
-      # Should have nested field paths like "items.0.name"
-      fields = Enum.map(result["details"], & &1["field"])
-      assert Enum.any?(fields, &String.contains?(&1, "items"))
-    end
-
-    test "handles multiple errors on same field" do
-      # This test uses a custom schema to generate multiple errors
-      defmodule MultiErrorSchema do
-        use Ecto.Schema
-        import Ecto.Changeset
-
-        @primary_key false
-        embedded_schema do
-          field(:value, :integer)
-        end
-
-        def changeset(struct \\ %__MODULE__{}, params) do
-          struct
-          |> cast(params, [:value])
-          |> validate_required([:value])
-          |> validate_number(:value, greater_than: 0, less_than: 100)
-        end
-      end
-
-      changeset = MultiErrorSchema.changeset(%{"value" => "-50"})
-      result = Errors.from_changeset(changeset)
-
-      value_errors =
-        result["details"]
-        |> Enum.filter(&(&1["field"] == "value"))
-
-      assert value_errors != []
-    end
-
-    test "returns empty details for valid changeset" do
-      # Use a simple custom schema to test valid changeset behavior
-      defmodule ValidSchema do
-        use Ecto.Schema
-        import Ecto.Changeset
-
-        @primary_key false
-        embedded_schema do
-          field(:name, :string)
-        end
-
-        def changeset(struct \\ %__MODULE__{}, params) do
-          struct
-          |> cast(params, [:name])
-          |> validate_required([:name])
-        end
-      end
-
-      changeset = ValidSchema.changeset(%{"name" => "test"})
-
-      # Valid changesets shouldn't normally be passed to from_changeset,
-      # but if they are, details should be empty
-      result = Errors.from_changeset(changeset)
-
-      assert result["details"] == []
+      assert [%{"code" => "error", "content" => "Card declined"}] =
+               Errors.response("Card declined")["messages"]
     end
   end
 
-  describe "not_found/2" do
-    test "creates not found error for checkout_session" do
-      result = Errors.not_found("checkout_session", "sess_123")
+  describe "response/2 for ACP" do
+    test "maps reasons to the ACP error types" do
+      assert %{"type" => "invalid_request", "code" => "not_found"} =
+               Errors.response(:not_found, protocol: :acp)
 
-      assert result == %{
-               "error" => "not_found",
-               "message" => "checkout_session not found",
-               "resource_type" => "checkout_session",
-               "resource_id" => "sess_123"
-             }
+      assert %{"type" => "request_not_idempotent"} =
+               Errors.response(:idempotency_conflict, protocol: :acp)
+
+      assert %{"type" => "processing_error", "code" => "boom"} =
+               Errors.response(:boom, protocol: :acp)
     end
 
-    test "creates not found error for order" do
-      result = Errors.not_found("order", "order_456")
+    test "collapses a changeset into one error with the first path as param" do
+      error = Bazaar.Schemas.Shopping.CheckoutResp.new(%{}) |> Errors.response(protocol: :acp)
 
-      assert result["error"] == "not_found"
-      assert result["message"] == "order not found"
-      assert result["resource_type"] == "order"
-      assert result["resource_id"] == "order_456"
-    end
-
-    test "handles any resource type" do
-      result = Errors.not_found("custom_resource", "custom_123")
-
-      assert result["resource_type"] == "custom_resource"
-      assert result["message"] == "custom_resource not found"
+      assert error["type"] == "invalid_request"
+      assert error["param"] =~ ~r/^\$\./
+      assert error["message"] =~ "can't be blank"
     end
   end
 
-  describe "from_reason/1 with known atoms" do
-    test "handles :not_found" do
-      result = Errors.from_reason(:not_found)
+  describe "changeset_details/1" do
+    test "returns field and message entries" do
+      changeset =
+        {%{}, %{buyer: :map}}
+        |> Ecto.Changeset.cast(%{}, [:buyer])
+        |> Ecto.Changeset.validate_required([:buyer])
 
-      assert result == %{
-               "error" => "not_found",
-               "message" => "Resource not found"
-             }
-    end
-
-    test "handles :unauthorized" do
-      result = Errors.from_reason(:unauthorized)
-
-      assert result == %{
-               "error" => "unauthorized",
-               "message" => "Authentication required"
-             }
-    end
-
-    test "handles :forbidden" do
-      result = Errors.from_reason(:forbidden)
-
-      assert result == %{
-               "error" => "forbidden",
-               "message" => "Access denied"
-             }
-    end
-
-    test "handles :invalid_state" do
-      result = Errors.from_reason(:invalid_state)
-
-      assert result == %{
-               "error" => "invalid_state",
-               "message" => "Operation not allowed in current state"
-             }
-    end
-
-    test "handles :already_cancelled" do
-      result = Errors.from_reason(:already_cancelled)
-
-      assert result == %{
-               "error" => "already_cancelled",
-               "message" => "Resource is already cancelled"
-             }
-    end
-
-    test "handles :expired" do
-      result = Errors.from_reason(:expired)
-
-      assert result == %{
-               "error" => "expired",
-               "message" => "Resource has expired"
-             }
-    end
-  end
-
-  describe "from_reason/1 with unknown atoms" do
-    test "humanizes unknown atom errors" do
-      result = Errors.from_reason(:payment_failed)
-
-      assert result["error"] == "payment_failed"
-      assert result["message"] == "Payment failed"
-    end
-
-    test "handles underscored atoms" do
-      result = Errors.from_reason(:insufficient_funds)
-
-      assert result["error"] == "insufficient_funds"
-      assert result["message"] == "Insufficient funds"
-    end
-
-    test "handles single word atoms" do
-      result = Errors.from_reason(:timeout)
-
-      assert result["error"] == "timeout"
-      assert result["message"] == "Timeout"
-    end
-  end
-
-  describe "from_reason/1 with strings" do
-    test "uses string as message" do
-      result = Errors.from_reason("Something went wrong")
-
-      assert result == %{
-               "error" => "error",
-               "message" => "Something went wrong"
-             }
-    end
-
-    test "handles empty string" do
-      result = Errors.from_reason("")
-
-      assert result["error"] == "error"
-      assert result["message"] == ""
-    end
-
-    test "preserves string formatting" do
-      result = Errors.from_reason("Error: Invalid input at line 42")
-
-      assert result["message"] == "Error: Invalid input at line 42"
-    end
-  end
-
-  describe "from_reason/1 with other types" do
-    test "inspects tuples" do
-      result = Errors.from_reason({:error, :db_connection_failed})
-
-      assert result["error"] == "error"
-      assert result["message"] == "{:error, :db_connection_failed}"
-    end
-
-    test "inspects maps" do
-      result = Errors.from_reason(%{code: 500, reason: "internal"})
-
-      assert result["error"] == "error"
-      assert result["message"] =~ "code"
-      assert result["message"] =~ "500"
-    end
-
-    test "inspects lists" do
-      result = Errors.from_reason([:error1, :error2])
-
-      assert result["error"] == "error"
-      assert result["message"] == "[:error1, :error2]"
-    end
-
-    test "inspects integers" do
-      result = Errors.from_reason(500)
-
-      assert result["error"] == "error"
-      assert result["message"] == "500"
-    end
-  end
-
-  describe "JSON encodability" do
-    test "from_changeset result is JSON encodable" do
-      changeset = Bazaar.Schemas.Shopping.CheckoutResp.new(%{})
-      result = Errors.from_changeset(changeset)
-
-      assert is_binary(JSON.encode!(result))
-    end
-
-    test "not_found result is JSON encodable" do
-      result = Errors.not_found("order", "123")
-
-      assert is_binary(JSON.encode!(result))
-    end
-
-    test "from_reason result is JSON encodable" do
-      result = Errors.from_reason(:forbidden)
-
-      assert is_binary(JSON.encode!(result))
+      assert [%{"field" => "buyer", "message" => "can't be blank"}] =
+               Errors.changeset_details(changeset)
     end
   end
 end

@@ -45,7 +45,7 @@ if Code.ensure_loaded?(JSV) do
       delegate_payment_resp: {"delegate_payment.json", "DelegatePaymentResponse"}
     }
 
-    @ucp_schemas [:checkout, :order, :profile]
+    @ucp_schemas [:checkout, :order, :profile, :error_response]
     @acp_bundle_schemas Map.keys(@acp_bundle_defs)
 
     # Convenience functions
@@ -173,6 +173,9 @@ if Code.ensure_loaded?(JSV) do
 
     defp ucp_schema_path(:order), do: Path.join([@ucp_schemas_dir, "shopping", "order_resp.json"])
     defp ucp_schema_path(:profile), do: Path.join(@ucp_schemas_dir, "profile.json")
+
+    defp ucp_schema_path(:error_response),
+      do: Path.join([@ucp_schemas_dir, "common", "types", "error_response.json"])
 
     # Private: ACP bundle schema loading
 

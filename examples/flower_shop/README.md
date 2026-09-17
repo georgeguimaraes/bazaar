@@ -4,7 +4,7 @@ A small UCP merchant built on Bazaar, and the server the official [UCP conforman
 
 It sells the suite's flower shop catalog (six products, three discount codes, free shipping on roses or orders over $100, US and international express rates, a couple of known customers with stored addresses) from memory. No database.
 
-`FlowerShop.Handler` implements `Bazaar.Handler` and `bazaar_routes` mounts discovery, checkouts and orders for it. The app adds its own pipeline in front (version negotiation on the `UCP-Agent` header, idempotent replay on `Idempotency-Key`) and three routes the suite needs beyond the UCP REST binding: `PUT /orders/:id`, the simulate-shipping hook and `/healthz`.
+`FlowerShop.Handler` implements `Bazaar.Handler` and `bazaar_routes` mounts discovery, checkouts and orders for it. Bazaar's `UCPHeaders` and `Idempotency` plugs handle version negotiation and idempotent replay; the app adds three routes the suite needs beyond the UCP REST binding: `PUT /orders/:id`, the simulate-shipping hook and `/healthz`.
 
 ## Run it
 
@@ -36,4 +36,4 @@ The script clones the suite at a pinned commit into `tmp/`, installs it with `uv
 | `FlowerShop.Payments` | mock payment handler (`fail_token` declines) |
 | `FlowerShop.Webhooks` | platform profile lookup and background order event delivery |
 | `FlowerShop.Handler` | the `Bazaar.Handler` tying it together |
-| `FlowerShopWeb.*` | endpoint, router with `bazaar_routes`, the extra plugs and controllers |
+| `FlowerShopWeb.*` | endpoint, router with `bazaar_routes`, and controllers for the extra routes |

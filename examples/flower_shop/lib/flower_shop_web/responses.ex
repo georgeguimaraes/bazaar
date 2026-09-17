@@ -1,7 +1,7 @@
 defmodule FlowerShopWeb.Responses do
   @moduledoc """
-  Turns handler results into HTTP responses. Errors use the UCP error
-  response document: a `ucp` envelope with `status: "error"` and `messages`.
+  Turns handler results into HTTP responses for the app's own routes; bazaar's
+  controller does the same for the routes `bazaar_routes` mounts.
   """
 
   import Plug.Conn
@@ -11,32 +11,15 @@ defmodule FlowerShopWeb.Responses do
 
   def reply(conn, {:ok, document}, ok_status), do: conn |> put_status(ok_status) |> json(document)
 
-  def reply(conn, {:error, :not_found}, _),
-    do: error(conn, 404, "not_found", "Resource not found")
+  def reply(conn, {:error, :not_found}, _), do: error(conn, 404, :not_found)
 
-  def reply(conn, {:error, :invalid_state}, _) do
-    error(conn, 409, "invalid_state", "The checkout is no longer open for this action")
-  end
+  def reply(conn, {:error, :invalid_state}, _), do: error(conn, 409, :invalid_state)
 
   def reply(conn, {:error, :invalid_adjustments}, _) do
-    error(
-      conn,
-      422,
-      "invalid_request",
-      "adjustments must be a list of entries with a valid status"
-    )
+    error(conn, 422, "adjustments must be a list of entries with a valid status")
   end
 
-  def error(conn, status, code, content) do
-    conn |> put_status(status) |> json(error_document(code, content))
-  end
-
-  def error_document(code, content) do
-    %{
-      "ucp" => %{"version" => Bazaar.DiscoveryProfile.version(), "status" => "error"},
-      "messages" => [
-        %{"type" => "error", "code" => code, "content" => content, "severity" => "unrecoverable"}
-      ]
-    }
+  def error(conn, status, reason) do
+    conn |> put_status(status) |> json(Bazaar.Errors.response(reason))
   end
 end

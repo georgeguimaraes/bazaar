@@ -96,8 +96,10 @@ defmodule Bazaar.Plugs.ValidateRequestTest do
       assert conn.status == 422
 
       body = JSON.decode!(conn.resp_body)
-      assert body["error"] == "validation_error"
-      assert is_list(body["details"])
+      assert body["ucp"]["status"] == "error"
+
+      assert [%{"type" => "error", "code" => "invalid_request", "path" => "$." <> _} | _] =
+               body["messages"]
     end
 
     test "skips validation when disabled", %{opts: _opts} do

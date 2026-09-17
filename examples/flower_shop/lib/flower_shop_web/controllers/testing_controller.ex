@@ -6,7 +6,7 @@ defmodule FlowerShopWeb.TestingController do
 
   use Phoenix.Controller, formats: [:json]
 
-  import FlowerShopWeb.Responses, only: [error: 4]
+  import FlowerShopWeb.Responses, only: [error: 3]
 
   alias FlowerShop.Handler
 
@@ -15,7 +15,7 @@ defmodule FlowerShopWeb.TestingController do
   def simulate_shipping(conn, %{"order_id" => id}) do
     case Handler.ship_order(id) do
       {:ok, _order} -> json(conn, %{"status" => "ok"})
-      {:error, :not_found} -> error(conn, 404, "not_found", "Order #{id} not found")
+      {:error, :not_found} -> error(conn, 404, :not_found)
     end
   end
 
@@ -28,7 +28,7 @@ defmodule FlowerShopWeb.TestingController do
 
       _ ->
         conn
-        |> error(403, "forbidden", "A valid Simulation-Secret header is required")
+        |> error(403, :forbidden)
         |> halt()
     end
   end

@@ -1,82 +1,68 @@
 defmodule Bazaar.Plugs.IdempotencyTest do
   use ExUnit.Case, async: true
 
-  import Plug.Test
   import Plug.Conn
+  import Plug.Test
 
   alias Bazaar.Plugs.Idempotency
 
-  describe "init/1" do
-    test "returns opts unchanged" do
-      assert Idempotency.init([]) == []
-      assert Idempotency.init(foo: :bar) == [foo: :bar]
-    end
+  setup do
+    table = :"idempotency_#{System.unique_integer([:positive])}"
+    start_supervised!({Bazaar.Idempotency.ETS, name: table})
+    %{opts: Idempotency.init(store: {Bazaar.Idempotency.ETS, table})}
   end
 
-  describe "call/2 without idempotency key" do
-    test "passes through without idempotency key" do
-      opts = Idempotency.init([])
-
-      conn =
-        conn(:post, "/checkout-sessions")
-        |> Idempotency.call(opts)
-
-      refute conn.halted
-      refute conn.assigns[:idempotency_key]
-    end
-
-    test "passes through with empty idempotency key" do
-      opts = Idempotency.init([])
-
-      conn =
-        conn(:post, "/checkout-sessions")
-        |> put_req_header("idempotency-key", "")
-        |> Idempotency.call(opts)
-
-      refute conn.halted
-      refute conn.assigns[:idempotency_key]
-    end
+  defp request(opts, key, body, method \\ :post) do
+    conn = conn(method, "/checkout-sessions", body)
+    conn = if key, do: put_req_header(conn, "idempotency-key", key), else: conn
+    Idempotency.call(conn, opts)
   end
 
-  describe "call/2 with idempotency key" do
-    test "assigns idempotency key" do
-      opts = Idempotency.init([])
+  defp respond(conn) do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(201, JSON.encode!(%{"id" => "chk_1", "nonce" => System.unique_integer()}))
+  end
 
-      conn =
-        conn(:post, "/checkout-sessions")
-        |> put_req_header("idempotency-key", "test-key-123")
-        |> Idempotency.call(opts)
+  test "replays the first response for the same key and body", %{opts: opts} do
+    first = respond(request(opts, "key-1", %{"currency" => "USD"}))
+    replay = request(opts, "key-1", %{"currency" => "USD"})
 
-      refute conn.halted
-      assert conn.assigns[:idempotency_key] == "test-key-123"
-    end
+    assert replay.halted
+    assert replay.status == 201
+    assert replay.resp_body == first.resp_body
+    assert get_resp_header(replay, "idempotency-key") == ["key-1"]
+  end
 
-    test "echoes idempotency key in response header" do
-      opts = Idempotency.init([])
+  test "conflicts when the same key carries a different body", %{opts: opts} do
+    respond(request(opts, "key-2", %{"currency" => "USD"}))
+    conflict = request(opts, "key-2", %{"currency" => "EUR"})
 
-      conn =
-        conn(:post, "/checkout-sessions")
-        |> put_req_header("idempotency-key", "test-key-456")
-        |> Idempotency.call(opts)
+    assert conflict.halted
+    assert conflict.status == 409
+    assert [%{"code" => "idempotency_conflict"}] = JSON.decode!(conflict.resp_body)["messages"]
+  end
 
-      assert get_resp_header(conn, "idempotency-key") == ["test-key-456"]
-    end
+  test "passes through without a key", %{opts: opts} do
+    conn = request(opts, nil, %{})
 
-    test "handles multiple requests with different keys" do
-      opts = Idempotency.init([])
+    refute conn.halted
+    refute Map.has_key?(conn.assigns, :idempotency_key)
+  end
 
-      conn1 =
-        conn(:post, "/checkout-sessions")
-        |> put_req_header("idempotency-key", "key-1")
-        |> Idempotency.call(opts)
+  test "only records the configured methods", %{opts: opts} do
+    respond(request(opts, "key-3", %{}, :get))
+    again = request(opts, "key-3", %{}, :get)
 
-      conn2 =
-        conn(:post, "/checkout-sessions")
-        |> put_req_header("idempotency-key", "key-2")
-        |> Idempotency.call(opts)
+    refute again.halted
+    assert again.assigns.idempotency_key == "key-3"
+  end
 
-      assert conn1.assigns[:idempotency_key] == "key-1"
-      assert conn2.assigns[:idempotency_key] == "key-2"
+  test "raises a helpful error when the store is not running" do
+    opts = Idempotency.init(store: {Bazaar.Idempotency.ETS, :missing_idempotency_table})
+
+    assert_raise RuntimeError, ~r/add Bazaar.Idempotency.ETS/, fn ->
+      request(opts, "key-4", %{})
     end
   end
 end

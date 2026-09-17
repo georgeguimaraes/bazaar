@@ -159,7 +159,7 @@ defmodule FlowerShop.Handler do
     end
   end
 
-  defp profile_url(conn), do: Webhooks.profile_url(conn.assigns[:ucp_agent])
+  defp profile_url(conn), do: conn.assigns[:ucp_agent_profile]
 
   defp base_url, do: Application.fetch_env!(:flower_shop, :base_url)
 end

@@ -301,8 +301,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
       assert conn.status == 404
       body = JSON.decode!(conn.resp_body)
-      assert body["error"] == "not_found"
-      assert body["resource_id"] == "not_found"
+      assert hd(body["messages"])["code"] == "not_found"
     end
 
     test "update_checkout returns updated checkout", %{conn: conn} do
@@ -356,7 +355,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
       assert conn.status == 404
       body = JSON.decode!(conn.resp_body)
-      assert body["error"] == "not_found"
+      assert hd(body["messages"])["code"] == "not_found"
     end
 
     test "cancel_order returns cancelled order", %{conn: conn} do
@@ -389,7 +388,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
       assert conn.status == 422
       body = JSON.decode!(conn.resp_body)
-      assert body["error"] == "invalid_token"
+      assert hd(body["messages"])["code"] == "invalid_token"
     end
 
     test "webhook returns success on valid webhook", %{conn: conn} do
@@ -411,7 +410,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
       assert conn.status == 422
       body = JSON.decode!(conn.resp_body)
-      assert body["error"] == "invalid_webhook"
+      assert hd(body["messages"])["code"] == "invalid_webhook"
     end
   end
 

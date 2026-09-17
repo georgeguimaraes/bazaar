@@ -2,9 +2,9 @@ defmodule FlowerShop.Webhooks do
   @moduledoc """
   Order event delivery to the platform.
 
-  The platform identifies itself with `UCP-Agent: profile="<url>"`. That
-  profile advertises where order events go, under the order capability's
-  `config.webhook_url`. Events are the full order document, delivered in the
+  The platform's profile (from the `UCP-Agent` header, parsed by
+  `Bazaar.Plugs.UCPHeaders`) advertises where order events go, under the
+  order capability's `config.webhook_url`. Events are the full order document, delivered in the
   background with `Webhook-Id` and `Webhook-Timestamp` headers, and retried a
   few times on server errors with the exact same body and headers.
   """
@@ -13,26 +13,6 @@ defmodule FlowerShop.Webhooks do
 
   @attempts 3
   @backoff_ms [0, 500, 1_000]
-
-  @doc "Extracts the profile URL from a `UCP-Agent` header value."
-  def profile_url(header) when is_binary(header) do
-    case Regex.run(~r/profile="([^"]+)"/, header) do
-      [_, url] -> url
-      nil -> nil
-    end
-  end
-
-  def profile_url(_), do: nil
-
-  @doc "Extracts the `version` parameter from a `UCP-Agent` header value."
-  def requested_version(header) when is_binary(header) do
-    case Regex.run(~r/version="([^"]+)"/, header) do
-      [_, version] -> version
-      nil -> nil
-    end
-  end
-
-  def requested_version(_), do: nil
 
   @doc "Fetches the platform profile and returns its order webhook URL."
   def webhook_url(nil), do: nil

@@ -64,12 +64,12 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_changeset(changeset))
+        |> json(Bazaar.Errors.response(changeset, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -96,12 +96,12 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("checkout_session", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -130,17 +130,17 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("checkout_session", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_changeset(changeset))
+        |> json(Bazaar.Errors.response(changeset, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -167,17 +167,17 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("checkout_session", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, :invalid_state} ->
         conn
         |> put_status(:conflict)
-        |> json(Bazaar.Errors.from_reason(:invalid_state))
+        |> json(Bazaar.Errors.response(:invalid_state, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -204,12 +204,12 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("checkout_session", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -238,12 +238,12 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("order", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -270,12 +270,12 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("order", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -305,7 +305,7 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -335,7 +335,7 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -362,12 +362,12 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)
-        |> json(Bazaar.Errors.not_found("product", id))
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
 
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -395,7 +395,7 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 
@@ -426,7 +426,7 @@ defmodule Bazaar.Phoenix.Controller do
       {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(Bazaar.Errors.from_reason(reason))
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
     end
   end
 

@@ -5,7 +5,7 @@
 Bazaar helps you build commerce APIs in Elixir/Phoenix that work with both Google Shopping agents (UCP) and OpenAI/Stripe agents (ACP) from a single handler.
 
 > [!TIP]
-> [examples/flower_shop](examples/flower_shop) is a runnable merchant that passes the official UCP conformance suite, and CI runs that suite against it on every push.
+> [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) is a runnable merchant that passes the official UCP conformance suite, and CI runs that suite against it on every push.
 
 ## Supported Protocols
 
@@ -169,7 +169,7 @@ ACP endpoints:
 | POST | `/acp/checkout_sessions/:id/complete` | Complete checkout |
 | POST | `/acp/checkout_sessions/:id/cancel` | Cancel checkout |
 
-`bazaar_routes` is a convenience, not a requirement. If you'd rather own the routes and controllers, skip it: build the discovery document with `Bazaar.DiscoveryProfile.from_handler(MyApp.CommerceHandler, base_url: url)`, call the handler callbacks from your own actions, and keep using the plugs and helpers. You can also mix the two, which is what [examples/flower_shop](examples/flower_shop) does: `bazaar_routes` for the standard routes, hand-written routes and plugs for the rest.
+`bazaar_routes` is a convenience, not a requirement. If you'd rather own the routes and controllers, skip it: build the discovery document with `Bazaar.DiscoveryProfile.from_handler(MyApp.CommerceHandler, base_url: url)`, call the handler callbacks from your own actions, and keep using the plugs and helpers. You can also mix the two, which is what [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) does: `bazaar_routes` for the standard routes and a few hand-written ones for what the conformance suite needs beyond the spec.
 
 ### Step 3: Test It
 
@@ -272,11 +272,13 @@ Optional plugs for production use:
 
 ```elixir
 pipeline :ucp do
-  plug Bazaar.Plugs.UCPHeaders      # Extract UCP headers
+  plug Bazaar.Plugs.UCPHeaders       # Read UCP headers, negotiate the protocol version
+  plug Bazaar.Plugs.Idempotency      # Replay responses for repeated Idempotency-Key requests
   plug Bazaar.Plugs.ValidateRequest  # Validate request body
-  plug Bazaar.Plugs.Idempotency      # Handle retry safety
 end
 ```
+
+`Idempotency` needs a store in your supervision tree, `Bazaar.Idempotency.ETS` for a single node or your own `Bazaar.Idempotency.Store` for several. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
 
 ## Guides
 

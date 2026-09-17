@@ -7,6 +7,7 @@ defmodule FlowerShop.Application do
   def start(_type, _args) do
     children = [
       FlowerShop.Store,
+      Bazaar.Idempotency.ETS,
       {Task.Supervisor, name: FlowerShop.TaskSupervisor},
       FlowerShopWeb.Endpoint
     ]

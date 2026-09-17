@@ -128,7 +128,7 @@ defmodule Bazaar.Message do
             {:ok, Ecto.Changeset.apply_changes(changeset)}
 
           {:ok, %{valid?: false} = changeset} ->
-            {:error, {idx, Bazaar.Errors.from_changeset(changeset)}}
+            {:error, {idx, Bazaar.Errors.changeset_details(changeset)}}
 
           {:error, reason} ->
             {:error, {idx, reason}}

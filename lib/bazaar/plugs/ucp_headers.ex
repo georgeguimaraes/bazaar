@@ -1,6 +1,6 @@
 defmodule Bazaar.Plugs.UCPHeaders do
   @moduledoc """
-  Plug that extracts and validates UCP-specific headers.
+  Reads the UCP request headers and negotiates the protocol version.
 
   ## Usage
 
@@ -8,17 +8,22 @@ defmodule Bazaar.Plugs.UCPHeaders do
         plug Bazaar.Plugs.UCPHeaders
       end
 
-  ## Headers Processed
+  ## Headers
 
-  - `UCP-Agent`: Platform/agent identifier URI
-  - `UCP-Request-ID`: Unique request identifier for tracing
-  - `Request-Signature`: Request signature for verification
+  - `UCP-Agent`: the platform identifies itself with
+    `profile="https://platform.example/.well-known/ucp"` and may pin the
+    protocol version it speaks with `; version="YYYY-MM-DD"`
+  - `UCP-Request-ID`: request identifier for tracing, generated when absent
+  - `Request-Signature`: request signature, passed through for verification
 
-  Values are stored in `conn.assigns` for use in handlers:
+  Values land in `conn.assigns`: `ucp_agent` (raw header), `ucp_agent_profile`,
+  `ucp_agent_version`, `ucp_request_id` and `ucp_signature`.
 
-  - `conn.assigns.ucp_agent` - Agent identifier
-  - `conn.assigns.ucp_request_id` - Request ID
-  - `conn.assigns.ucp_signature` - Request signature
+  ## Options
+
+  - `:version` - the protocol version this server speaks. A request pinning a
+    different version is rejected with 422. Defaults to
+    `Bazaar.DiscoveryProfile.version()`; `false` disables negotiation.
   """
 
   import Plug.Conn
@@ -28,10 +33,12 @@ defmodule Bazaar.Plugs.UCPHeaders do
   @behaviour Plug
 
   @impl true
-  def init(opts), do: opts
+  def init(opts), do: %{version: Keyword.get(opts, :version, Bazaar.DiscoveryProfile.version())}
 
   @impl true
-  def call(conn, _opts) do
+  def call(conn, opts) when is_list(opts), do: call(conn, init(opts))
+
+  def call(conn, opts) do
     Telemetry.span_with_metadata([:bazaar, :plug, :ucp_headers], %{}, fn ->
       result =
         conn
@@ -39,18 +46,36 @@ defmodule Bazaar.Plugs.UCPHeaders do
         |> extract_header("ucp-request-id", :ucp_request_id)
         |> extract_header("request-signature", :ucp_signature)
         |> maybe_generate_request_id()
+        |> assign_agent()
+        |> negotiate_version(opts.version)
 
       {result, %{request_id: result.assigns[:ucp_request_id]}}
     end)
   end
 
+  @doc """
+  Parses a `UCP-Agent` header value into its `profile` and `version` parameters.
+
+      iex> Bazaar.Plugs.UCPHeaders.parse_agent(~s(profile="https://p.example/.well-known/ucp"; version="2026-08-25"))
+      %{profile: "https://p.example/.well-known/ucp", version: "2026-08-25"}
+  """
+  def parse_agent(header) when is_binary(header) do
+    %{profile: parameter(header, "profile"), version: parameter(header, "version")}
+  end
+
+  def parse_agent(_), do: %{profile: nil, version: nil}
+
+  defp parameter(header, name) do
+    case Regex.run(~r/#{name}="([^"]*)"/, header) do
+      [_, value] when value != "" -> value
+      _ -> nil
+    end
+  end
+
   defp extract_header(conn, header_name, assign_key) do
     case get_req_header(conn, header_name) do
-      [value] when byte_size(value) > 0 ->
-        assign(conn, assign_key, value)
-
-      _ ->
-        conn
+      [value] when byte_size(value) > 0 -> assign(conn, assign_key, value)
+      _ -> conn
     end
   end
 
@@ -65,6 +90,37 @@ defmodule Bazaar.Plugs.UCPHeaders do
 
       request_id ->
         put_resp_header(conn, "ucp-request-id", request_id)
+    end
+  end
+
+  defp assign_agent(conn) do
+    %{profile: profile, version: version} = parse_agent(conn.assigns[:ucp_agent])
+
+    conn
+    |> assign(:ucp_agent_profile, profile)
+    |> assign(:ucp_agent_version, version)
+  end
+
+  defp negotiate_version(conn, false), do: conn
+
+  defp negotiate_version(conn, supported) do
+    case conn.assigns.ucp_agent_version do
+      nil ->
+        conn
+
+      ^supported ->
+        conn
+
+      requested ->
+        protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+
+        document =
+          Bazaar.Errors.response({:unsupported_version, requested, supported}, protocol: protocol)
+
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(422, JSON.encode!(document))
+        |> halt()
     end
   end
 

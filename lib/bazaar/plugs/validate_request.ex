@@ -89,15 +89,16 @@ defmodule Bazaar.Plugs.ValidateRequest do
         {result, %{valid: true, action: action}}
 
       %{valid?: false} = changeset ->
-        errors = Bazaar.Errors.from_changeset(changeset)
+        details = Bazaar.Errors.changeset_details(changeset)
+        protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
 
         result =
           conn
           |> put_status(:unprocessable_entity)
-          |> Phoenix.Controller.json(errors)
+          |> Phoenix.Controller.json(Bazaar.Errors.response(changeset, protocol: protocol))
           |> halt()
 
-        {result, %{valid: false, action: action, error_count: length(errors["errors"] || [])}}
+        {result, %{valid: false, action: action, error_count: length(details)}}
     end
   end
 end
