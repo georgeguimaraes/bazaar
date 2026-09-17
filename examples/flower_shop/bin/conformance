@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Runs the official UCP conformance suite against a running flower shop.
+#
+#   PORT=8182 SIMULATION_SECRET=super-secret-sim-key mix run --no-halt   # in one terminal
+#   bin/conformance                                                       # in another
+#
+# Needs uv (https://docs.astral.sh/uv/). The suite is cloned into tmp/ at a
+# pinned commit. Each test file runs on its own because the suite's conftest
+# consumes argv, so flags can't be passed through a single pytest run.
+set -euo pipefail
+
+app_dir=$(cd "$(dirname "$0")/.." && pwd)
+suite_dir=${CONFORMANCE_DIR:-$app_dir/tmp/conformance}
+suite_ref=${CONFORMANCE_REF:-016ecbc22240affdec4429a60d539bedd04ab51b}
+server_url=${SERVER_URL:-http://localhost:8182}
+simulation_secret=${SIMULATION_SECRET:-super-secret-sim-key}
+
+if [ ! -d "$suite_dir/.git" ]; then
+  git clone --quiet https://github.com/Universal-Commerce-Protocol/conformance.git "$suite_dir"
+fi
+git -C "$suite_dir" fetch --quiet origin
+git -C "$suite_dir" checkout --quiet "$suite_ref"
+
+cd "$suite_dir"
+uv sync --quiet --no-sources
+
+status=0
+for test_file in *_test.py; do
+  echo "== $test_file"
+  if ! uv run --no-sources "$test_file" \
+    --server_url="$server_url" \
+    --simulation_secret="$simulation_secret" \
+    --conformance_input="$app_dir/conformance/conformance_input.json" \
+    --fixture_config=test_data/flower_shop/test_fixtures.json; then
+    status=1
+  fi
+done
+
+exit $status

@@ -5,7 +5,7 @@
 Bazaar helps you build commerce APIs in Elixir/Phoenix that work with both Google Shopping agents (UCP) and OpenAI/Stripe agents (ACP) from a single handler.
 
 > [!TIP]
-> See [bazaar-merchant](https://github.com/georgeguimaraes/bazaar-merchant) for a complete Phoenix app demonstrating a dual-protocol merchant.
+> [examples/flower_shop](examples/flower_shop) is a runnable merchant that passes the official UCP conformance suite, and CI runs that suite against it on every push.
 
 ## Supported Protocols
 
@@ -152,8 +152,9 @@ UCP endpoints:
 | GET | `/.well-known/ucp` | Discovery endpoint |
 | POST | `/checkout-sessions` | Create checkout |
 | GET | `/checkout-sessions/:id` | Get checkout |
-| PATCH | `/checkout-sessions/:id` | Update checkout |
-| DELETE | `/checkout-sessions/:id` | Cancel checkout |
+| PUT | `/checkout-sessions/:id` | Update checkout |
+| POST | `/checkout-sessions/:id/complete` | Complete checkout |
+| POST | `/checkout-sessions/:id/cancel` | Cancel checkout |
 | GET | `/orders/:id` | Get order |
 | POST | `/orders/:id/actions/cancel` | Cancel order |
 | POST | `/webhooks/ucp` | Receive webhooks |
@@ -167,6 +168,8 @@ ACP endpoints:
 | POST | `/acp/checkout_sessions/:id` | Update checkout |
 | POST | `/acp/checkout_sessions/:id/complete` | Complete checkout |
 | POST | `/acp/checkout_sessions/:id/cancel` | Cancel checkout |
+
+`bazaar_routes` is a convenience, not a requirement. If you'd rather own the routes and controllers, skip it: build the discovery document with `Bazaar.DiscoveryProfile.from_handler(MyApp.CommerceHandler, base_url: url)`, call the handler callbacks from your own actions, and keep using the plugs and helpers. You can also mix the two, which is what [examples/flower_shop](examples/flower_shop) does: `bazaar_routes` for the standard routes, hand-written routes and plugs for the rest.
 
 ### Step 3: Test It
 
@@ -190,8 +193,8 @@ Bazaar automatically handles the differences between UCP and ACP. Your handler c
 | Aspect | UCP | ACP |
 |--------|-----|-----|
 | URL style | `/checkout-sessions` | `/checkout_sessions` |
-| Update method | `PATCH` | `POST` |
-| Cancel method | `DELETE` | `POST /cancel` |
+| Update method | `PUT` | `POST` |
+| Cancel method | `POST /cancel` | `POST /cancel` |
 | Discovery | `/.well-known/ucp` | None |
 | Status: incomplete | `incomplete` | `not_ready_for_payment` |
 | Status: ready | `ready_for_complete` | `ready_for_payment` |

@@ -27,7 +27,8 @@ defmodule Bazaar.DiscoveryProfileTest do
     use Bazaar.Handler
 
     @impl true
-    def capabilities, do: [:checkout, :orders, :fulfillment, :identity, :discount, :catalog]
+    def capabilities,
+      do: [:checkout, :orders, :fulfillment, :identity, :discount, :buyer_consent, :catalog]
 
     @impl true
     def business_profile do
@@ -159,6 +160,10 @@ defmodule Bazaar.DiscoveryProfileTest do
 
       assert [discount] = capabilities["dev.ucp.shopping.discount"]
       assert discount["extends"] == "dev.ucp.shopping.checkout"
+
+      assert [consent] = capabilities["dev.ucp.shopping.buyer_consent"]
+      assert consent["schema"] =~ "/schemas/shopping/buyer_consent.json"
+      assert consent["extends"] == "dev.ucp.shopping.checkout"
 
       assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.search")
       assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.lookup")

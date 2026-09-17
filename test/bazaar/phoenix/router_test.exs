@@ -154,19 +154,26 @@ defmodule Bazaar.Phoenix.RouterTest do
       assert get_route != nil
       assert get_route.plug_opts == :get_checkout
 
-      # PATCH /checkout-sessions/:id
+      # PUT /checkout-sessions/:id
       update_route =
-        Enum.find(routes, &(&1.path == "/checkout-sessions/:id" and &1.verb == :patch))
+        Enum.find(routes, &(&1.path == "/checkout-sessions/:id" and &1.verb == :put))
 
       assert update_route != nil
       assert update_route.plug_opts == :update_checkout
 
-      # DELETE /checkout-sessions/:id
-      delete_route =
-        Enum.find(routes, &(&1.path == "/checkout-sessions/:id" and &1.verb == :delete))
+      # POST /checkout-sessions/:id/complete
+      complete_route =
+        Enum.find(routes, &(&1.path == "/checkout-sessions/:id/complete" and &1.verb == :post))
 
-      assert delete_route != nil
-      assert delete_route.plug_opts == :cancel_checkout
+      assert complete_route != nil
+      assert complete_route.plug_opts == :complete_checkout
+
+      # POST /checkout-sessions/:id/cancel
+      cancel_route =
+        Enum.find(routes, &(&1.path == "/checkout-sessions/:id/cancel" and &1.verb == :post))
+
+      assert cancel_route != nil
+      assert cancel_route.plug_opts == :cancel_checkout
     end
 
     test "generates order routes" do
@@ -527,11 +534,11 @@ defmodule Bazaar.Phoenix.RouterTest do
     test "UCP uses PATCH for update, ACP uses POST" do
       routes = DualProtocolRouter.__routes__()
 
-      # UCP: PATCH /checkout-sessions/:id
+      # UCP: PUT /checkout-sessions/:id
       ucp_update =
         Enum.find(
           routes,
-          &(&1.path == "/ucp/checkout-sessions/:id" and &1.verb == :patch and
+          &(&1.path == "/ucp/checkout-sessions/:id" and &1.verb == :put and
               &1.plug_opts == :update_checkout)
         )
 
@@ -548,12 +555,12 @@ defmodule Bazaar.Phoenix.RouterTest do
       assert acp_update != nil
     end
 
-    test "UCP uses DELETE for cancel, ACP uses POST" do
+    test "both protocols cancel with POST on their own paths" do
       routes = DualProtocolRouter.__routes__()
 
-      # UCP: DELETE /checkout-sessions/:id
+      # UCP: POST /checkout-sessions/:id/cancel
       ucp_cancel =
-        Enum.find(routes, &(&1.path == "/ucp/checkout-sessions/:id" and &1.verb == :delete))
+        Enum.find(routes, &(&1.path == "/ucp/checkout-sessions/:id/cancel" and &1.verb == :post))
 
       assert ucp_cancel != nil
 

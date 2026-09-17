@@ -47,9 +47,9 @@ defmodule Bazaar.Phoenix.Router do
   | GET | `/.well-known/ucp` | Discovery endpoint |
   | POST | `/checkout-sessions` | Create checkout |
   | GET | `/checkout-sessions/:id` | Get checkout |
-  | PATCH | `/checkout-sessions/:id` | Update checkout |
-  | POST | `/checkout-sessions/:id/actions/complete` | Complete checkout |
-  | DELETE | `/checkout-sessions/:id` | Cancel checkout |
+  | PUT | `/checkout-sessions/:id` | Update checkout |
+  | POST | `/checkout-sessions/:id/complete` | Complete checkout |
+  | POST | `/checkout-sessions/:id/cancel` | Cancel checkout |
   | GET | `/orders/:id` | Get order |
   | POST | `/orders/:id/actions/cancel` | Cancel order |
   | GET | `/products` | List products |
@@ -149,18 +149,15 @@ defmodule Bazaar.Phoenix.Router do
         assigns: unquote(assigns)
       )
 
-      patch("/checkout-sessions/:id", Bazaar.Phoenix.Controller, :update_checkout,
+      put("/checkout-sessions/:id", Bazaar.Phoenix.Controller, :update_checkout,
         assigns: unquote(assigns)
       )
 
-      post(
-        "/checkout-sessions/:id/actions/complete",
-        Bazaar.Phoenix.Controller,
-        :complete_checkout,
+      post("/checkout-sessions/:id/complete", Bazaar.Phoenix.Controller, :complete_checkout,
         assigns: unquote(assigns)
       )
 
-      delete("/checkout-sessions/:id", Bazaar.Phoenix.Controller, :cancel_checkout,
+      post("/checkout-sessions/:id/cancel", Bazaar.Phoenix.Controller, :cancel_checkout,
         assigns: unquote(assigns)
       )
     end

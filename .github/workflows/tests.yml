@@ -33,13 +33,13 @@ jobs:
         uses: actions/cache@v6
         with:
           path: deps
-          key: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-
       - name: Restore build cache
         uses: actions/cache@v6
         with:
           path: _build
-          key: ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-
       - name: Install dependencies
@@ -48,3 +48,58 @@ jobs:
         run: mix format --check-formatted
       - name: Run tests
         run: mix test
+
+  # Boots examples/flower_shop and runs the official UCP conformance suite
+  # against it. The suite is Python; uv installs it from PyPI at the commit
+  # pinned in bin/conformance.
+  conformance:
+    runs-on: ubuntu-latest
+    name: UCP conformance suite
+    defaults:
+      run:
+        working-directory: examples/flower_shop
+    env:
+      PORT: "8182"
+      SIMULATION_SECRET: super-secret-sim-key
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          elixir-version: "1.20"
+      - name: Restore example caches
+        uses: actions/cache@v6
+        with:
+          path: |
+            examples/flower_shop/deps
+            examples/flower_shop/_build
+          key: ${{ runner.os }}-flower-shop-${{ hashFiles('mix.lock', 'examples/flower_shop/mix.lock') }}
+          restore-keys: ${{ runner.os }}-flower-shop-
+      - uses: astral-sh/setup-uv@v8
+      - name: Install Python
+        run: uv python install 3.12
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Check formatting
+        run: mix format --check-formatted
+      - name: Run example tests
+        run: mix test
+      - name: Start the flower shop
+        run: |
+          mkdir -p tmp
+          mix run --no-halt > tmp/server.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf "http://localhost:$PORT/.well-known/ucp" > /dev/null && exit 0
+            sleep 1
+          done
+          echo "server did not come up"; cat tmp/server.log; exit 1
+      - name: Run the conformance suite
+        run: bin/conformance
+      - name: Upload server log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flower-shop-server-log
+          path: examples/flower_shop/tmp/server.log

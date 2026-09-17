@@ -58,7 +58,8 @@ defmodule Bazaar.Handler do
   @type conn :: Plug.Conn.t()
   @type params :: map()
   @type id :: String.t()
-  @type capability :: :checkout | :orders | :identity | :fulfillment | :discount | :catalog
+  @type capability ::
+          :checkout | :orders | :identity | :fulfillment | :discount | :buyer_consent | :catalog
 
   # Discovery
   @callback capabilities() :: [capability()]

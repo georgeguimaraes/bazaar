@@ -115,6 +115,15 @@ defmodule Bazaar.DiscoveryProfile do
     [{"dev.ucp.shopping.discount", entry}]
   end
 
+  defp capability_entries(:buyer_consent, _handler) do
+    entry =
+      "shopping/extensions/buyer-consent"
+      |> capability("shopping/buyer_consent")
+      |> Map.put("extends", "dev.ucp.shopping.checkout")
+
+    [{"dev.ucp.shopping.buyer_consent", entry}]
+  end
+
   defp capability_entries(:identity, _handler) do
     [
       {"dev.ucp.common.identity_linking",
