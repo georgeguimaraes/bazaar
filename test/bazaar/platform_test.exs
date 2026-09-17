@@ -3,145 +3,102 @@ defmodule Bazaar.PlatformTest do
 
   alias Bazaar.Platform
 
-  @valid_profile %{
-    "name" => "dev.ucp.example.platform",
-    "version" => "2026-08-25",
-    "capabilities" => ["dev.ucp.shopping.checkout", "dev.ucp.shopping.order"],
-    "webhook_url" => "https://platform.example.com/webhooks/ucp",
-    "webhook_secret" => "whsec_test123"
+  @profile_url "http://localhost:8285/profiles/shopping-agent.json"
+
+  @profile %{
+    "ucp" => %{
+      "version" => "2026-08-25",
+      "capabilities" => %{
+        "dev.ucp.shopping.order" => [
+          %{
+            "version" => "2026-08-25",
+            "config" => %{
+              "webhook_url" => "http://localhost:8284/webhooks/partners/test/events/order"
+            }
+          }
+        ]
+      }
+    }
   }
 
-  @agent_uri "https://platform.example.com"
+  defp client(response), do: fn _url -> response end
 
   describe "discover/2" do
-    test "fetches and parses platform discovery profile" do
+    test "fetches the profile URL as given and parses a JSON body" do
       http_client = fn url ->
-        assert url == "https://platform.example.com/.well-known/ucp"
-        {:ok, %{status: 200, body: JSON.encode!(@valid_profile)}}
+        assert url == @profile_url
+        {:ok, %{status: 200, body: JSON.encode!(@profile)}}
       end
 
-      assert {:ok, profile} = Platform.discover(@agent_uri, http_client: http_client)
-      assert profile["name"] == "dev.ucp.example.platform"
-      assert profile["webhook_url"] == "https://platform.example.com/webhooks/ucp"
+      assert {:ok, @profile} = Platform.discover(@profile_url, http_client: http_client)
     end
 
-    test "handles trailing slash in agent URI" do
-      http_client = fn url ->
-        assert url == "https://platform.example.com/.well-known/ucp"
-        {:ok, %{status: 200, body: JSON.encode!(@valid_profile)}}
-      end
-
-      assert {:ok, _} =
-               Platform.discover("https://platform.example.com/", http_client: http_client)
+    test "accepts a body the client already decoded" do
+      assert {:ok, @profile} =
+               Platform.discover(@profile_url,
+                 http_client: client({:ok, %{status: 200, body: @profile}})
+               )
     end
 
-    test "returns error for non-200 response" do
-      http_client = fn _url ->
-        {:ok, %{status: 404, body: "Not found"}}
-      end
-
+    test "surfaces http, json and transport errors" do
       assert {:error, {:http_error, 404}} =
-               Platform.discover(@agent_uri, http_client: http_client)
-    end
+               Platform.discover(@profile_url,
+                 http_client: client({:ok, %{status: 404, body: ""}})
+               )
 
-    test "returns error for invalid JSON" do
-      http_client = fn _url ->
-        {:ok, %{status: 200, body: "not json"}}
-      end
+      assert {:error, {:json_error, _}} =
+               Platform.discover(@profile_url,
+                 http_client: client({:ok, %{status: 200, body: "nope"}})
+               )
 
-      assert {:error, {:json_error, _}} = Platform.discover(@agent_uri, http_client: http_client)
-    end
-
-    test "returns error for HTTP client failure" do
-      http_client = fn _url ->
-        {:error, :connection_refused}
-      end
-
-      assert {:error, :connection_refused} =
-               Platform.discover(@agent_uri, http_client: http_client)
+      assert {:error, :econnrefused} =
+               Platform.discover(@profile_url, http_client: client({:error, :econnrefused}))
     end
   end
 
-  describe "discovery_url/1" do
-    test "appends well-known path to agent URI" do
-      assert Platform.discovery_url("https://example.com") ==
-               "https://example.com/.well-known/ucp"
+  describe "webhook_url/2" do
+    test "reads the order capability's webhook_url" do
+      assert {:ok, "http://localhost:8284/webhooks/partners/test/events/order"} =
+               Platform.webhook_url(@profile_url,
+                 http_client: client({:ok, %{status: 200, body: @profile}})
+               )
     end
 
-    test "handles trailing slash" do
-      assert Platform.discovery_url("https://example.com/") ==
-               "https://example.com/.well-known/ucp"
-    end
+    test "reports a profile without one" do
+      profile = put_in(@profile, ["ucp", "capabilities"], %{})
 
-    test "handles path in agent URI" do
-      assert Platform.discovery_url("https://example.com/api") ==
-               "https://example.com/api/.well-known/ucp"
+      assert {:error, :webhook_url_not_advertised} =
+               Platform.webhook_url(@profile_url,
+                 http_client: client({:ok, %{status: 200, body: profile}})
+               )
     end
   end
 
-  describe "caching with discover_cached/3" do
-    test "caches profile after first fetch" do
-      call_count = :counters.new(1, [:atomics])
+  describe "discover_cached/3" do
+    test "fetches once and serves the cache afterwards" do
+      {:ok, store} = Agent.start_link(fn -> %{} end)
+
+      cache = %{
+        get: fn key ->
+          Agent.get(store, &Map.fetch(&1, key)) |> then(&if(&1 == :error, do: :miss, else: &1))
+        end,
+        put: fn key, value -> Agent.update(store, &Map.put(&1, key, value)) end
+      }
+
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
 
       http_client = fn _url ->
-        :counters.add(call_count, 1, 1)
-        {:ok, %{status: 200, body: JSON.encode!(@valid_profile)}}
+        Agent.update(counter, &(&1 + 1))
+        {:ok, %{status: 200, body: @profile}}
       end
 
-      cache = start_test_cache()
+      assert {:ok, @profile} =
+               Platform.discover_cached(@profile_url, cache, http_client: http_client)
 
-      # First call should fetch
-      assert {:ok, _} = Platform.discover_cached(@agent_uri, cache, http_client: http_client)
-      assert :counters.get(call_count, 1) == 1
+      assert {:ok, @profile} =
+               Platform.discover_cached(@profile_url, cache, http_client: http_client)
 
-      # Second call should use cache
-      assert {:ok, profile} =
-               Platform.discover_cached(@agent_uri, cache, http_client: http_client)
-
-      assert :counters.get(call_count, 1) == 1
-      assert profile["webhook_url"] == "https://platform.example.com/webhooks/ucp"
+      assert Agent.get(counter, & &1) == 1
     end
-
-    test "different URIs have separate cache entries" do
-      http_client = fn url ->
-        name =
-          if String.contains?(url, "platform1") do
-            "platform1"
-          else
-            "platform2"
-          end
-
-        {:ok, %{status: 200, body: JSON.encode!(Map.put(@valid_profile, "name", name))}}
-      end
-
-      cache = start_test_cache()
-
-      assert {:ok, p1} =
-               Platform.discover_cached("https://platform1.com", cache, http_client: http_client)
-
-      assert {:ok, p2} =
-               Platform.discover_cached("https://platform2.com", cache, http_client: http_client)
-
-      assert p1["name"] == "platform1"
-      assert p2["name"] == "platform2"
-    end
-  end
-
-  # Helper to create an ETS-based test cache
-  defp start_test_cache do
-    table = :ets.new(:test_platform_cache, [:set, :public])
-
-    %{
-      get: fn key ->
-        case :ets.lookup(table, key) do
-          [{^key, value}] -> {:ok, value}
-          [] -> :miss
-        end
-      end,
-      put: fn key, value ->
-        :ets.insert(table, {key, value})
-        :ok
-      end
-    }
   end
 end

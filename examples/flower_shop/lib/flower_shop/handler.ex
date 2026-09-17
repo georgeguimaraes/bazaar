@@ -9,7 +9,9 @@ defmodule FlowerShop.Handler do
 
   use Bazaar.Handler
 
-  alias FlowerShop.{Catalog, Checkout, Orders, Payments, Store, Webhooks}
+  alias Bazaar.Signing.Key
+  alias Bazaar.{Platform, Webhook}
+  alias FlowerShop.{Catalog, Checkout, Orders, Payments, Store}
 
   @impl true
   def capabilities, do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent]
@@ -22,7 +24,8 @@ defmodule FlowerShop.Handler do
       "name" => "Flower Shop",
       "description" => "Bouquets, pots and orchids, shipped or picked up",
       "support_email" => "hello@flowershop.example",
-      "payment_handlers" => [%{"name" => handler.namespace, "id" => handler.id, "config" => %{}}]
+      "payment_handlers" => [%{"name" => handler.namespace, "id" => handler.id, "config" => %{}}],
+      "keys" => [Key.public_jwk(signing_key())]
     }
   end
 
@@ -102,13 +105,13 @@ defmodule FlowerShop.Handler do
 
   defp place_order(state, checkout) do
     order = Orders.from_checkout(checkout, base_url())
-    webhook_url = Webhooks.webhook_url(state.profile_url)
+    webhook_url = webhook_url(state.profile_url)
     Store.put_order(%{id: order["id"], order: order, webhook_url: webhook_url})
 
     state = %{state | status: :completed, order_id: order["id"]}
     Store.put_checkout(state)
 
-    Webhooks.deliver("order_placed", order, webhook_url)
+    deliver(order, webhook_url)
     {:ok, Checkout.build(state)}
   end
 
@@ -120,8 +123,8 @@ defmodule FlowerShop.Handler do
     end
   end
 
-  @doc "Applies fulfillment events and adjustments sent by the platform."
-  def update_order(id, params) do
+  @impl true
+  def update_order(id, params, _conn) do
     with %{order: order} = record <- Store.get_order(id) || {:error, :not_found},
          {:ok, order} <- Orders.apply_update(order, params) do
       Store.put_order(%{record | order: order})
@@ -138,7 +141,7 @@ defmodule FlowerShop.Handler do
       %{order: order, webhook_url: webhook_url} = record ->
         order = Orders.ship(order)
         Store.put_order(%{record | order: order})
-        Webhooks.deliver("order_shipped", order, webhook_url)
+        deliver(order, webhook_url)
         {:ok, order}
     end
   end
@@ -159,7 +162,34 @@ defmodule FlowerShop.Handler do
     end
   end
 
+  # The platform's profile says where its order events go. Without a profile
+  # (no UCP-Agent header) there is nowhere to deliver.
+  defp webhook_url(nil), do: nil
+
+  defp webhook_url(profile_url) do
+    case Platform.webhook_url(profile_url, http_client: &FlowerShop.Http.get/1) do
+      {:ok, url} -> url
+      {:error, _reason} -> nil
+    end
+  end
+
+  # Signed order events, delivered off the request path with bounded retries.
+  defp deliver(_order, nil), do: :ok
+
+  defp deliver(order, url) do
+    event = Webhook.event(order, url)
+    signer = {signing_key(), base_url() <> "/.well-known/ucp"}
+
+    Task.Supervisor.start_child(FlowerShop.TaskSupervisor, fn ->
+      Webhook.deliver(event, http_client: &FlowerShop.Http.post/3, signer: signer)
+    end)
+
+    :ok
+  end
+
   defp profile_url(conn), do: conn.assigns[:ucp_agent_profile]
+
+  defp signing_key, do: Application.fetch_env!(:flower_shop, :signing_key)
 
   defp base_url, do: Application.fetch_env!(:flower_shop, :base_url)
 end

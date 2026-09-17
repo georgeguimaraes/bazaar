@@ -10,7 +10,7 @@ defmodule Bazaar.Webhook.Retry do
 
   Delays are calculated using exponential backoff: `base_delay * 2^(attempt - 1)`
 
-  Default schedule with 5 attempts:
+  Default schedule with 3 attempts:
   - Attempt 1: 0ms (immediate)
   - Attempt 2: 1s delay
   - Attempt 3: 2s delay
@@ -44,7 +44,7 @@ defmodule Bazaar.Webhook.Retry do
               :ok
 
             {:error, error} ->
-              if Retry.should_retry?(attempt, max_attempts: 5, error: error) do
+              if Retry.should_retry?(attempt, max_attempts: 3, error: error) do
                 delay = Retry.calculate_delay(attempt)
                 {:snooze, div(delay, 1000)}
               else
@@ -55,9 +55,9 @@ defmodule Bazaar.Webhook.Retry do
       end
   """
 
-  @default_base_delay 1000
-  @default_max_delay 30_000
-  @default_max_attempts 5
+  @default_base_delay 500
+  @default_max_delay 5_000
+  @default_max_attempts 3
   @default_jitter 0.0
 
   @doc """
@@ -67,7 +67,7 @@ defmodule Bazaar.Webhook.Retry do
 
   ## Options
 
-  - `:base_delay` - Base delay in milliseconds (default: 1000)
+  - `:base_delay` - Base delay in milliseconds (default: 500)
   - `:max_delay` - Maximum delay cap in milliseconds (default: 30000)
 
   ## Examples
@@ -96,7 +96,7 @@ defmodule Bazaar.Webhook.Retry do
 
   ## Options
 
-  - `:base_delay` - Base delay in milliseconds (default: 1000)
+  - `:base_delay` - Base delay in milliseconds (default: 500)
   - `:max_delay` - Maximum delay cap (default: 30000)
   - `:jitter` - Jitter percentage as float 0.0-1.0 (default: 0.0)
 
@@ -188,7 +188,7 @@ defmodule Bazaar.Webhook.Retry do
   ## Options
 
   - `:max_attempts` - Total number of attempts (default: 5)
-  - `:base_delay` - Base delay in milliseconds (default: 1000)
+  - `:base_delay` - Base delay in milliseconds (default: 500)
   - `:max_delay` - Maximum delay cap (default: 30000)
 
   ## Example

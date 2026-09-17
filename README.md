@@ -69,7 +69,10 @@ lib/bazaar/
 ├── handler.ex         # Handler behaviour
 ├── phoenix/           # Router and controller
 ├── plugs/             # Request validation, headers, idempotency
-└── webhook/           # Event delivery with signatures and retries
+├── webhook.ex         # Order event delivery with retries
+├── webhook/           # Event struct and retry schedule
+├── signing/           # Signing keys and RFC 9421 HTTP message signatures
+└── platform.ex        # Platform profile lookup (webhook URL)
 ```
 
 ## Installation
@@ -265,6 +268,26 @@ When the spec is updated, fetch the new version's schemas (needs `cargo install 
 mix run scripts/fetch_ucp_schemas.exs 2026-08-25
 mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25
 ```
+
+## Webhooks
+
+Platforms learn about orders through webhooks: the full order document, POSTed to the URL the platform advertises in its profile, with `Webhook-Id` and `Webhook-Timestamp` headers and retries that keep both. Bazaar finds the URL and delivers the event; your handler decides when.
+
+```elixir
+def complete_checkout(id, conn) do
+  # ... authorize payment, build the order ...
+  {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
+  event = Bazaar.Webhook.event(order, url)
+
+  Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
+    Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {key, "https://shop.example/.well-known/ucp"})
+  end)
+
+  {:ok, checkout}
+end
+```
+
+Delivery is signed with RFC 9421 HTTP message signatures when you pass a `Bazaar.Signing.Key` (EC P-256 or Ed25519, loaded from PEM or JWK). Publish its public half as `"keys"` in `business_profile/0` and platforms verify against it. Bazaar bundles no HTTP client: the two functions above are yours, a few lines on Req or whatever you use.
 
 ## Plugs
 

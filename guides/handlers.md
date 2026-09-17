@@ -244,6 +244,36 @@ def link_identity(params, conn) do
 end
 ```
 
+## Sending Order Events
+
+Platforms expect the full order document whenever an order is created or changes. The platform's profile (the URL in its `UCP-Agent` header, available as `conn.assigns.ucp_agent_profile`) says where to send it. Build the event once and deliver it outside the request:
+
+```elixir
+@impl true
+def complete_checkout(id, conn) do
+  # ... authorize payment, build the order ...
+  {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
+  event = Bazaar.Webhook.event(order, url)
+
+  Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
+    Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {signing_key(), profile_url()})
+  end)
+
+  {:ok, completed_checkout}
+end
+```
+
+`deliver/2` retries transport errors and 5xx with the same body, `Webhook-Id` and `Webhook-Timestamp`, and treats 4xx as final. With a `:signer` it adds RFC 9421 signature headers; publish the key's public half so platforms can verify:
+
+```elixir
+@impl true
+def business_profile do
+  %{"name" => "My Store", "keys" => [Bazaar.Signing.Key.public_jwk(signing_key())]}
+end
+
+defp signing_key, do: Bazaar.Signing.Key.from_pem(File.read!(System.fetch_env!("UCP_SIGNING_KEY_PEM")))
+```
+
 ## Webhook Callback
 
 Handle incoming webhooks (optional):

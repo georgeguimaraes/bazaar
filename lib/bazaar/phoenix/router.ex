@@ -51,6 +51,7 @@ defmodule Bazaar.Phoenix.Router do
   | POST | `/checkout-sessions/:id/complete` | Complete checkout |
   | POST | `/checkout-sessions/:id/cancel` | Cancel checkout |
   | GET | `/orders/:id` | Get order |
+  | PUT | `/orders/:id` | Update order (with `order_updates: true`) |
   | POST | `/orders/:id/actions/cancel` | Cancel order |
   | GET | `/products` | List products |
   | GET | `/products/search` | Search products |
@@ -78,6 +79,7 @@ defmodule Bazaar.Phoenix.Router do
         only: [:checkout, :orders],   # Limit capabilities
         discovery: true,              # Include discovery endpoint (UCP only)
         webhooks: true,               # Include webhook endpoint
+        order_updates: false,         # Mount PUT /orders/:id (beyond the spec's REST binding)
         validate_requests: true,      # Enable request validation (requires plug in pipeline)
         validate_responses: true      # Enable response validation (requires plug in pipeline)
   """
@@ -192,7 +194,7 @@ defmodule Bazaar.Phoenix.Router do
   defmacro mount_ucp_only(protocol, assigns, capabilities, opts) do
     quote do
       if unquote(protocol) == :ucp do
-        Bazaar.Phoenix.Router.mount_orders(unquote(assigns), unquote(capabilities))
+        Bazaar.Phoenix.Router.mount_orders(unquote(assigns), unquote(capabilities), unquote(opts))
         Bazaar.Phoenix.Router.mount_identity(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_catalog(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_webhooks(unquote(assigns), unquote(opts))
@@ -201,10 +203,14 @@ defmodule Bazaar.Phoenix.Router do
   end
 
   @doc false
-  defmacro mount_orders(assigns, capabilities) do
+  defmacro mount_orders(assigns, capabilities, opts) do
     quote do
       if :orders in unquote(capabilities) do
         get("/orders/:id", Bazaar.Phoenix.Controller, :get_order, assigns: unquote(assigns))
+
+        if Keyword.get(unquote(opts), :order_updates, false) do
+          put("/orders/:id", Bazaar.Phoenix.Controller, :update_order, assigns: unquote(assigns))
+        end
 
         post("/orders/:id/actions/cancel", Bazaar.Phoenix.Controller, :cancel_order,
           assigns: unquote(assigns)

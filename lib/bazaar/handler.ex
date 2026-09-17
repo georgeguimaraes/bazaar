@@ -83,6 +83,8 @@ defmodule Bazaar.Handler do
   # Orders capability
   @callback get_order(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
+  @callback update_order(id(), params(), conn()) ::
+              {:ok, map()} | {:error, :not_found | term()}
   @callback cancel_order(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
 
@@ -113,6 +115,7 @@ defmodule Bazaar.Handler do
     cancel_checkout: 2,
     # Orders
     get_order: 2,
+    update_order: 3,
     cancel_order: 2,
     # Catalog
     list_products: 2,

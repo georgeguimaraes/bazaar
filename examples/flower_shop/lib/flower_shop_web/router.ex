@@ -1,8 +1,8 @@
 defmodule FlowerShopWeb.Router do
   @moduledoc """
   `bazaar_routes` mounts discovery, checkout and order routes for the handler
-  behind bazaar's header and idempotency plugs. The app adds the few routes
-  the conformance suite needs that the UCP REST binding doesn't define.
+  behind bazaar's header and idempotency plugs. The app adds the two routes
+  the conformance suite drives that aren't part of UCP at all.
   """
 
   use Phoenix.Router
@@ -17,11 +17,10 @@ defmodule FlowerShopWeb.Router do
   scope "/" do
     pipe_through :ucp
 
-    bazaar_routes("/", FlowerShop.Handler, webhooks: false)
+    bazaar_routes("/", FlowerShop.Handler, webhooks: false, order_updates: true)
 
     scope "/", FlowerShopWeb do
       get "/healthz", HealthController, :show
-      put "/orders/:id", OrderController, :update
       post "/testing/simulate-shipping/:order_id", TestingController, :simulate_shipping
     end
   end

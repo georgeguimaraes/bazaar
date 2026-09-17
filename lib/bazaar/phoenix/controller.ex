@@ -247,6 +247,39 @@ defmodule Bazaar.Phoenix.Controller do
     end
   end
 
+  def update_order(conn, %{"id" => id} = params) do
+    handler = conn.assigns.bazaar_handler
+    protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
+    update_params = Map.delete(params, "id")
+
+    result =
+      Telemetry.span_with_metadata([:bazaar, :order, :update], %{}, fn ->
+        case handler.update_order(id, update_params, conn) do
+          {:ok, order} = result ->
+            {result, %{order_id: id, status: order["status"]}}
+
+          error ->
+            {error, %{order_id: id}}
+        end
+      end)
+
+    case result do
+      {:ok, order} ->
+        {:ok, response} = Transformer.transform_response(order, protocol)
+        json(conn, response)
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(Bazaar.Errors.response(reason, protocol: protocol))
+    end
+  end
+
   def cancel_order(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
     protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)

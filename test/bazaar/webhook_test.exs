@@ -1,138 +1,108 @@
 defmodule Bazaar.WebhookTest do
   use ExUnit.Case, async: true
 
+  alias Bazaar.Signing.{HttpSignature, Key}
   alias Bazaar.Webhook
-  alias Bazaar.Webhook.Signature
 
   @order %{
+    "ucp" => %{"version" => "2026-08-25"},
     "id" => "order_123",
     "checkout_id" => "chk_456",
     "permalink_url" => "https://shop.example.com/orders/123",
-    "line_items" => [],
+    "line_items" => [%{"id" => "li_1"}],
     "totals" => []
   }
 
-  @webhook_url "https://platform.example.com/webhooks/ucp"
-  @webhook_secret "whsec_test_secret_123"
+  @url "http://localhost:8284/webhooks/partners/test/events/order"
 
-  describe "send/4" do
-    test "sends signed webhook event to platform" do
-      http_client = fn url, body, headers ->
-        assert url == @webhook_url
-        assert is_binary(body)
+  # An http client that records every attempt and answers from a script.
+  defp scripted(responses) do
+    {:ok, log} = Agent.start_link(fn -> %{calls: [], responses: responses} end)
 
-        # Verify payload structure
-        payload = JSON.decode!(body)
-        assert payload["event_type"] == "order_created"
-        assert payload["order"]["id"] == "order_123"
-        assert String.starts_with?(payload["event_id"], "evt_")
-
-        # Verify signature header
-        signature =
-          Enum.find_value(headers, fn
-            {"request-signature", sig} -> sig
-            _ -> nil
-          end)
-
-        assert signature != nil
-        assert Signature.verify(signature, payload, @webhook_secret) == :ok
-
-        {:ok, %{status: 200, body: ""}}
-      end
-
-      assert {:ok, event} =
-               Webhook.send(@order, :order_created, @webhook_url, @webhook_secret,
-                 http_client: http_client
-               )
-
-      assert event["event_type"] == "order_created"
+    client = fn url, body, headers ->
+      Agent.get_and_update(log, fn %{calls: calls, responses: [response | rest]} = state ->
+        {response,
+         %{state | calls: calls ++ [%{url: url, body: body, headers: headers}], responses: rest}}
+      end)
     end
 
-    test "returns error on non-2xx response" do
-      http_client = fn _url, _body, _headers ->
-        {:ok, %{status: 500, body: "Internal Server Error"}}
-      end
+    {client, fn -> Agent.get(log, & &1.calls) end}
+  end
 
-      assert {:error, {:http_error, 500, "Internal Server Error"}} =
-               Webhook.send(@order, :order_created, @webhook_url, @webhook_secret,
-                 http_client: http_client
-               )
-    end
+  defp header(headers, name), do: headers |> List.keyfind(name, 0) |> then(&(&1 && elem(&1, 1)))
 
-    test "returns error on connection failure" do
-      http_client = fn _url, _body, _headers ->
-        {:error, :connection_refused}
-      end
+  test "delivers the bare order with Webhook-Id and Webhook-Timestamp" do
+    {client, calls} = scripted([{:ok, %{status: 200, body: ""}}])
+    event = Webhook.event(@order, @url)
 
-      assert {:error, :connection_refused} =
-               Webhook.send(@order, :order_created, @webhook_url, @webhook_secret,
-                 http_client: http_client
-               )
-    end
+    assert {:ok, %{status: 200, attempts: 1}} = Webhook.deliver(event, http_client: client)
 
-    test "supports all event types" do
-      events_sent = :counters.new(1, [:atomics])
+    [call] = calls.()
+    assert call.url == @url
+    assert JSON.decode!(call.body) == @order
+    assert header(call.headers, "webhook-id") == event.id
+    assert header(call.headers, "webhook-timestamp") == Integer.to_string(event.timestamp)
+    assert header(call.headers, "idempotency-key") == event.id
+    assert header(call.headers, "content-type") == "application/json"
 
-      http_client = fn _url, body, _headers ->
-        payload = JSON.decode!(body)
-
-        assert payload["event_type"] in [
-                 "order_created",
-                 "order_updated",
-                 "fulfillment_updated",
-                 "adjustment_created"
-               ]
-
-        :counters.add(events_sent, 1, 1)
-        {:ok, %{status: 200, body: ""}}
-      end
-
-      for event_type <- [
-            :order_created,
-            :order_updated,
-            :fulfillment_updated,
-            :adjustment_created
-          ] do
-        assert {:ok, _} =
-                 Webhook.send(@order, event_type, @webhook_url, @webhook_secret,
-                   http_client: http_client
-                 )
-      end
-
-      assert :counters.get(events_sent, 1) == 4
-    end
-
-    test "includes content-type header" do
-      http_client = fn _url, _body, headers ->
-        content_type =
-          Enum.find_value(headers, fn
-            {"content-type", ct} -> ct
-            _ -> nil
-          end)
-
-        assert content_type == "application/json"
-        {:ok, %{status: 200, body: ""}}
-      end
-
-      Webhook.send(@order, :order_created, @webhook_url, @webhook_secret,
-        http_client: http_client
-      )
+    for name <- ~w(ucp-agent content-digest signature-input signature) do
+      refute header(call.headers, name), "#{name} must not be sent unsigned"
     end
   end
 
-  describe "sign_and_encode/2" do
-    test "returns JSON body and signature header" do
-      event = %{
-        "event_id" => "evt_test",
-        "event_type" => "order_created",
-        "order" => @order
-      }
+  test "retries a 500 with the identical body, id and timestamp, then stops on 200" do
+    {client, calls} =
+      scripted([{:ok, %{status: 500, body: "retry"}}, {:ok, %{status: 200, body: ""}}])
 
-      {body, signature} = Webhook.sign_and_encode(event, @webhook_secret)
+    event = Webhook.event(@order, @url)
 
-      assert is_binary(body)
-      assert JSON.decode!(body) == event
-      assert Signature.verify(signature, event, @webhook_secret) == :ok
+    assert {:ok, %{attempts: 2}} = Webhook.deliver(event, http_client: client, base_delay: 1)
+
+    [first, second] = calls.()
+    assert first.body == second.body
+    assert header(first.headers, "webhook-id") == header(second.headers, "webhook-id")
+
+    assert header(first.headers, "webhook-timestamp") ==
+             header(second.headers, "webhook-timestamp")
+  end
+
+  test "treats a 4xx as final and gives up after max_attempts on transport errors" do
+    {client, calls} = scripted([{:ok, %{status: 400, body: "bad"}}])
+
+    assert {:error, {:http_error, 400, "bad"}} =
+             Webhook.deliver(Webhook.event(@order, @url), http_client: client)
+
+    assert length(calls.()) == 1
+
+    {client, calls} = scripted(List.duplicate({:error, :econnrefused}, 3))
+
+    assert {:error, {:max_attempts_reached, 3, :econnrefused}} =
+             Webhook.deliver(Webhook.event(@order, @url), http_client: client, base_delay: 1)
+
+    assert length(calls.()) == 3
+  end
+
+  test "signs every attempt so the platform can verify it with the published key" do
+    key = Key.generate(:p256)
+    {client, calls} = scripted([{:ok, %{status: 503, body: ""}}, {:ok, %{status: 200, body: ""}}])
+    event = Webhook.event(@order, @url)
+
+    assert {:ok, _} =
+             Webhook.deliver(event,
+               http_client: client,
+               base_delay: 1,
+               signer: {key, "https://shop.example.com/.well-known/ucp"}
+             )
+
+    for call <- calls.() do
+      assert header(call.headers, "ucp-agent") ==
+               ~s(profile="https://shop.example.com/.well-known/ucp")
+
+      assert header(call.headers, "signature-input") =~
+               ~s[("@method" "@authority" "@path" "content-digest" "content-type" "idempotency-key" "ucp-agent" "webhook-id" "webhook-timestamp")]
+
+      request = %{method: "POST", url: call.url, headers: call.headers, body: call.body}
+      assert :ok = HttpSignature.verify(request, Key.from_jwk(Key.public_jwk(key)))
     end
   end
 end

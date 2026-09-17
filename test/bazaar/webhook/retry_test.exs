@@ -11,7 +11,7 @@ defmodule Bazaar.Webhook.RetryTest do
     test "applies exponential backoff" do
       assert Retry.calculate_delay(2, base_delay: 1000) == 2000
       assert Retry.calculate_delay(3, base_delay: 1000) == 4000
-      assert Retry.calculate_delay(4, base_delay: 1000) == 8000
+      assert Retry.calculate_delay(4, base_delay: 1000, max_delay: 10_000) == 8000
     end
 
     test "respects max_delay" do
@@ -19,8 +19,8 @@ defmodule Bazaar.Webhook.RetryTest do
     end
 
     test "uses default options" do
-      # Default base_delay is 1000ms (1 second)
-      assert Retry.calculate_delay(1) == 1000
+      # Default base_delay is 500ms
+      assert Retry.calculate_delay(1) == 500
     end
   end
 

@@ -1,121 +1,124 @@
 defmodule Bazaar.Webhook do
   @moduledoc """
-  Webhook client for sending events to platforms.
+  Order event delivery to platforms.
 
-  This module handles building, signing, and sending webhook events
-  to platforms when order-related events occur.
+  A platform learns about orders through webhooks: the full order document is
+  POSTed to the `webhook_url` the platform advertises in its profile, with
+  `Webhook-Id` and `Webhook-Timestamp` headers, once when the order is created
+  and again whenever it changes. Failed deliveries are retried with the same
+  body and headers, so the platform can deduplicate.
 
-  ## Event Types
+  Build the event once, then deliver it off the request path:
 
-  - `:order_created` - New order has been placed
-  - `:order_updated` - Order details have changed
-  - `:fulfillment_updated` - Fulfillment status changed
-  - `:adjustment_created` - Refund, credit, or chargeback issued
+      {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
+      event = Bazaar.Webhook.event(order, url)
 
-  ## HTTP Client
+      Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
+        Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {key, profile_url})
+      end)
 
-  This module doesn't include an HTTP client to avoid forcing dependencies.
-  Pass an HTTP client function via the `:http_client` option:
+  Delivery blocks the calling process through its retries, so never run it
+  inside the completion request: the platform is waiting on that response.
 
-      http_client = fn url, body, headers ->
-        Req.post(url, body: body, headers: headers)
-        |> case do
-          {:ok, %{status: status, body: resp_body}} ->
-            {:ok, %{status: status, body: resp_body}}
-          {:error, reason} ->
-            {:error, reason}
-        end
-      end
+  ## Signing
 
-      Webhook.send(order, :order_created, webhook_url, webhook_secret,
-        http_client: http_client)
-
-  ## Telemetry
-
-  Emits telemetry events under `[:bazaar, :webhook, :send]`:
-  - `:start` - Before sending webhook
-  - `:stop` - After successful send (includes `:event_type`, `:status`)
-  - `:exception` - On error
-
-  ## Example
-
-      # When an order is created
-      case Webhook.send(order, :order_created, platform_webhook_url, platform_secret,
-             http_client: &my_http_post/3) do
-        {:ok, event} -> Logger.info("Webhook sent: \#{event["event_id"]}")
-        {:error, reason} -> Logger.error("Webhook failed: \#{inspect(reason)}")
-      end
+  With a `:signer`, each attempt carries `UCP-Agent`, `Content-Digest`,
+  `Signature-Input` and `Signature` per `Bazaar.Signing.HttpSignature`, and the
+  platform verifies them against the `keys[]` in your discovery profile.
+  Without one, none of the four headers is sent.
   """
 
+  alias Bazaar.Signing.HttpSignature
   alias Bazaar.Telemetry
-  alias Bazaar.Webhook.Signature
-  alias Bazaar.WebhookEvent
+  alias Bazaar.Webhook.{Event, Retry}
+
+  @default_max_attempts 3
+  @default_base_delay 500
+  @default_max_delay 5_000
+
+  @doc "Builds the event for an order document and the platform's webhook URL."
+  def event(order, url), do: Event.new(order, url)
 
   @doc """
-  Sends a webhook event to a platform.
-
-  Builds the event payload, signs it, and sends it to the webhook URL.
-
-  ## Parameters
-
-  - `order` - Order data map
-  - `event_type` - One of the supported event types
-  - `webhook_url` - Platform's webhook URL
-  - `webhook_secret` - Shared secret for signing
+  Delivers an event, retrying transport errors, 5xx and 429 with exponential
+  backoff. A 4xx is final.
 
   ## Options
 
-  - `:http_client` - Required function `(url, body, headers) -> {:ok, %{status, body}} | {:error, reason}`
+  - `:http_client` - required, `fn url, body, headers -> {:ok, %{status: integer, body: term}} | {:error, reason} end`
+  - `:signer` - `{Bazaar.Signing.Key.t(), profile_url}`; `profile_url` is this
+    business's `/.well-known/ucp`, sent as `UCP-Agent` so the platform knows
+    whose keys to check
+  - `:max_attempts` (#{@default_max_attempts}), `:base_delay` (#{@default_base_delay}ms), `:max_delay` (#{@default_max_delay}ms)
 
-  ## Returns
-
-  - `{:ok, event}` - Event payload that was sent
-  - `{:error, {:http_error, status, body}}` - Non-2xx response
-  - `{:error, reason}` - HTTP client error
+  Returns `{:ok, %{status: status, attempts: n}}`, `{:error, {:http_error, status, body}}`
+  for a final 4xx, or `{:error, {:max_attempts_reached, n, last_error}}`.
   """
-  def send(order, event_type, webhook_url, webhook_secret, opts \\ []) do
+  def deliver(%Event{} = event, opts) do
     http_client = Keyword.fetch!(opts, :http_client)
 
-    Telemetry.span_with_metadata(
-      [:bazaar, :webhook, :send],
-      %{event_type: event_type},
-      fn ->
-        event = WebhookEvent.build(order, event_type)
-        {body, signature} = sign_and_encode(event, webhook_secret)
+    retry = [
+      max_attempts: Keyword.get(opts, :max_attempts, @default_max_attempts),
+      base_delay: Keyword.get(opts, :base_delay, @default_base_delay),
+      max_delay: Keyword.get(opts, :max_delay, @default_max_delay)
+    ]
 
-        headers = [
-          {"content-type", "application/json"},
-          {Signature.header(), signature}
-        ]
-
-        case http_client.(webhook_url, body, headers) do
-          {:ok, %{status: status}} when status >= 200 and status < 300 ->
-            {{:ok, event}, %{status: status}}
-
-          {:ok, %{status: status, body: resp_body}} ->
-            {{:error, {:http_error, status, resp_body}}, %{status: status}}
-
-          {:error, reason} ->
-            {{:error, reason}, %{}}
-        end
-      end
-    )
+    attempt(event, http_client, Keyword.get(opts, :signer), retry, 1)
   end
 
-  @doc """
-  Signs an event and encodes it as JSON.
+  defp attempt(event, http_client, signer, retry, n) do
+    result =
+      Telemetry.span_with_metadata(
+        [:bazaar, :webhook, :deliver],
+        %{webhook_id: event.id, attempt: n},
+        fn ->
+          case http_client.(event.url, event.body, headers(event, signer)) do
+            {:ok, %{status: status}} when status in 200..299 ->
+              {{:ok, %{status: status, attempts: n}}, %{status: status}}
 
-  Returns a tuple of `{json_body, signature}` ready for HTTP transport.
+            {:ok, %{status: status, body: body}} ->
+              {{:error, {:http_error, status, body}}, %{status: status}}
 
-  ## Example
+            {:error, reason} ->
+              {{:error, reason}, %{}}
+          end
+        end
+      )
 
-      {body, signature} = Webhook.sign_and_encode(event, secret)
-      # body is JSON string
-      # signature is detached JWT for request-signature header
-  """
-  def sign_and_encode(event, secret) when is_map(event) do
-    body = JSON.encode!(event)
-    signature = Signature.sign(event, secret)
-    {body, signature}
+    case result do
+      {:ok, _} = ok ->
+        ok
+
+      {:error, error} ->
+        cond do
+          not Retry.retryable_error?(error) -> {:error, error}
+          n >= retry[:max_attempts] -> {:error, {:max_attempts_reached, n, error}}
+          true -> retry_after(event, http_client, signer, retry, n, error)
+        end
+    end
+  end
+
+  defp retry_after(event, http_client, signer, retry, n, _error) do
+    Process.sleep(Retry.calculate_delay(n, retry))
+    attempt(event, http_client, signer, retry, n + 1)
+  end
+
+  @doc false
+  def headers(%Event{} = event, nil) do
+    [
+      {"content-type", "application/json"},
+      {"webhook-id", event.id},
+      {"webhook-timestamp", Integer.to_string(event.timestamp)},
+      {"idempotency-key", event.id}
+    ]
+  end
+
+  def headers(%Event{} = event, {key, profile_url}) do
+    headers = headers(event, nil) ++ [{"ucp-agent", ~s(profile="#{profile_url}")}]
+    request = %{method: "POST", url: event.url, headers: headers, body: event.body}
+
+    HttpSignature.sign(request, key,
+      components: ["idempotency-key", "ucp-agent", "webhook-id", "webhook-timestamp"]
+    )
   end
 end

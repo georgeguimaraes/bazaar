@@ -1,23 +1,17 @@
 defmodule Bazaar.Platform do
   @moduledoc """
-  Platform discovery and profile management.
+  Platform profiles.
 
-  Platforms identify themselves via the `UCP-Agent` header, which contains
-  a URI pointing to their discovery endpoint. This module fetches and caches
-  platform profiles from their `/.well-known/ucp` endpoints.
+  A platform identifies itself with `UCP-Agent: profile="<url>"`. That URL
+  serves the platform's profile document, whose order capability carries the
+  `webhook_url` order events go to. `Bazaar.Plugs.UCPHeaders` puts the URL in
+  `conn.assigns.ucp_agent_profile`.
 
-  ## Discovery Flow
+  ## HTTP client
 
-  1. Platform sends request with `UCP-Agent: https://platform.example.com`
-  2. Merchant fetches `https://platform.example.com/.well-known/ucp`
-  3. Profile contains `webhook_url` and `webhook_secret` for sending events
+  No HTTP client is bundled. Pass a function that GETs a URL and returns
+  `{:ok, %{status: integer, body: binary | map}}` or `{:error, reason}`:
 
-  ## HTTP Client
-
-  This module doesn't include an HTTP client to avoid forcing dependencies.
-  Pass an HTTP client function via the `:http_client` option:
-
-      # Using Req
       http_client = fn url ->
         case Req.get(url) do
           {:ok, %{status: status, body: body}} -> {:ok, %{status: status, body: body}}
@@ -25,132 +19,72 @@ defmodule Bazaar.Platform do
         end
       end
 
-      Platform.discover(agent_uri, http_client: http_client)
+      {:ok, webhook_url} = Bazaar.Platform.webhook_url(profile_url, http_client: http_client)
 
   ## Caching
 
-  Use `discover_cached/3` with a cache implementation to avoid repeated
-  fetches. The cache should be a map with `:get` and `:put` functions:
-
-      cache = %{
-        get: fn key -> Agent.get(agent, fn m -> Map.fetch(m, key) end) end,
-        put: fn key, val -> Agent.update(agent, fn m -> Map.put(m, key, val) end) end
-      }
+  `discover_cached/3` takes a cache map with `get` (returns `{:ok, value}` or
+  `:miss`) and `put` functions, so a profile is fetched once per platform.
   """
 
-  @well_known_path "/.well-known/ucp"
+  @order_capability "dev.ucp.shopping.order"
 
   @doc """
-  Discovers a platform's profile from its UCP-Agent URI.
+  Fetches and parses a platform profile.
 
-  ## Options
-
-  - `:http_client` - Required function that takes a URL and returns
-    `{:ok, %{status: integer, body: string}}` or `{:error, reason}`
-
-  ## Returns
-
-  - `{:ok, profile}` - Profile map with webhook_url, webhook_secret, etc.
-  - `{:error, {:http_error, status}}` - Non-200 HTTP response
-  - `{:error, {:json_error, reason}}` - Invalid JSON response
-  - `{:error, reason}` - HTTP client error
-
-  ## Example
-
-      {:ok, profile} = Platform.discover("https://platform.example.com",
-        http_client: &my_http_get/1)
-      webhook_url = profile["webhook_url"]
+  Returns `{:ok, profile}`, `{:error, {:http_error, status}}`,
+  `{:error, {:json_error, reason}}` or the HTTP client's error.
   """
-  def discover(agent_uri, opts \\ []) do
+  def discover(profile_url, opts) when is_binary(profile_url) do
     http_client = Keyword.fetch!(opts, :http_client)
-    url = discovery_url(agent_uri)
 
-    case http_client.(url) do
-      {:ok, %{status: 200, body: body}} ->
-        parse_profile(body)
-
-      {:ok, %{status: status}} ->
-        {:error, {:http_error, status}}
-
-      {:error, reason} ->
-        {:error, reason}
+    case http_client.(profile_url) do
+      {:ok, %{status: 200, body: body}} -> parse_profile(body)
+      {:ok, %{status: status}} -> {:error, {:http_error, status}}
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  @doc """
-  Discovers a platform's profile with caching.
-
-  ## Parameters
-
-  - `agent_uri` - The platform's UCP-Agent URI
-  - `cache` - Map with `:get` and `:put` functions
-  - `opts` - Options including `:http_client`
-
-  ## Cache Interface
-
-  The cache should provide:
-  - `get.(key)` - Returns `{:ok, value}` or `:miss`
-  - `put.(key, value)` - Stores value, returns `:ok`
-
-  ## Example
-
-      cache = %{
-        get: fn key -> MyCache.get(key) end,
-        put: fn key, val -> MyCache.put(key, val) end
-      }
-
-      {:ok, profile} = Platform.discover_cached(agent_uri, cache,
-        http_client: &my_http_get/1)
-  """
-  def discover_cached(agent_uri, cache, opts \\ []) do
-    cache_key = cache_key(agent_uri)
-
-    case cache.get.(cache_key) do
+  @doc "Like `discover/2`, reading and filling a cache keyed by the profile URL."
+  def discover_cached(profile_url, cache, opts) do
+    case cache.get.({:platform, profile_url}) do
       {:ok, profile} ->
         {:ok, profile}
 
       :miss ->
-        case discover(agent_uri, opts) do
-          {:ok, profile} = result ->
-            cache.put.(cache_key, profile)
-            result
-
-          error ->
-            error
+        with {:ok, profile} = result <- discover(profile_url, opts) do
+          cache.put.({:platform, profile_url}, profile)
+          result
         end
     end
   end
 
   @doc """
-  Builds the discovery URL from an agent URI.
+  The URL a platform wants order events delivered to, read from the order
+  capability of its profile.
 
-  Appends `/.well-known/ucp` to the agent URI, handling trailing slashes.
-
-  ## Examples
-
-      iex> Platform.discovery_url("https://example.com")
-      "https://example.com/.well-known/ucp"
-
-      iex> Platform.discovery_url("https://example.com/")
-      "https://example.com/.well-known/ucp"
-
-      iex> Platform.discovery_url("https://example.com/api")
-      "https://example.com/api/.well-known/ucp"
+  Returns `{:ok, url}`, `{:error, :webhook_url_not_advertised}` or a
+  `discover/2` error.
   """
-  def discovery_url(agent_uri) when is_binary(agent_uri) do
-    agent_uri
-    |> String.trim_trailing("/")
-    |> Kernel.<>(@well_known_path)
+  def webhook_url(profile_url, opts) do
+    with {:ok, profile} <- discover(profile_url, opts) do
+      profile
+      |> get_in(["ucp", "capabilities", @order_capability])
+      |> List.wrap()
+      |> Enum.find_value(&get_in(&1, ["config", "webhook_url"]))
+      |> case do
+        url when is_binary(url) -> {:ok, url}
+        _ -> {:error, :webhook_url_not_advertised}
+      end
+    end
   end
 
-  defp parse_profile(body) do
+  defp parse_profile(body) when is_map(body), do: {:ok, body}
+
+  defp parse_profile(body) when is_binary(body) do
     case JSON.decode(body) do
       {:ok, profile} -> {:ok, profile}
       {:error, reason} -> {:error, {:json_error, reason}}
     end
-  end
-
-  defp cache_key(agent_uri) do
-    {:platform, agent_uri}
   end
 end
