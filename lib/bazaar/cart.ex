@@ -36,14 +36,10 @@ defmodule Bazaar.Cart do
       "version" => version,
       "capabilities" => %{"dev.ucp.shopping.cart" => [%{"version" => version}]}
     })
-    |> put_option("continue_url", opts)
-    |> put_option("expires_at", opts)
+    |> put_unless_nil("continue_url", Keyword.get(opts, :continue_url))
+    |> put_unless_nil("expires_at", Keyword.get(opts, :expires_at))
   end
 
-  defp put_option(doc, key, opts) do
-    case Keyword.get(opts, String.to_existing_atom(key)) do
-      nil -> doc
-      value -> Map.put(doc, key, value)
-    end
-  end
+  defp put_unless_nil(doc, _key, nil), do: doc
+  defp put_unless_nil(doc, key, value), do: Map.put(doc, key, value)
 end

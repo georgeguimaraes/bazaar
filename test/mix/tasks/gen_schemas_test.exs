@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Bazaar.Gen.SchemasTest do
   @schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-08-25")
 
   # The roots bazaar generates from: its handler surface plus the profile documents.
-  @roots ~w(*.json shopping/checkout*.json shopping/order*.json shopping/fulfillment*.json shopping/discount*.json shopping/buyer_consent*.json transports/*.json)
+  @roots ~w(*.json shopping/cart*.json shopping/catalog*.json shopping/checkout*.json shopping/order*.json shopping/fulfillment*.json shopping/discount*.json shopping/buyer_consent*.json transports/*.json)
 
   test "the ref closure pulls in what the roots reference and nothing else" do
     closure = Mix.Tasks.Bazaar.Gen.Schemas.closure(@schemas_dir, @roots)

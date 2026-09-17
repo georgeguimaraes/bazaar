@@ -281,7 +281,7 @@ When the spec is updated, fetch the new version's schemas (needs `cargo install 
 ```bash
 mix run scripts/fetch_ucp_schemas.exs 2026-08-25
 mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 \
-  --roots "*.json,shopping/checkout*.json,shopping/order*.json,shopping/fulfillment*.json,shopping/discount*.json,shopping/buyer_consent*.json,transports/*.json"
+  --roots "*.json,shopping/cart*.json,shopping/catalog*.json,shopping/checkout*.json,shopping/order*.json,shopping/fulfillment*.json,shopping/discount*.json,shopping/buyer_consent*.json,transports/*.json"
 ```
 
 `--roots` keeps the generated modules to the capabilities bazaar exposes and what they reference; the validator still uses the full schema tree in `priv/`.
