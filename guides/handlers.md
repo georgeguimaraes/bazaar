@@ -126,10 +126,10 @@ Fetches an existing checkout by ID.
 
 ```elixir
 @impl true
-def get_checkout(id, conn) do
-  case Repo.get(Checkout, id) do
+def get_checkout(id, _conn) do
+  case MyApp.Checkouts.get(id) do
     nil -> {:error, :not_found}
-    checkout -> {:ok, checkout_to_ucp(checkout)}
+    state -> {:ok, build(state)}
   end
 end
 ```
@@ -142,24 +142,7 @@ end
 
 Updates an existing checkout.
 
-```elixir
-@impl true
-def update_checkout(id, params, conn) do
-  case Repo.get(Checkout, id) do
-    nil ->
-      {:error, :not_found}
-
-    %{status: :completed} ->
-      {:error, :invalid_state}
-
-    checkout ->
-      case update_checkout_record(checkout, params) do
-        {:ok, updated} -> {:ok, checkout_to_ucp(updated)}
-        {:error, changeset} -> {:error, changeset}
-      end
-  end
-end
-```
+The example above shows the body: fetch the open state (`{:error, :not_found}` when unknown, `{:error, :invalid_state}` once completed), `Checkout.apply_update/3`, store, `build/1`. A request that fails your own checks can return an `Ecto.Changeset` for a 422.
 
 **Returns:**
 - `{:ok, map}` - Updated checkout
