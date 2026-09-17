@@ -118,6 +118,12 @@ defmodule Bazaar.Plugs.ValidateResponse do
     end
   end
 
+  # The spec's error document can travel at 200 (catalog get product for an
+  # unknown id); it is not the action's response shape.
+  defp validate_body(conn, %{"ucp" => %{"status" => "error"}}, _schema_module, action, _strict) do
+    {conn, %{valid: true, action: action, skipped: :error_document}}
+  end
+
   defp validate_body(conn, body, schema_module, action, strict) do
     case schema_module.new(body) do
       %{valid?: true} ->

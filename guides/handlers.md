@@ -240,7 +240,7 @@ end
 
 ### lookup_products/2
 
-Unknown ids are simply absent from `products`; an info message per id is a courtesy.
+The controller answers 422 to a body without `ids` (or an `id`, for get product), so the callbacks only see what the schemas require. Unknown ids are simply absent from `products`; an info message per id is a courtesy.
 
 ```elixir
 @impl true

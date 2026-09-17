@@ -104,6 +104,9 @@ defmodule Bazaar.Phoenix.CatalogTest do
 
     assert {422, %{"messages" => [%{"code" => "missing_id"}]}} = call(:get_product, %{})
 
+    assert {422, %{"messages" => [%{"code" => "missing_ids"}]}} =
+             call(:lookup_products, %{"ids" => []})
+
     assert {422, %{"messages" => [%{"code" => "search_down"}]}} =
              call(:search_products, %{"query" => "boom"})
   end

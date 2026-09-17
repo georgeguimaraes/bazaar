@@ -53,7 +53,7 @@ defmodule FlowerShop.Handler do
   end
 
   @impl true
-  def lookup_products(%{"ids" => ids} = params, _conn) when is_list(ids) do
+  def lookup_products(%{"ids" => ids} = params, _conn) do
     {products, unknown} = Bazaar.Catalog.lookup(Catalog.products(), ids)
     products = Bazaar.Catalog.filter(products, params["filters"])
 
@@ -63,8 +63,6 @@ defmodule FlowerShop.Handler do
 
     {:ok, %{"products" => products, "messages" => messages}}
   end
-
-  def lookup_products(_params, _conn), do: {:error, :missing_ids}
 
   @impl true
   def get_product(%{"id" => id} = params, _conn) do

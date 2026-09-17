@@ -348,18 +348,23 @@ defmodule Bazaar.Phoenix.Controller do
     catalog(conn, :search, fn handler -> handler.search_products(params, conn) end)
   end
 
-  def lookup_products(conn, params) do
+  def lookup_products(conn, %{"ids" => [_ | _]} = params) do
     catalog(conn, :lookup, fn handler -> handler.lookup_products(params, conn) end)
   end
+
+  def lookup_products(conn, _params), do: missing(conn, :missing_ids)
 
   def get_product(conn, %{"id" => _} = params) do
     catalog(conn, :get, fn handler -> handler.get_product(params, conn) end)
   end
 
-  def get_product(conn, _params) do
+  def get_product(conn, _params), do: missing(conn, :missing_id)
+
+  # The schemas require them, so a handler never sees a body without.
+  defp missing(conn, reason) do
     conn
     |> put_status(:unprocessable_entity)
-    |> json(Bazaar.Errors.response(:missing_id))
+    |> json(Bazaar.Errors.response(reason))
   end
 
   defp catalog(conn, operation, fun) do

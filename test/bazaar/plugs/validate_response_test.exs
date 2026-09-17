@@ -106,6 +106,20 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
       assert conn.status == 200
     end
 
+    test "lets the spec's error document through at 200 even in strict mode" do
+      opts = ValidateResponse.init(schemas: %{test_action: CustomResponseSchema}, strict: true)
+
+      conn =
+        conn(:get, "/test")
+        |> put_private(:phoenix_action, :test_action)
+        |> ValidateResponse.call(opts)
+        |> put_resp_content_type("application/json")
+        |> resp(200, Jason.encode!(Bazaar.Errors.response(:not_found)))
+        |> send_resp()
+
+      assert conn.status == 200
+    end
+
     test "raises in strict mode on invalid response" do
       opts =
         ValidateResponse.init(
