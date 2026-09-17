@@ -16,7 +16,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
 
   hex-publish:
@@ -25,5 +25,7 @@ jobs:
     uses: georgeguimaraes/workflows/.github/workflows/on-release-published.yml@main
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
+      elixir-version: "1.20"
+      otp-version: "29"
     secrets:
       hex-api-key: ${{ secrets.HEX_API_KEY }}
