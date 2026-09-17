@@ -26,13 +26,14 @@ lib/bazaar/
 
 ## Regenerating Schemas
 
-When UCP JSON Schemas are updated, regenerate with:
+When a new UCP spec version is released, fetch its schemas and regenerate:
 
 ```bash
-mix bazaar.gen.schemas priv/ucp_schemas/2026-01-11
+mix run scripts/fetch_ucp_schemas.exs 2026-08-25
+mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25
 ```
 
-This will overwrite all files in `lib/bazaar/schemas/` with fresh generated code.
+The fetch script clones the spec repo at that tag and rebuilds the resolved schema tree under `priv/ucp_schemas/<version>/`, replacing that directory if it exists. It writes one `_resp.json` plus `.create_req.json`, `.update_req.json` and `.complete_req.json` variant per annotated schema, produced with the official [`ucp-schema`](https://github.com/Universal-Commerce-Protocol/ucp-schema) CLI (`cargo install ucp-schema`). The generator then overwrites all files in `lib/bazaar/schemas/` with fresh generated code.
 
 ## Key Concepts
 

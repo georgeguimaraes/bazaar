@@ -256,10 +256,11 @@ dollars = Bazaar.Checkout.to_major_units(1999)  # => 19.99
 error = Bazaar.Message.error(%{"code" => "out_of_stock", "content" => "Item unavailable"})
 ```
 
-Regenerate UCP schemas if the spec is updated:
+When the spec is updated, fetch the new version's schemas (needs `cargo install ucp-schema`) and regenerate:
 
 ```bash
-mix bazaar.gen.schemas priv/ucp_schemas/2026-01-23
+mix run scripts/fetch_ucp_schemas.exs 2026-08-25
+mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25
 ```
 
 ## Plugs
