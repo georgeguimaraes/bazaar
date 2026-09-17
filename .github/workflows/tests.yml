@@ -75,8 +75,9 @@ jobs:
           path: |
             examples/flower_shop/deps
             examples/flower_shop/_build
+          # No prefix fallback: bazaar is a path dep with modules compiled only
+          # when optional deps are present, and a stale _build keeps their absence.
           key: ${{ runner.os }}-flower-shop-${{ hashFiles('mix.lock', 'examples/flower_shop/mix.lock') }}
-          restore-keys: ${{ runner.os }}-flower-shop-
       - uses: astral-sh/setup-uv@v10.1.0
       - name: Install Python
         run: uv python install 3.12
