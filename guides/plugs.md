@@ -9,7 +9,7 @@ Bazaar provides plugs for UCP implementations:
 | `Idempotency` | Replay responses for repeated `Idempotency-Key` requests |
 | `VerifySignature` | Verify RFC 9421 signatures on requests from platforms |
 | `ValidateRequest` | Validate request bodies against the generated schemas |
-| `ValidateResponse` | Validate response bodies against the generated schemas |
+| `ValidateResponse` | Validate response bodies against the spec's JSON Schemas (needs `jsv`) |
 
 ## Setting Up Plugs
 

@@ -314,7 +314,8 @@ defmodule Bazaar.Checkout do
       second percentage discounts the already reduced amount; the library adds
       the `allocations` and the negative `discount` totals entries. `nil`
       drops the code silently.
-    * `:payment_handlers`: the `ucp.payment_handlers` registry to advertise
+    * `:payment_handlers`: the `ucp.payment_handlers` registry, which the
+      spec requires on checkouts (default: empty)
     * `:links`: the legal links (privacy policy, terms), mandatory in the spec
     * `:order_url`: `fn order_id -> url end`, the permalink for a completed
       checkout's order (required once `state.order_id` is set)
@@ -356,7 +357,7 @@ defmodule Bazaar.Checkout do
         "version" => version,
         "capabilities" => %{"dev.ucp.shopping.checkout" => [%{"version" => version}]}
       }
-      |> put_unless_nil("payment_handlers", Keyword.get(opts, :payment_handlers))
+      |> Map.put("payment_handlers", Keyword.get(opts, :payment_handlers, %{}))
 
     %{
       "ucp" => ucp,

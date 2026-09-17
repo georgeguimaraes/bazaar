@@ -30,9 +30,10 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
     test "uses default schemas when none provided" do
       opts = ValidateResponse.init([])
 
-      assert opts.schemas[:create_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
-      assert opts.schemas[:get_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
-      assert opts.schemas[:get_order] == Bazaar.Schemas.Shopping.OrderResp
+      assert opts.schemas[:create_checkout] == :checkout
+      assert opts.schemas[:create_cart] == :cart
+      assert opts.schemas[:get_order] == :order
+      assert opts.schemas[:get_product] == :catalog_product_response
       assert opts.enabled == true
       assert opts.strict == false
     end
@@ -42,7 +43,7 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
       opts = ValidateResponse.init(schemas: custom_schemas)
 
       assert opts.schemas[:create_checkout] == CustomResponseSchema
-      assert opts.schemas[:get_checkout] == Bazaar.Schemas.Shopping.CheckoutResp
+      assert opts.schemas[:get_checkout] == :checkout
     end
 
     test "supports strict mode" do
@@ -83,6 +84,37 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
 
       # No callback registered
       assert conn.private[:before_send] == nil
+    end
+  end
+
+  describe "spec schemas" do
+    defp send_checkout(doc) do
+      conn(:post, "/checkout-sessions")
+      |> put_private(:phoenix_action, :create_checkout)
+      |> ValidateResponse.call(ValidateResponse.init(strict: true))
+      |> put_resp_content_type("application/json")
+      |> resp(201, Jason.encode!(doc))
+      |> send_resp()
+    end
+
+    test "a checkout from the builder passes, a broken one names what is wrong" do
+      state =
+        Bazaar.Checkout.new(%{"line_items" => [%{"id" => "li_1", "item" => %{"id" => "r"}}]})
+
+      doc =
+        Bazaar.Checkout.build(state,
+          item: fn _ -> %{item: %{"title" => "R", "price" => 100}, stock: nil} end,
+          links: []
+        )
+
+      assert send_checkout(doc).status == 201
+
+      error =
+        assert_raise ValidateResponse.ValidationError, fn ->
+          send_checkout(Map.delete(doc, "totals"))
+        end
+
+      assert Enum.any?(error.errors, &(&1 =~ "totals"))
     end
   end
 

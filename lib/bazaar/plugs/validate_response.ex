@@ -1,44 +1,31 @@
 defmodule Bazaar.Plugs.ValidateResponse do
   @moduledoc """
-  Plug that validates outgoing UCP responses against schemas.
-
-  Uses Smelter-generated Ecto schemas to validate response bodies before
-  they are sent to the client. Invalid responses are logged but still sent
-  (in production) or can raise (in dev/test).
+  Plug that validates outgoing UCP responses against the spec's JSON
+  Schemas, through `Bazaar.Validator`, before they are sent. Invalid
+  responses are logged but still sent, or raise with `strict: true` (dev and
+  test). Needs the optional `jsv` dependency.
 
   ## Usage
 
       pipeline :bazaar_api do
-        plug Bazaar.Plugs.ValidateResponse
+        plug Bazaar.Plugs.ValidateResponse, strict: Mix.env() != :prod
       end
 
   ## Options
 
-  - `:schemas` - Map of action atoms to schema modules (optional, uses defaults)
+  - `:schemas` - Map of action atoms to schemas: a `Bazaar.Validator` schema
+    name (`:checkout`, `:cart`, `:order`, `:catalog_search_response`, ...) or
+    any module with a `new/1` returning an `Ecto.Changeset`, such as the
+    Smelter-generated ones. Merged over the defaults.
   - `:enabled` - Whether validation is enabled (default: true)
   - `:strict` - Raise on validation failure instead of logging (default: false)
 
-  ## Example
+  ## Default schemas
 
-      plug Bazaar.Plugs.ValidateResponse,
-        strict: Application.compile_env(:my_app, :strict_validation, false)
-
-      # Or with custom schemas
-      plug Bazaar.Plugs.ValidateResponse,
-        schemas: %{
-          create_checkout: MyApp.Schemas.CustomCheckoutResp
-        },
-        strict: true
-
-  ## Default Schemas
-
-  - `create_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
-  - `get_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
-  - `update_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
-  - `complete_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
-  - `cancel_checkout` -> `Bazaar.Schemas.Shopping.CheckoutResp`
-  - `get_order` -> `Bazaar.Schemas.Shopping.OrderResp`
-  - `cancel_order` -> `Bazaar.Schemas.Shopping.OrderResp`
+  Checkout actions validate as `:checkout`, cart actions as `:cart`, order
+  actions as `:order`, and the catalog actions as `:catalog_search_response`,
+  `:catalog_lookup_response` and `:catalog_product_response`. The spec's
+  error document (`ucp.status: "error"`) is let through at any status.
   """
 
   import Plug.Conn
@@ -50,34 +37,42 @@ defmodule Bazaar.Plugs.ValidateResponse do
   @behaviour Plug
 
   @default_schemas %{
-    create_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
-    get_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
-    update_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
-    complete_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
-    cancel_checkout: Bazaar.Schemas.Shopping.CheckoutResp,
-    create_cart: Bazaar.Schemas.Shopping.CartResp,
-    get_cart: Bazaar.Schemas.Shopping.CartResp,
-    update_cart: Bazaar.Schemas.Shopping.CartResp,
-    cancel_cart: Bazaar.Schemas.Shopping.CartResp,
-    get_order: Bazaar.Schemas.Shopping.OrderResp,
-    cancel_order: Bazaar.Schemas.Shopping.OrderResp,
-    search_products: Bazaar.Schemas.Shopping.CatalogSearchResp.SearchResponse,
-    lookup_products: Bazaar.Schemas.Shopping.CatalogLookupResp.LookupResponse,
-    get_product: Bazaar.Schemas.Shopping.CatalogLookupResp.GetProductResponse
+    create_checkout: :checkout,
+    get_checkout: :checkout,
+    update_checkout: :checkout,
+    complete_checkout: :checkout,
+    cancel_checkout: :checkout,
+    create_cart: :cart,
+    get_cart: :cart,
+    update_cart: :cart,
+    cancel_cart: :cart,
+    get_order: :order,
+    cancel_order: :order,
+    search_products: :catalog_search_response,
+    lookup_products: :catalog_lookup_response,
+    get_product: :catalog_product_response
   }
 
   @impl true
   def init(opts) do
-    schemas = Keyword.get(opts, :schemas, %{})
-    enabled = Keyword.get(opts, :enabled, true)
-    strict = Keyword.get(opts, :strict, false)
+    schemas = Map.merge(@default_schemas, Keyword.get(opts, :schemas, %{}))
+
+    unless Code.ensure_loaded?(Bazaar.Validator) or
+             Enum.all?(schemas, &changeset_module?(elem(&1, 1))) do
+      raise ArgumentError,
+            "Bazaar.Plugs.ValidateResponse validates against the spec's JSON Schemas, " <>
+              "which needs the jsv dependency: add {:jsv, \"~> 0.15\"} to your deps"
+    end
 
     %{
-      schemas: Map.merge(@default_schemas, schemas),
-      enabled: enabled,
-      strict: strict
+      schemas: schemas,
+      enabled: Keyword.get(opts, :enabled, true),
+      strict: Keyword.get(opts, :strict, false)
     }
   end
+
+  defp changeset_module?(schema),
+    do: Code.ensure_loaded?(schema) and function_exported?(schema, :new, 1)
 
   @impl true
   def call(conn, %{enabled: false}), do: conn
@@ -128,33 +123,52 @@ defmodule Bazaar.Plugs.ValidateResponse do
     {conn, %{valid: true, action: action, skipped: :error_document}}
   end
 
-  defp validate_body(conn, body, schema_module, action, strict) do
-    case schema_module.new(body) do
-      %{valid?: true} ->
+  defp validate_body(conn, body, schema, action, strict) do
+    case validate(body, schema) do
+      :ok ->
         {conn, %{valid: true, action: action}}
 
-      %{valid?: false} = changeset ->
-        errors = format_errors(changeset)
-
+      {:error, errors} ->
         if strict do
           raise Bazaar.Plugs.ValidateResponse.ValidationError,
             action: action,
-            schema: schema_module,
+            schema: schema,
             errors: errors
         else
           Logger.warning("[Bazaar] Response validation failed for #{action}: #{inspect(errors)}")
 
-          {conn, %{valid: false, action: action, error_count: map_size(errors)}}
+          {conn, %{valid: false, action: action, error_count: length(errors)}}
         end
     end
   end
 
-  defp format_errors(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
-        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-      end)
-    end)
+  # Errors come back as a flat list of messages, whichever validator produced them.
+  defp validate(body, schema) do
+    if changeset_module?(schema) do
+      case schema.new(body) do
+        %{valid?: true} ->
+          :ok
+
+        changeset ->
+          {:error,
+           Enum.map(
+             Bazaar.Errors.changeset_details(changeset),
+             &"#{&1["field"]} #{&1["message"]}"
+           )}
+      end
+    else
+      case Bazaar.Validator.validate(body, schema) do
+        {:ok, _} -> :ok
+        {:error, %{details: details}} -> {:error, jsv_messages(details)}
+        {:error, other} -> {:error, [inspect(other)]}
+      end
+    end
+  end
+
+  defp jsv_messages(details) do
+    for %{instanceLocation: at, errors: errors} <- details, %{message: message} <- errors do
+      "#{at}: #{message}"
+    end
   end
 
   defmodule ValidationError do
