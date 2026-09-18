@@ -183,14 +183,17 @@ defmodule Bazaar.Plugs.ValidateResponse do
     end
   end
 
-  # JSV nests details under compositions (allOf, $ref); the leaves say what failed.
+  # JSV nests details inside composition errors (allOf, $ref); the leaves say what failed.
   defp jsv_messages(details) do
-    Enum.flat_map(details, fn
-      %{details: [_ | _] = nested} -> jsv_messages(nested)
-      %{instanceLocation: at, errors: errors} -> for %{message: m} <- errors, do: "#{at}: #{m}"
-      _other -> []
-    end)
+    for %{instanceLocation: at, errors: errors} <- details,
+        error <- errors,
+        message <- leaves(at, error) do
+      message
+    end
   end
+
+  defp leaves(_at, %{details: [_ | _] = nested}), do: jsv_messages(nested)
+  defp leaves(at, %{message: message}), do: ["#{at}: #{message}"]
 
   defmodule ValidationError do
     @moduledoc """
