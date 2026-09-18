@@ -354,7 +354,13 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
     {:ok, output_path}
   end
 
-  defp generatable?(schema) do
+  # Objects and compositions get a module; so does an array whose items are an
+  # inline object (Smelter builds the module from one item). An array of a bare
+  # $ref or of scalars is typed where it is used, not generated.
+  defp generatable?(%{"type" => "array", "items" => %{} = items}), do: composed?(items)
+  defp generatable?(schema), do: composed?(schema)
+
+  defp composed?(schema) do
     Map.has_key?(schema, "properties") or
       Map.has_key?(schema, "oneOf") or
       Map.has_key?(schema, "anyOf") or

@@ -26,7 +26,7 @@ defmodule Bazaar.Schemas.Common.Types.ConstraintExpression do
   embedded_schema do
     field(:anyOf, {:array, :map})
     field(:properties, :map)
-    field(:required, {:array, :map})
+    field(:required, {:array, :string})
   end
 
   @doc "Creates a changeset for validating and casting params."

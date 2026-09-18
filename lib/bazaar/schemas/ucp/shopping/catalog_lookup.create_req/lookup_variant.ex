@@ -59,7 +59,7 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupCreateReq.LookupVariant do
     field(:metadata, :map)
     field(:seller, :map)
     field(:sku, :string)
-    field(:tags, {:array, :map})
+    field(:tags, {:array, :string})
     field(:title, :string)
     field(:url, :string)
     embeds_one(:availability, Availability)

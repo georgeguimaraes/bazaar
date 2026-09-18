@@ -44,7 +44,7 @@ defmodule Bazaar.Schemas.Shopping.OrderUpdateReq do
     field(:permalink_url, :string)
     embeds_many(:adjustments, Adjustment)
     embeds_many(:line_items, OrderLineItem)
-    embeds_one(:totals, TotalsUpdateReq)
+    embeds_many(:totals, TotalsUpdateReq)
     embeds_one(:ucp, ResponseOrderSchema)
   end
 

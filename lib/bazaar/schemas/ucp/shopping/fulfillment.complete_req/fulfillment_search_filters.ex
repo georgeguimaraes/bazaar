@@ -27,8 +27,8 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentCompleteReq.FulfillmentSearchFilter
 
   @primary_key false
   embedded_schema do
-    field(:categories, {:array, :map})
-    field(:methods, {:array, :map})
+    field(:categories, {:array, :string})
+    field(:methods, {:array, :string})
     embeds_one(:fulfills_to, FulfillmentDestinationFilter)
     embeds_one(:price, PriceFilter)
   end

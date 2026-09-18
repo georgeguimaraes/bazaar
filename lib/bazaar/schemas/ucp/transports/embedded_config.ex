@@ -22,8 +22,8 @@ defmodule Bazaar.Schemas.Transports.EmbeddedConfig do
 
   @primary_key false
   embedded_schema do
-    field(:color_scheme, {:array, :map})
-    field(:delegate, {:array, :map})
+    field(:color_scheme, {:array, :string})
+    field(:delegate, {:array, :string})
   end
 
   @doc "Creates a changeset for validating and casting params."

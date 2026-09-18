@@ -38,7 +38,7 @@ defmodule Bazaar.Schemas.Common.Types.Context do
     field(:address_country, :string)
     field(:address_region, :string)
     field(:currency, :string)
-    field(:eligibility, {:array, :map})
+    field(:eligibility, {:array, :string})
     field(:intent, :string)
     field(:language, :string)
     field(:location, :string)

@@ -22,7 +22,7 @@ defmodule Bazaar.Schemas.Shopping.Types.SearchFilters do
 
   @primary_key false
   embedded_schema do
-    field(:categories, {:array, :map})
+    field(:categories, {:array, :string})
     embeds_one(:price, PriceFilter)
   end
 

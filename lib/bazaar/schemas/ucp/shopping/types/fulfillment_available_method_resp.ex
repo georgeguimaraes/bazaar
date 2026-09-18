@@ -27,7 +27,7 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp do
   embedded_schema do
     field(:description, :string)
     field(:fulfillable_on, :string)
-    field(:line_item_ids, {:array, :map})
+    field(:line_item_ids, {:array, :string})
     field(:type, :string)
   end
 

@@ -58,7 +58,7 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentResp.DevUcpShoppingCart do
     embeds_many(:links, Link)
     embeds_many(:policies, Policy)
     embeds_one(:signals, Signals)
-    embeds_one(:totals, TotalsResp)
+    embeds_many(:totals, TotalsResp)
     embeds_one(:ucp, ResponseCartSchema)
   end
 

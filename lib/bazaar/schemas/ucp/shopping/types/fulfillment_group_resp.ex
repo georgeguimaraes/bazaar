@@ -24,7 +24,7 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentGroupResp do
   @primary_key false
   embedded_schema do
     field(:id, :string)
-    field(:line_item_ids, {:array, :map})
+    field(:line_item_ids, {:array, :string})
     field(:selected_option_id, :string)
     embeds_many(:options, FulfillmentOptionResp)
   end

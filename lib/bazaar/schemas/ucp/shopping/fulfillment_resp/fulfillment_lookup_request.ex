@@ -30,7 +30,7 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentResp.FulfillmentLookupRequest do
   @primary_key false
   embedded_schema do
     field(:attribution, :map)
-    field(:ids, {:array, :map})
+    field(:ids, {:array, :string})
     embeds_one(:context, Context)
     embeds_one(:filters, FulfillmentSearchFilters)
     embeds_one(:signals, Signals)

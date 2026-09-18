@@ -6,6 +6,43 @@ defmodule Mix.Tasks.Bazaar.Gen.SchemasTest do
   # The roots bazaar generates from: its handler surface plus the profile documents.
   @roots ~w(*.json shopping/cart*.json shopping/catalog*.json shopping/checkout*.json shopping/order*.json shopping/fulfillment*.json shopping/discount*.json shopping/buyer_consent*.json transports/*.json)
 
+  test "generates a module for an array root with inline object items, skips arrays of refs" do
+    dir = Path.join(System.tmp_dir!(), "bazaar_gen_schemas_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    File.write!(
+      Path.join(dir, "entries.json"),
+      JSON.encode!(%{
+        "$id" => "https://example.test/entries.json",
+        "type" => "array",
+        "items" => %{"type" => "object", "properties" => %{"amount" => %{"type" => "integer"}}}
+      })
+    )
+
+    File.write!(
+      Path.join(dir, "links.json"),
+      JSON.encode!(%{
+        "$id" => "https://example.test/links.json",
+        "type" => "array",
+        "items" => %{"$ref" => "entries.json"}
+      })
+    )
+
+    output =
+      ExUnit.CaptureIO.capture_io(fn ->
+        Mix.Tasks.Bazaar.Gen.Schemas.run([
+          dir,
+          "--dry-run",
+          "--output-dir",
+          Path.join(dir, "out")
+        ])
+      end)
+
+    assert output =~ ~r/entries\.json -> .*entries\.ex/
+    assert output =~ ~r/Skipped links\.json/
+  end
+
   test "the ref closure pulls in what the roots reference and nothing else" do
     closure = Mix.Tasks.Bazaar.Gen.Schemas.closure(@schemas_dir, @roots)
 

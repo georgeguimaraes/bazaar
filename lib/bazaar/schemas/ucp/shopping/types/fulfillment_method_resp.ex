@@ -8,6 +8,8 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentMethodResp do
   """
   use Ecto.Schema
   import Ecto.Changeset
+  alias Bazaar.Schemas.Shopping.Types.FulfillmentDestinationResp
+  alias Bazaar.Schemas.Shopping.Types.FulfillmentGroupResp
 
   @field_descriptions %{
     destinations:
@@ -28,18 +30,20 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentMethodResp do
 
   @primary_key false
   embedded_schema do
-    field(:destinations, {:array, :map})
-    field(:groups, {:array, :map})
     field(:id, :string)
-    field(:line_item_ids, {:array, :map})
+    field(:line_item_ids, {:array, :string})
     field(:selected_destination_id, :string)
     field(:type, :string)
+    embeds_many(:destinations, FulfillmentDestinationResp)
+    embeds_many(:groups, FulfillmentGroupResp)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
     struct
-    |> cast(params, [:destinations, :groups, :id, :line_item_ids, :selected_destination_id, :type])
+    |> cast(params, [:id, :line_item_ids, :selected_destination_id, :type])
+    |> cast_embed(:destinations, required: false)
+    |> cast_embed(:groups, required: false)
     |> validate_required([:id, :type, :line_item_ids])
   end
 

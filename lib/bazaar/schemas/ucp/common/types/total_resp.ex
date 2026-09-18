@@ -10,7 +10,8 @@ defmodule Bazaar.Schemas.Common.Types.TotalResp do
   import Ecto.Changeset
 
   @field_descriptions %{
-    amount: nil,
+    amount:
+      "Monetary amount in the currency's minor unit as defined by ISO 4217. Refer to the currency's exponent to determine minor-to-major ratio (e.g., 2 for USD, 0 for JPY, 3 for KWD). May be negative — the sign is intrinsic to the value (e.g., discounts are negative, charges are positive).",
     display_text:
       "Text to display against the amount. Should reflect appropriate method (e.g., 'Shipping', 'Delivery').",
     type:
@@ -23,7 +24,7 @@ defmodule Bazaar.Schemas.Common.Types.TotalResp do
 
   @primary_key false
   embedded_schema do
-    field(:amount, :map)
+    field(:amount, :integer)
     field(:display_text, :string)
     field(:type, :string)
   end

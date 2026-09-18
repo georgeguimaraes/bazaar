@@ -35,7 +35,7 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentResp.FulfillmentGetProductRequest d
   embedded_schema do
     field(:attribution, :map)
     field(:id, :string)
-    field(:preferences, {:array, :map})
+    field(:preferences, {:array, :string})
     embeds_one(:context, Context)
     embeds_one(:filters, FulfillmentSearchFilters)
     embeds_many(:selected, SelectedOption)

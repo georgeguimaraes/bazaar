@@ -27,7 +27,7 @@
   "plug_crypto": {:hex, :plug_crypto, "2.2.0", "144014737daaf485407f5ed77daeaad74d651b216a28c87543f8cc7043f8efc8", [:mix], [], "hexpm", "83a95744ab1c75876542b6fab135fcc176280e0f301a111c1f757fddcec95d2c"},
   "schemecto": {:git, "https://github.com/josevalim/schemecto.git", "f2d09f7c65b0fe25f84db8d4fc10c9bfeb241656", []},
   "sleeplocks": {:hex, :sleeplocks, "1.1.4", "be657d2326fad313a9cbc45374dcd861416f2f2097bc71c4de1538b65c7ccc8e", [:rebar3], [], "hexpm", "bc12752ab0693ea4e4a3bcf4e063cef408d71197a3c0fad75497fabd475f5481"},
-  "smelter": {:hex, :smelter, "0.1.4", "ac9d51223b9436cbfd80e9db014cb6d7669ad8b64ea261e13389239174bbc1c7", [:mix], [{:ecto, "~> 3.12", [hex: :ecto, repo: "hexpm", optional: false]}], "hexpm", "ea6bfc3442d0be40f8e8a1d3d0412d5be854e3a54ff034deda3b4f00af6c2954"},
+  "smelter": {:hex, :smelter, "0.1.5", "c79832f1ba403d0dbfe0b9d472fc6ba486a130e517e8c1490989b50c536b9208", [:mix], [{:ecto, "~> 3.12", [hex: :ecto, repo: "hexpm", optional: false]}], "hexpm", "3879bf622b4b56a040556a51b7fc38601fb13e191b12852772a47684e6ba38f1"},
   "telemetry": {:hex, :telemetry, "1.4.2", "a0cb522801dffb1c49fe6e30561badffc7b6d0e180db1300df759faa22062855", [:rebar3], [], "hexpm", "928f6495066506077862c0d1646609eed891a4326bee3126ba54b60af61febb1"},
   "texture": {:hex, :texture, "1.2.1", "ae8d875fb099bcc1ccb0269296bf6c4590116eff9a44895049379359a14d5fca", [:mix], [{:abnf_parsec, "~> 2.0", [hex: :abnf_parsec, repo: "hexpm", optional: false]}], "hexpm", "925b1938891ce5c1d589df408faa7ed57dd872e4aac9521b32495a29b265cb17"},
   "unicode_util_compat": {:hex, :unicode_util_compat, "0.7.1", "a48703a25c170eedadca83b11e88985af08d35f37c6f664d6dcfb106a97782fc", [:rebar3], [], "hexpm", "b3a917854ce3ae233619744ad1e0102e05673136776fb2fa76234f3e03b23642"},

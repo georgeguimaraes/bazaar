@@ -54,7 +54,7 @@ defmodule Bazaar.Schemas.Shopping.OrderResp do
     embeds_many(:adjustments, Adjustment)
     embeds_many(:line_items, OrderLineItem)
     embeds_many(:policies, Policy)
-    embeds_one(:totals, TotalsResp)
+    embeds_many(:totals, TotalsResp)
     embeds_one(:ucp, ResponseOrderSchema)
   end
 

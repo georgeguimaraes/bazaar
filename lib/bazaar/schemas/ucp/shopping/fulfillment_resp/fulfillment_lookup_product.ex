@@ -45,7 +45,7 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentResp.FulfillmentLookupProduct do
     field(:handle, :string)
     field(:id, :string)
     field(:metadata, :map)
-    field(:tags, {:array, :map})
+    field(:tags, {:array, :string})
     field(:title, :string)
     field(:url, :string)
     embeds_many(:categories, Category)

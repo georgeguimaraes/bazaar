@@ -79,7 +79,7 @@ defmodule Bazaar.Schemas.Shopping.CartResp.Checkout do
     embeds_one(:payment, Payment)
     embeds_many(:policies, Policy)
     embeds_one(:signals, Signals)
-    embeds_one(:totals, TotalsResp)
+    embeds_many(:totals, TotalsResp)
     embeds_one(:ucp, ResponseCheckoutSchema)
   end
 

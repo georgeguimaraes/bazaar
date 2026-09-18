@@ -35,7 +35,7 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupCompleteReq.GetProductRequest do
   embedded_schema do
     field(:attribution, :map)
     field(:id, :string)
-    field(:preferences, {:array, :map})
+    field(:preferences, {:array, :string})
     embeds_one(:context, Context)
     embeds_one(:filters, SearchFilters)
     embeds_many(:selected, SelectedOption)

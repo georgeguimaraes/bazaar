@@ -22,7 +22,7 @@ defmodule Bazaar.Schemas.Shopping.DiscountResp.DiscountsObject do
 
   @primary_key false
   embedded_schema do
-    field(:codes, {:array, :map})
+    field(:codes, {:array, :string})
     embeds_many(:applied, AppliedDiscount)
   end
 

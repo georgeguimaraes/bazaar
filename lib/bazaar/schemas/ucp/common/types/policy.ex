@@ -26,7 +26,7 @@ defmodule Bazaar.Schemas.Common.Types.Policy do
 
   @primary_key false
   embedded_schema do
-    field(:applies_to, {:array, :map})
+    field(:applies_to, {:array, :string})
     field(:type, :string)
     field(:url, :string)
     embeds_one(:description, Description)

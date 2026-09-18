@@ -20,7 +20,7 @@ defmodule Bazaar.Schemas.Shopping.DiscountUpdateReq.DiscountsObject do
 
   @primary_key false
   embedded_schema do
-    field(:codes, {:array, :map})
+    field(:codes, {:array, :string})
   end
 
   @doc "Creates a changeset for validating and casting params."

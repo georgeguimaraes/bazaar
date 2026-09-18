@@ -14,6 +14,7 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupUpdateReq.DetailProduct do
   alias Bazaar.Schemas.Shopping.Types.Category
   alias Bazaar.Schemas.Shopping.Types.ProductOption
   alias Bazaar.Schemas.Shopping.Types.Rating
+  alias Bazaar.Schemas.Shopping.Types.SelectedOption
   alias Bazaar.Schemas.Shopping.Types.Variant
 
   @field_descriptions %{
@@ -47,8 +48,7 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupUpdateReq.DetailProduct do
     field(:handle, :string)
     field(:id, :string)
     field(:metadata, :map)
-    field(:selected, {:array, :map})
-    field(:tags, {:array, :map})
+    field(:tags, {:array, :string})
     field(:title, :string)
     field(:url, :string)
     embeds_many(:categories, Category)
@@ -58,13 +58,14 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupUpdateReq.DetailProduct do
     embeds_many(:options, ProductOption)
     embeds_one(:price_range, PriceRange)
     embeds_one(:rating, Rating)
+    embeds_many(:selected, SelectedOption)
     embeds_many(:variants, Variant)
   end
 
   @doc "Creates a changeset for validating and casting params."
   def changeset(struct \\ %__MODULE__{}, params) do
     struct
-    |> cast(params, [:handle, :id, :metadata, :selected, :tags, :title, :url])
+    |> cast(params, [:handle, :id, :metadata, :tags, :title, :url])
     |> cast_embed(:categories, required: false)
     |> cast_embed(:description, required: true)
     |> cast_embed(:list_price_range, required: false)
@@ -72,6 +73,7 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupUpdateReq.DetailProduct do
     |> cast_embed(:options, required: false)
     |> cast_embed(:price_range, required: true)
     |> cast_embed(:rating, required: false)
+    |> cast_embed(:selected, required: false)
     |> cast_embed(:variants, required: true)
     |> validate_required([:id, :title])
   end

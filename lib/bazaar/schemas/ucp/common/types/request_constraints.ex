@@ -29,7 +29,7 @@ defmodule Bazaar.Schemas.Common.Types.RequestConstraints do
   embedded_schema do
     field(:path, :string)
     field(:properties, :map)
-    field(:required, {:array, :map})
+    field(:required, {:array, :string})
     embeds_many(:anyOf, ConstraintExpression)
   end
 

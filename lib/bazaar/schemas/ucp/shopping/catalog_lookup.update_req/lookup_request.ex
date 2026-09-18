@@ -30,7 +30,7 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupUpdateReq.LookupRequest do
   @primary_key false
   embedded_schema do
     field(:attribution, :map)
-    field(:ids, {:array, :map})
+    field(:ids, {:array, :string})
     embeds_one(:context, Context)
     embeds_one(:filters, SearchFilters)
     embeds_one(:signals, Signals)
