@@ -170,39 +170,25 @@ The response is an ACP checkout session (`protocol`, `id`, `status: "ready_for_p
 
 ## Handler Implementation
 
-Your handler uses UCP format regardless of the protocol:
+Your handler reads and returns UCP whatever the protocol, so it is written once. With `Bazaar.Checkout` the ACP translation is invisible to it:
 
 ```elixir
-defmodule MyApp.UCPHandler do
+defmodule MyApp.CommerceHandler do
   use Bazaar.Handler
 
   @impl true
   def create_checkout(params, _conn) do
-    # params are ALWAYS in UCP format
-    # - params["items"] (not "line_items")
-    # - params["items"][0]["sku"] (not "product.id")
-
-    {:ok, %{
-      "id" => "checkout_123",
-      "status" => "incomplete",  # Always use UCP status
-      "items" => [...]           # Always use "items" key
-    }}
-  end
-
-  @impl true
-  def update_checkout(id, params, _conn) do
-    # Buyer addresses are in UCP format
-    # - params["buyer"]["shipping_address"]["street_address"]
-    # - params["buyer"]["shipping_address"]["address_locality"]
-
-    {:ok, updated_checkout}
+    # params are UCP: line_items[{item: {id}, quantity}], buyer, fulfillment.methods, discounts, payment
+    state = Bazaar.Checkout.new(params)
+    MyApp.Checkouts.put(state)
+    {:ok, Bazaar.Checkout.build(state, item: &MyApp.Products.item/1, links: links())}
   end
 end
 ```
 
-Bazaar handles the transformation automatically:
-- ACP `line_items` → UCP `items` (before your handler)
-- UCP `incomplete` → ACP `not_ready_for_payment` (after your handler)
+Bazaar handles the translation around it:
+- ACP `line_items[{id, quantity}]`, `fulfillment_details`, `selected_fulfillment_options`, `payment_data` → the UCP request above (before your handler)
+- the UCP checkout document → an ACP checkout session with `status: "not_ready_for_payment"`, `item.unit_amount`, `fulfillment_options`, `capabilities`, ... (after your handler)
 
 ## Validation
 
