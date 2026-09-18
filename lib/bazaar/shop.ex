@@ -65,6 +65,9 @@ defmodule Bazaar.Shop do
   @doc "Called once an order is placed, with the order and the conn: the place to notify the platform."
   @callback order_placed(order :: map(), conn :: Plug.Conn.t()) :: term()
 
+  @doc "Called after an order changed (events, adjustments); the spec has the platform sent the full order again."
+  @callback order_updated(order :: map(), conn :: Plug.Conn.t()) :: term()
+
   @doc "The catalog, products in the spec's shape."
   @callback products() :: [map()]
 
@@ -118,6 +121,9 @@ defmodule Bazaar.Shop do
       def order_placed(_order, _conn), do: :ok
 
       @impl Bazaar.Shop
+      def order_updated(_order, _conn), do: :ok
+
+      @impl Bazaar.Shop
       def products, do: []
 
       @impl Bazaar.Shop
@@ -139,6 +145,7 @@ defmodule Bazaar.Shop do
                      payment_terms: 1,
                      authorize: 1,
                      order_placed: 2,
+                     order_updated: 2,
                      products: 0,
                      locations: 0,
                      serves?: 2,

@@ -179,10 +179,13 @@ defmodule Bazaar.Handler.Defaults do
     end
   end
 
-  def update_order(handler, id, params, _conn) do
+  @doc "Applies fulfillment events and adjustments, stores the order, and tells the shop it changed."
+  def update_order(handler, id, params, conn) do
     with %{} = order <- store(handler).get_order(id) || {:error, :not_found},
          {:ok, order} <- Order.apply_update(order, params) do
-      {:ok, store(handler).put_order(order)}
+      order = store(handler).put_order(order)
+      shop(handler).order_updated(order, conn)
+      {:ok, order}
     end
   end
 

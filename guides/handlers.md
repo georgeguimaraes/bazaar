@@ -40,6 +40,7 @@ Handlers speak UCP. On ACP routes the controller translates requests before and 
 | `payment_terms/1` | selectable payment terms for a total | immediate only |
 | `authorize/1` | charging the instruments at completion | an instrument is required |
 | `order_placed/2` | called with the order and the conn once placed | nothing |
+| `order_updated/2` | called after an order changed through `update_order` (events, adjustments) | nothing |
 | `products/0` | the catalog | `[]` |
 | `locations/0` | the stores | `[]` |
 | `serves?/2`, `stocks?/2` | location search predicates | unsupported (such requests are rejected, as the spec asks) |
@@ -153,7 +154,7 @@ The controller formats what a callback returns:
 
 ## Sending order events
 
-Platforms expect the full order document whenever an order is created or changes. The platform's profile (the URL in its `UCP-Agent` header, `conn.assigns.ucp_agent_profile`) says where to send it. `order_placed/2` is the place for the first one; later events use the same URL, so remember it with the order:
+Platforms expect the full order document whenever an order is created or changes. The platform's profile (the URL in its `UCP-Agent` header, `conn.assigns.ucp_agent_profile`) says where to send it. `order_placed/2` is the place for the first one; `order_updated/2` fires after every `update_order` (fulfillment events, adjustments) and your own changes (shipping) call the same delivery. Later events use the same URL, so remember it with the order:
 
 ```elixir
 @impl true

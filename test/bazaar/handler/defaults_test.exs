@@ -25,6 +25,10 @@ defmodule Bazaar.Handler.DefaultsTest do
 
     @impl true
     def order_placed(order, conn), do: send(conn.assigns.test, {:order_placed, order["id"]})
+
+    @impl true
+    def order_updated(order, conn),
+      do: send(conn.assigns.test, {:order_updated, length(order["adjustments"])})
   end
 
   defmodule Handler do
@@ -94,6 +98,14 @@ defmodule Bazaar.Handler.DefaultsTest do
 
     {200, order} = req(:get_order, %{"id" => order_id})
     assert_valid(order, :order)
+
+    {200, _adjusted} =
+      req(:update_order, %{
+        "id" => order_id,
+        "adjustments" => [%{"id" => "adj_1", "status" => "pending"}]
+      })
+
+    assert_received {:order_updated, 1}
     assert {422, _} = req(:update_checkout, %{"id" => id, "line_items" => []})
     assert {422, _} = req(:cancel_order, %{"id" => order_id})
     assert {404, _} = req(:get_checkout, %{"id" => "nope"})

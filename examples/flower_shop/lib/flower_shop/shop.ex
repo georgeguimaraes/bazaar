@@ -128,6 +128,11 @@ defmodule FlowerShop.Shop do
     deliver(order, url)
   end
 
+  # Every change to an order goes to the platform as the full order, at the
+  # URL learned when it was placed.
+  @impl true
+  def order_updated(order, _conn), do: deliver(order, Store.get_webhook_url(order["id"]))
+
   @impl true
   def products, do: Catalog.products()
 
