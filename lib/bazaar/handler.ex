@@ -245,75 +245,47 @@ defmodule Bazaar.Handler do
     end
   end
 
+  @delegated [
+    create_checkout: 2,
+    get_checkout: 2,
+    update_checkout: 3,
+    complete_checkout: 3,
+    cancel_checkout: 2,
+    create_cart: 2,
+    get_cart: 2,
+    update_cart: 3,
+    cancel_cart: 2,
+    get_order: 2,
+    update_order: 3,
+    cancel_order: 2,
+    search_products: 2,
+    lookup_products: 2,
+    get_product: 2,
+    search_locations: 2,
+    lookup_locations: 2
+  ]
+
   @doc false
   def defaults(shop, store) do
+    delegations =
+      for {name, arity} <- @delegated do
+        args = Macro.generate_arguments(arity, __MODULE__)
+
+        quote do
+          @impl Bazaar.Handler
+          def unquote(name)(unquote_splicing(args)),
+            do: Bazaar.Handler.Defaults.unquote(name)(__MODULE__, unquote_splicing(args))
+        end
+      end
+
     quote do
       @doc false
       def __bazaar__(:shop), do: unquote(shop)
       def __bazaar__(:store), do: unquote(store)
 
-      alias Bazaar.Handler.Defaults
+      unquote_splicing(delegations)
 
-      @impl Bazaar.Handler
-      def create_checkout(params, conn), do: Defaults.create_checkout(__MODULE__, params, conn)
-      @impl Bazaar.Handler
-      def get_checkout(id, conn), do: Defaults.get_checkout(__MODULE__, id, conn)
-      @impl Bazaar.Handler
-      def update_checkout(id, params, conn),
-        do: Defaults.update_checkout(__MODULE__, id, params, conn)
-
-      @impl Bazaar.Handler
-      def complete_checkout(id, params, conn),
-        do: Defaults.complete_checkout(__MODULE__, id, params, conn)
-
-      @impl Bazaar.Handler
-      def cancel_checkout(id, conn), do: Defaults.cancel_checkout(__MODULE__, id, conn)
-
-      @impl Bazaar.Handler
-      def create_cart(params, conn), do: Defaults.create_cart(__MODULE__, params, conn)
-      @impl Bazaar.Handler
-      def get_cart(id, conn), do: Defaults.get_cart(__MODULE__, id, conn)
-      @impl Bazaar.Handler
-      def update_cart(id, params, conn), do: Defaults.update_cart(__MODULE__, id, params, conn)
-      @impl Bazaar.Handler
-      def cancel_cart(id, conn), do: Defaults.cancel_cart(__MODULE__, id, conn)
-
-      @impl Bazaar.Handler
-      def get_order(id, conn), do: Defaults.get_order(__MODULE__, id, conn)
-      @impl Bazaar.Handler
-      def update_order(id, params, conn), do: Defaults.update_order(__MODULE__, id, params, conn)
-      @impl Bazaar.Handler
-      def cancel_order(id, conn), do: Defaults.cancel_order(__MODULE__, id, conn)
-
-      @impl Bazaar.Handler
-      def search_products(params, conn), do: Defaults.search_products(__MODULE__, params, conn)
-      @impl Bazaar.Handler
-      def lookup_products(params, conn), do: Defaults.lookup_products(__MODULE__, params, conn)
-      @impl Bazaar.Handler
-      def get_product(params, conn), do: Defaults.get_product(__MODULE__, params, conn)
-
-      @impl Bazaar.Handler
-      def search_locations(params, conn), do: Defaults.search_locations(__MODULE__, params, conn)
-      @impl Bazaar.Handler
-      def lookup_locations(params, conn), do: Defaults.lookup_locations(__MODULE__, params, conn)
-
-      defoverridable create_checkout: 2,
-                     get_checkout: 2,
-                     update_checkout: 3,
-                     complete_checkout: 3,
-                     cancel_checkout: 2,
-                     create_cart: 2,
-                     get_cart: 2,
-                     update_cart: 3,
-                     cancel_cart: 2,
-                     get_order: 2,
-                     update_order: 3,
-                     cancel_order: 2,
-                     search_products: 2,
-                     lookup_products: 2,
-                     get_product: 2,
-                     search_locations: 2,
-                     lookup_locations: 2
+      defoverridable unquote(@delegated)
     end
   end
 end
