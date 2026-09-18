@@ -147,6 +147,16 @@ defmodule MyAppWeb.Router do
 end
 ```
 
+The generated handler also needs its store and the idempotency table in your supervision tree, and its base URL in config (the generator prints both):
+
+```elixir
+# lib/my_app/application.ex
+children = [MyApp.CommerceHandler.Store, Bazaar.Idempotency.ETS, MyAppWeb.Endpoint]
+
+# config/runtime.exs
+config :my_app, bazaar_base_url: System.get_env("BASE_URL", "http://localhost:4000")
+```
+
 UCP endpoints:
 
 | Method | Path | Description |
@@ -190,11 +200,6 @@ curl http://localhost:4000/.well-known/ucp
 curl -X POST http://localhost:4000/checkout-sessions \
   -H "Content-Type: application/json" \
   -d '{"currency":"USD","line_items":[{"item":{"id":"sample"},"quantity":2}]}'
-
-# Create a checkout via ACP
-curl -X POST http://localhost:4000/acp/checkout_sessions \
-  -H "Content-Type: application/json" \
-  -d '{"currency":"usd","items":[{"id":"sample","quantity":2}]}'
 ```
 
 ## Protocol Differences
