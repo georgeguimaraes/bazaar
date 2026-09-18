@@ -96,30 +96,34 @@ end
 mix bazaar.gen.handler MyApp.CommerceHandler --name "My Awesome Store"
 ```
 
-This writes a `Bazaar.Handler` built on the library's checkout, cart, catalog and order helpers, with a sample product and an in-memory store so it answers on first boot, and prints the endpoint, router and supervision wiring below. The functions under "Your store" at the bottom of the file are the ones to replace with your catalog, rates and storage. The [getting started guide](guides/getting-started.md) walks through it; a hand-written handler looks like this:
+This writes a handler and a `Bazaar.Shop` with placeholder data (a sample product, one flat rate) so the store answers on first boot, and prints the endpoint, router and supervision wiring below. The [getting started guide](guides/getting-started.md) walks through it. A store is three modules:
 
 ```elixir
 defmodule MyApp.CommerceHandler do
-  use Bazaar.Handler
+  use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS
 
   @impl true
-  def capabilities, do: [:checkout, :orders]
+  def capabilities, do: [:checkout, :orders, :fulfillment]
 
   @impl true
-  def business_profile do
-    %{"name" => "My Awesome Store", "description" => "We sell amazing products"}
-  end
+  def business_profile, do: %{"name" => "My Awesome Store"}
+end
+
+defmodule MyApp.Shop do
+  use Bazaar.Shop
 
   @impl true
-  def create_checkout(params, _conn) do
-    state = Bazaar.Checkout.new(params)
-    MyApp.Checkouts.put(state)
-    {:ok, Bazaar.Checkout.build(state, item: &MyApp.Products.item/1, links: links())}
-  end
+  def base_url, do: "https://shop.example"
 
-  # ... get_checkout, update_checkout, complete_checkout, cancel_checkout, get_order, cancel_order
+  @impl true
+  def item(id), do: MyApp.Products.item(id)   # %{item: %{"title", "price"}, stock: n} | nil
+
+  @impl true
+  def fulfillment_options(destination, context), do: MyApp.Shipping.options(destination, context)
 end
 ```
+
+Every UCP callback (checkout, carts, orders, catalog, locations) is defined by default from the shop and the store, and any of them can be overridden. `Bazaar.Store.ETS` keeps state in memory; implement `Bazaar.Store` on your database for production.
 
 ### Step 2: Mount Routes
 
@@ -147,11 +151,11 @@ defmodule MyAppWeb.Router do
 end
 ```
 
-The generated handler also needs its store and the idempotency table in your supervision tree, and its base URL in config (the generator prints both):
+The handler also needs its store and the idempotency table in your supervision tree, and its base URL in config (the generator prints both):
 
 ```elixir
 # lib/my_app/application.ex
-children = [MyApp.CommerceHandler.Store, Bazaar.Idempotency.ETS, MyAppWeb.Endpoint]
+children = [Bazaar.Store.ETS, Bazaar.Idempotency.ETS, MyAppWeb.Endpoint]
 
 # config/runtime.exs
 config :my_app, bazaar_base_url: System.get_env("BASE_URL", "http://localhost:4000")
@@ -311,16 +315,15 @@ mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 \
 Platforms learn about orders through webhooks: the full order document, POSTed to the URL the platform advertises in its profile, with `Webhook-Id` and `Webhook-Timestamp` headers and retries that keep both. Bazaar finds the URL and delivers the event; your handler decides when.
 
 ```elixir
-def complete_checkout(id, conn) do
-  # ... authorize payment, build the order ...
+# in your Bazaar.Shop
+@impl true
+def order_placed(order, conn) do
   {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
   event = Bazaar.Webhook.event(order, url)
 
   Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
     Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {key, "https://shop.example/.well-known/ucp"})
   end)
-
-  {:ok, checkout}
 end
 ```
 

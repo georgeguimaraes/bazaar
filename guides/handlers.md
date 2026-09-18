@@ -1,412 +1,170 @@
-# Handlers Guide
+# Handlers
 
-Handlers are the core of your Bazaar implementation. They define what your store can do and how it responds to requests.
-
-## Internal Format: UCP
-
-Bazaar uses **UCP as its internal format**. Your handler always receives and returns data in UCP format, regardless of which protocol (UCP or ACP) the client uses. Bazaar handles the transformation automatically.
-
-This means you write one handler that works with both Google agents (UCP) and OpenAI/Stripe agents (ACP).
-
-See the [Protocols Guide](protocols.md) for details on field mappings and transformations.
-
-## Basic Structure
-
-Every handler uses the `Bazaar.Handler` behaviour:
-
-```elixir
-defmodule MyApp.UCPHandler do
-  use Bazaar.Handler
-
-  @impl true
-  def capabilities, do: [:checkout, :orders]
-
-  @impl true
-  def business_profile do
-    %{
-      "name" => "My Store",
-      "description" => "We sell great stuff"
-    }
-  end
-
-  # ... callback implementations
-end
-```
-
-## Required Callbacks
-
-### capabilities/0
-
-Returns a list of capabilities your store supports:
-
-```elixir
-@impl true
-def capabilities, do: [:checkout, :orders, :identity]
-```
-
-Available capabilities:
-- `:checkout` - Checkout sessions
-- `:cart` - Carts before checkout
-- `:location` - Store search and lookup
-- `:loyalty`, `:payment_terms` - Extensions answered by the checkout builder
-- `:orders` - Order tracking and management
-- `:identity` - User identity linking (OAuth)
-
-### business_profile/0
-
-Returns your store's profile for the discovery endpoint:
-
-```elixir
-@impl true
-def business_profile do
-  %{
-    "name" => "Cool Gadgets Store",
-    "description" => "The best gadgets on the internet",
-    "logo_url" => "https://example.com/logo.png",
-    "website" => "https://example.com",
-    "support_email" => "help@example.com"
-  }
-end
-```
-
-## Checkout Callbacks
-
-If you include `:checkout` in capabilities, implement these. The document a checkout answers with has more rules than fields (totals order, discount allocations, fulfillment carry-over between updates, status), so `Bazaar.Checkout` builds it: you keep a small state per checkout and supply the business facts as functions.
+A bazaar store is three modules: a `Bazaar.Shop` with your facts (prices, stock, rates, stores), a `Bazaar.Store` with your persistence, and a `Bazaar.Handler` that names them and declares what the store offers. The handler's callbacks all have defaults; you override one when a default doesn't fit.
 
 ```elixir
 defmodule MyApp.CommerceHandler do
-  use Bazaar.Handler
-
-  alias Bazaar.Checkout
+  use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS
 
   @impl true
-  def create_checkout(params, _conn) do
-    state = Checkout.new(params, stored_addresses: &MyApp.Customers.addresses/1)
-    MyApp.Checkouts.put(state)
-    {:ok, build(state)}
+  def capabilities, do: [:checkout, :orders, :fulfillment]
+
+  @impl true
+  def business_profile do
+    %{"name" => "My Store", "description" => "What we sell"}
   end
+end
+```
+
+`mix bazaar.gen.handler MyApp.CommerceHandler` writes this module and a shop with placeholder data (see the [getting started guide](getting-started.md)).
+
+## Internal format: UCP
+
+Handlers speak UCP. On ACP routes the controller translates requests before and responses after, so the same shop and handler serve both.
+
+## The shop
+
+`Bazaar.Shop` is a behaviour with two required callbacks and defaults for the rest from `use Bazaar.Shop`. Every callback is pure and takes exactly what the library's builders document.
+
+| Callback | Answers | Default |
+|---|---|---|
+| `base_url/0` | where the store lives, for order permalinks and cart links | required |
+| `item/1` | a line item's `title`, `price` and `stock` (`nil` unlimited), `nil` when unknown | required |
+| `fulfillment_options/2` | options for a selected destination (`context` has the priced line items and subtotal) | none |
+| `pickup_locations/1` | stores a pickup method can be fulfilled at (`id`, `name`, `address`) | no pickup |
+| `stored_addresses/1` | addresses known for a buyer, injected into methods that carry none | none |
+| `discount/2` | what a code is worth on the running total | no discounts |
+| `payment_handlers/0` | the `ucp.payment_handlers` registry on checkouts | `%{}` |
+| `links/0` | the legal links on checkouts | privacy and terms under `base_url/0` |
+| `loyalty/1` | memberships answering `context.eligibility` claims | none |
+| `payment_terms/1` | selectable payment terms for a total | immediate only |
+| `authorize/1` | charging the instruments at completion | an instrument is required |
+| `order_placed/2` | called with the order and the conn once placed | nothing |
+| `products/0` | the catalog | `[]` |
+| `locations/0` | the stores | `[]` |
+| `serves?/2`, `stocks?/2` | location search predicates | unsupported (such requests are rejected, as the spec asks) |
+
+```elixir
+defmodule MyApp.Shop do
+  use Bazaar.Shop
 
   @impl true
-  def update_checkout(id, params, _conn) do
-    with {:ok, state} <- MyApp.Checkouts.open(id) do
-      state = Checkout.apply_update(state, params, stored_addresses: &MyApp.Customers.addresses/1)
-      MyApp.Checkouts.put(state)
-      {:ok, build(state)}
+  def base_url, do: MyAppWeb.Endpoint.url()
+
+  @impl true
+  def item(id) do
+    case MyApp.Products.get(id) do
+      nil -> nil
+      product -> %{item: %{"title" => product.name, "price" => product.price_cents}, stock: product.stock}
     end
   end
 
-  defp build(state) do
-    Checkout.build(state,
-      item: &MyApp.Products.item/1,               # product_id -> %{item: %{"title", "price"}, stock: n} | nil
-      fulfillment_options: &MyApp.Shipping.rates/2, # destination, %{subtotal, line_items} -> [option]
-      discount: &MyApp.Promotions.discount/2,     # code, running_total -> %{"code", "title", "amount"} | nil
-      payment_handlers: %{"dev.example.pay" => [%{"id" => "pay", "version" => "2026-08-25"}]},
-      links: [%{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"}],
-      order_url: &("https://mystore.example/orders/" <> &1)
-    )
+  @impl true
+  def fulfillment_options(%{"address_country" => country}, %{subtotal: subtotal}) do
+    for rate <- MyApp.Shipping.rates(country, subtotal) do
+      %{"id" => rate.id, "title" => rate.title, "totals" => [%{"type" => "total", "amount" => rate.cents}]}
+    end
   end
+
+  @impl true
+  def authorize(instruments), do: MyApp.Payments.charge(instruments)
 end
 ```
 
-Pickup: give `build/2` a `pickup_locations` function returning your stores (`id`, `name`, `address`) and the builder offers a pickup method over the whole cart when the platform sent no fulfillment, lists the stores as its destinations (preselected from `context.location` when that names one), narrows to the chosen store once the platform selects one by id, asks `fulfillment_options` for pickup options with the store as the destination, and reports an unknown store id with an error at the method's path instead of substituting. The order's expectation then carries the store's address.
+Everything protocol-shaped happens in the library on top of these: pricing lines and clamping to stock, totals in the spec's order, discount allocations, fulfillment carry-over between updates, pickup at your locations, status, the `ucp` envelope. `Bazaar.Checkout`, `Bazaar.Cart`, `Bazaar.Catalog` and `Bazaar.Location` document the rules.
 
-`new/2` and `apply_update/3` turn a request into state with the spec's merge rules: only keys present change, fulfillment methods keep their earlier destinations and groups, a method without groups gets one consolidating group, a buyer's stored addresses are injected when a method carries none. `build/2` prices every line from `item` (unknown products and sold-out ones become error messages, a quantity above stock is clamped with a warning), asks `fulfillment_options` once a destination is selected, applies discount codes in order on the running total, and reports `incomplete` until every error is gone and every method has a destination and option, `ready_for_complete` after. The state is a plain map; set `status` to `:canceled` or `:completed` (with `order_id`) yourself and the document follows. [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) is a complete handler on top of it.
+## The store
 
-### create_checkout/2
-
-Called when an agent creates a new checkout session.
-
-**Parameters:**
-- `params` - Map with string keys containing checkout data
-- `conn` - The Plug connection (for accessing headers, auth, etc.)
-
-**Returns:**
-- `{:ok, map}` - Success with checkout data
-- `{:error, changeset}` - Validation error
-- `{:error, reason}` - Other error (atom or string)
-
-### get_checkout/2
-
-Fetches an existing checkout by ID.
+`Bazaar.Store` is nine functions over checkouts (states), carts (states), orders (documents) and the cart-to-checkout index. `Bazaar.Store.ETS` is the in-memory one: add it to your supervision tree next to `Bazaar.Idempotency.ETS`. For production, implement the behaviour on your database:
 
 ```elixir
-@impl true
-def get_checkout(id, _conn) do
-  case MyApp.Checkouts.get(id) do
-    nil -> {:error, :not_found}
-    state -> {:ok, build(state)}
+defmodule MyApp.CommerceStore do
+  @behaviour Bazaar.Store
+
+  @impl true
+  def get_checkout(id), do: MyApp.Repo.get(MyApp.CheckoutState, id) |> to_state()
+
+  @impl true
+  def put_checkout(state) do
+    MyApp.Repo.insert!(from_state(state), on_conflict: :replace_all, conflict_target: :id)
+    state
   end
+
+  # ... get_cart/1, put_cart/1, delete_cart/1, get_order/1, put_order/1,
+  #     checkout_for_cart/1, put_checkout_for_cart/2
 end
 ```
 
-**Returns:**
-- `{:ok, map}` - Found checkout
-- `{:error, :not_found}` - Checkout doesn't exist
+States are plain maps with atom keys, documented on `Bazaar.Checkout`; storing them as JSON or a map column works.
 
-### update_checkout/3
+## What the defaults do
 
-Updates an existing checkout.
+With `shop:` and `store:` given, `use Bazaar.Handler` defines every capability's callbacks from `Bazaar.Handler.Defaults`:
 
-The example above shows the body: fetch the open state (`{:error, :not_found}` when unknown, `{:error, :invalid_state}` once completed), `Checkout.apply_update/3`, store, `build/1`. A request that fails your own checks can return an `Ecto.Changeset` for a 422.
+- **Checkout**: create (or convert the cart named by `cart_id`, once), get, update while open, cancel, and complete: apply the final update, refuse with a `missing` message until fulfillment is selected (when `:fulfillment` is advertised) and no error remains, then `authorize/1`, `Bazaar.Order.from_checkout/3`, store the order, and `order_placed/2`. A declined instrument comes back as a `payment_failed` message with the checkout still open.
+- **Cart**: create, get, update (full replacement), cancel.
+- **Orders**: get, update (`Bazaar.Order.apply_update/2`: fulfillment events and adjustments), cancel refused with `:invalid_state` (override for what your fulfillment allows).
+- **Catalog**: search on title and description with `Bazaar.Catalog` filters and pagination, lookup, get product with option availability.
+- **Location**: search and lookup with `Bazaar.Location`, your `serves?/2` and `stocks?/2` as predicates.
 
-**Returns:**
-- `{:ok, map}` - Updated checkout
-- `{:error, :not_found}` - Checkout doesn't exist
-- `{:error, :invalid_state}` - Can't update (e.g., already complete)
-- `{:error, changeset}` - Validation error
+Only the callbacks for the capabilities in `capabilities/0` are routed; the rest sit unused.
 
-### cancel_checkout/2
+## Overriding a default
 
-Cancels a checkout session.
-
-```elixir
-@impl true
-def cancel_checkout(id, conn) do
-  case Repo.get(Checkout, id) do
-    nil ->
-      {:error, :not_found}
-
-    %{status: :canceled} ->
-      {:error, :already_cancelled}
-
-    checkout ->
-      {:ok, _} = Repo.update(Checkout.cancel(checkout))
-      {:ok, %{"id" => id, "status" => "canceled"}}
-  end
-end
-```
-
-## Cart Callbacks
-
-If you include `:cart` in capabilities, `bazaar_routes` mounts `POST /carts`, `GET /carts/:id`, `PUT /carts/:id` and `POST /carts/:id/cancel`. A cart is a checkout without payment, fulfillment or status: estimated pricing while the buyer is still deciding. `Bazaar.Cart` reuses the checkout state and builder, so the callbacks are the checkout ones in miniature.
-
-```elixir
-@impl true
-def create_cart(params, _conn) do
-  state = Bazaar.Cart.new(params)
-  MyApp.Carts.put(state)
-  {:ok, build_cart(state)}
-end
-
-@impl true
-def update_cart(id, params, _conn) do
-  case MyApp.Carts.get(id) do
-    nil -> {:error, :not_found}
-    state -> {:ok, state |> Bazaar.Cart.apply_update(params) |> MyApp.Carts.put() |> build_cart()}
-  end
-end
-
-@impl true
-def cancel_cart(id, _conn) do
-  case MyApp.Carts.get(id) do
-    nil -> {:error, :not_found}
-    state -> MyApp.Carts.delete(id); {:ok, build_cart(state)}
-  end
-end
-
-defp build_cart(state) do
-  Bazaar.Cart.build(state, item: &MyApp.Products.item/1, continue_url: "https://mystore.example/carts/" <> state.id)
-end
-```
-
-With the cart capability advertised, a platform converts a cart by sending `cart_id` on checkout create. The spec has the business use the cart's line items, buyer and context and ignore those fields in the payload, and answer a repeat conversion with the checkout it already created. `Bazaar.Checkout.from_cart/3` does the first part; remembering which checkout a cart became is your storage:
-
-```elixir
-@impl true
-def create_checkout(%{"cart_id" => cart_id} = params, conn) do
-  case {MyApp.Carts.checkout_for(cart_id), MyApp.Carts.get(cart_id)} do
-    {checkout_id, _} when is_binary(checkout_id) -> get_checkout(checkout_id, conn)
-    {nil, nil} -> {:error, :not_found}
-    {nil, cart} ->
-      state = Bazaar.Checkout.from_cart(cart, params, stored_addresses: &MyApp.Customers.addresses/1)
-      MyApp.Checkouts.put(state)
-      MyApp.Carts.converted(cart_id, state.id)
-      {:ok, build(state)}
-  end
-end
-```
-
-## Order Callbacks
-
-If you include `:orders` in capabilities, implement these:
-
-### get_order/2
-
-Fetches an order by ID.
-
-```elixir
-@impl true
-def get_order(id, conn) do
-  case Repo.get(Order, id) do
-    nil -> {:error, :not_found}
-    order -> {:ok, order_to_ucp(order)}
-  end
-end
-```
-
-### cancel_order/2
-
-Cancels an order.
+Every generated callback is `defoverridable`. Override it and call the default for the part you keep:
 
 ```elixir
 @impl true
 def cancel_order(id, conn) do
-  case Repo.get(Order, id) do
-    nil ->
-      {:error, :not_found}
-
-    %{fulfillment_status: :shipped} ->
-      {:error, :invalid_state}
-
-    %{status: :canceled} ->
-      {:error, :already_cancelled}
-
-    order ->
-      {:ok, _} = Repo.update(Order.cancel(order))
-      {:ok, %{"id" => id, "status" => "canceled"}}
+  case MyApp.Orders.cancellable?(id) do
+    true -> {:ok, MyApp.Orders.cancel(id)}
+    false -> Bazaar.Handler.Defaults.cancel_order(__MODULE__, id, conn)
   end
 end
 ```
 
-## Catalog Callbacks
+The callback signatures, for reference:
 
-If you include `:catalog` in capabilities, `bazaar_routes` mounts the spec's three POSTs (`/catalog/search`, `/catalog/lookup`, `/catalog/product`) and advertises `dev.ucp.shopping.catalog.search` and `.lookup` in discovery. Each callback takes the request body and returns the response document without its `ucp` metadata, which the controller adds. Products are string-keyed maps in the spec's shape: `id`, `title`, `description` (`%{"plain" => ...}`), `price_range` and at least one variant, whose `id` is what checkout later receives as `item.id`.
+| Callback | Returns |
+|---|---|
+| `create_checkout(params, conn)` | `{:ok, checkout}` |
+| `get_checkout(id, conn)` | `{:ok, checkout}` or `{:error, :not_found}` |
+| `update_checkout(id, params, conn)` | `{:ok, checkout}`, `{:error, :not_found}`, `{:error, :invalid_state}` |
+| `complete_checkout(id, params, conn)` | `{:ok, checkout}` (completed, or open with messages) |
+| `cancel_checkout(id, conn)` | `{:ok, checkout}` |
+| `create_cart`, `get_cart`, `update_cart`, `cancel_cart` | the cart document |
+| `get_order(id, conn)`, `update_order(id, params, conn)`, `cancel_order(id, conn)` | the order document |
+| `search_products`, `lookup_products`, `get_product` | `{:ok, %{"products" => ...}}` or `{:ok, %{"product" => ...}}` |
+| `search_locations`, `lookup_locations` | `{:ok, %{"locations" => ...}}` |
+| `link_identity(params, conn)` | `{:ok, map}` (no default) |
+| `handle_webhook(payload)` | `{:ok, term}` (no default) |
 
-`Bazaar.Catalog` implements the rules the spec asks of every catalog: `filter/2` (categories and price range), `paginate/2` (limit and opaque cursor), `lookup/2` (id resolution with the `inputs` correlation lookup responses require), `find/2` and `detail_product/3` (option values with `available` and `exists` relative to the selection).
+## Error responses
 
-### search_products/2
+The controller formats what a callback returns:
 
-```elixir
-@impl true
-def search_products(params, _conn) do
-  products =
-    Shop.products()
-    |> Enum.filter(&matches?(&1, params["query"]))
-    |> Bazaar.Catalog.filter(params["filters"])
+| Return value | HTTP status |
+|---|---|
+| `{:ok, map}` | 200, 201 on create |
+| `{:error, :not_found}` | 404 |
+| `{:error, %Ecto.Changeset{}}` | 422 with one message per error |
+| `{:error, :invalid_state}`, `{:error, :unauthorized}`, other atoms | 422, the atom as the message code |
+| `{:error, "message"}` | 422 |
 
-  {page, pagination} = Bazaar.Catalog.paginate(products, params["pagination"])
-  {:ok, %{"products" => page, "pagination" => pagination}}
-end
-```
+## Sending order events
 
-### lookup_products/2
-
-The controller answers 422 to a body without `ids` (or an `id`, for get product), so the callbacks only see what the schemas require. Unknown ids are simply absent from `products`; an info message per id is a courtesy.
-
-```elixir
-@impl true
-def lookup_products(%{"ids" => ids}, _conn) do
-  {products, unknown} = Bazaar.Catalog.lookup(Shop.products(), ids)
-  messages = for id <- unknown, do: %{"type" => "info", "code" => "not_found", "content" => "No product #{id}"}
-  {:ok, %{"products" => products, "messages" => messages}}
-end
-```
-
-### get_product/2
-
-`{:error, :not_found}` renders the spec's error document, still with a 200, as the binding says.
+Platforms expect the full order document whenever an order is created or changes. The platform's profile (the URL in its `UCP-Agent` header, `conn.assigns.ucp_agent_profile`) says where to send it. `order_placed/2` is the place for the first one; later events use the same URL, so remember it with the order:
 
 ```elixir
 @impl true
-def get_product(%{"id" => id} = params, _conn) do
-  case Bazaar.Catalog.find(Shop.products(), id) do
-    nil -> {:error, :not_found}
-    product -> {:ok, %{"product" => Bazaar.Catalog.detail_product(product, params["selected"])}}
-  end
-end
-```
-
-## Loyalty and Payment Terms
-
-Two extensions ride on the checkout document rather than adding routes. Adding `:loyalty` or `:payment_terms` to `capabilities/0` advertises them (with the capabilities they extend); the checkout builder answers them through two options.
-
-Loyalty: the platform asserts claims in `context.eligibility` (reverse-DNS program names). `Bazaar.Checkout.eligibility/1` returns them, and the `:loyalty` function answers with a map of claim to membership (`id`, `name`, `provisional`, optional `display_id`, `tiers`, `rewards` with an `earning_forecast`). A claim on your program you can't verify is `provisional: true` without a `display_id`, or a recoverable `eligibility_invalid` error message when verification fails outright; claims for programs you don't run are left unanswered. The same option works on `Bazaar.Cart.build/2`.
-
-Payment terms: the `:payment_terms` function returns the terms for the checkout (`id`, `title`, `schedules` of `id`, `type`, `description`, `amount`; the selected term's schedules must sum to the total). The document carries `payment.terms` and `payment.selected_term_id`, the platform selects with `payment.selected_term_id` on update, the first term is the default, a lost selection gets a `payment_term_changed` warning, and `Bazaar.Order.from_checkout/3` carries the accepted term onto the order as `payment.accepted_term`.
-
-```elixir
-Bazaar.Checkout.build(state,
-  item: &Shop.item/1,
-  loyalty: fn %{state: state, subtotal: subtotal} ->
-    if "com.shop.rewards" in Bazaar.Checkout.eligibility(state),
-      do: %{"com.shop.rewards" => Shop.membership(state.buyer, subtotal)}
-  end,
-  payment_terms: fn %{total: total} -> Shop.terms(total) end,
-  ...
-)
-```
-
-Validate with `:checkout_loyalty`, `:cart_loyalty`, `:checkout_payment_terms` and `:order_payment_terms`.
-
-## Location Callbacks
-
-If you include `:location` in capabilities, `bazaar_routes` mounts `POST /locations/search` and `POST /locations/lookup` and advertises `dev.ucp.common.location.search` and `.lookup`. Locations are string-keyed maps in the spec's shape: `id`, `name`, `address`, `geo`, `amenities` (keyed by reverse-DNS amenity id), `hours`, `exception_hours` and `timezone`.
-
-`Bazaar.Location.filter/3` applies the request's predicates with AND: `distance` (a WGS 84 geodesic against `geo`), `filters.amenities`, `filters.hours.open_at` (evaluated in the location's own time zone, which needs the `tz` or `tzdata` package configured as `:elixir, :time_zone_database`), and through your functions `serves` (does a store serve a point or an address?) and `filters.items` (does it stock these items?). A predicate you gave no function for makes the request fail with `:unsupported_filter`, as the spec asks, rather than being ignored. `lookup/3` dedupes ids, applies the batch limit, correlates `inputs` and writes the `not_found` and `batch_limit_applied` messages.
-
-```elixir
-@impl true
-def search_locations(params, _conn) do
-  with {:ok, locations} <-
-         Bazaar.Location.filter(Shop.locations(), params, serves: &Shop.serves?/2, items: &Shop.stocks?/2) do
-    {page, pagination} = Bazaar.Location.paginate(locations, params["pagination"])
-    {:ok, %{"locations" => page, "pagination" => pagination}}
-  end
-end
-
-@impl true
-def lookup_locations(%{"ids" => ids} = params, _conn) do
-  {locations, messages} = Bazaar.Location.lookup(Shop.locations(), ids)
-
-  with {:ok, locations} <- Bazaar.Location.filter(locations, params, serves: &Shop.serves?/2) do
-    {:ok, %{"locations" => locations, "messages" => messages}}
-  end
-end
-```
-
-## Identity Callback
-
-If you include `:identity` in capabilities:
-
-### link_identity/2
-
-Links a user identity via OAuth or other methods.
-
-```elixir
-@impl true
-def link_identity(params, conn) do
-  case params do
-    %{"provider" => provider, "token" => token} ->
-      case verify_oauth_token(provider, token) do
-        {:ok, user_info} ->
-          {:ok, %{"linked" => true, "user_id" => user_info.id}}
-
-        {:error, reason} ->
-          {:error, reason}
-      end
-
-    _ ->
-      {:error, :invalid_params}
-  end
-end
-```
-
-## Sending Order Events
-
-Platforms expect the full order document whenever an order is created or changes. The platform's profile (the URL in its `UCP-Agent` header, available as `conn.assigns.ucp_agent_profile`) says where to send it. Build the event once and deliver it outside the request:
-
-```elixir
-@impl true
-def complete_checkout(id, conn) do
-  # ... authorize payment, build the order ...
+def order_placed(order, conn) do
   {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
+  MyApp.Orders.remember_webhook(order["id"], url)
   event = Bazaar.Webhook.event(order, url)
 
   Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
-    Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {signing_key(), profile_url()})
+    Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {signing_key(), base_url() <> "/.well-known/ucp"})
   end)
-
-  {:ok, completed_checkout}
 end
 ```
 
@@ -421,296 +179,22 @@ end
 defp signing_key, do: Bazaar.Signing.Key.from_pem(File.read!(System.fetch_env!("UCP_SIGNING_KEY_PEM")))
 ```
 
-## Webhook Callback
+## Testing
 
-Handle incoming webhooks (optional):
-
-### handle_webhook/1
+`Bazaar.Test` drives the controller the way `bazaar_routes` does and validates documents against the spec:
 
 ```elixir
-@impl true
-def handle_webhook(%{"event" => "payment.completed", "data" => data}) do
-  order_id = data["order_id"]
-  # Update order status, send confirmation, etc.
-  {:ok, :processed}
-end
+import Bazaar.Test
 
-def handle_webhook(%{"event" => "payment.failed", "data" => data}) do
-  order_id = data["order_id"]
-  # Handle failed payment
-  {:ok, :processed}
-end
-
-def handle_webhook(%{"event" => event}) do
-  Logger.warning("Unknown webhook event: #{event}")
-  {:error, :unknown_event}
-end
-
-def handle_webhook(_) do
-  {:error, :invalid_webhook}
+test "roses are priced from the catalog" do
+  {201, checkout} = request(MyApp.CommerceHandler, :create_checkout, checkout_request(%{"line_items" => [%{"item" => %{"id" => "roses"}}]}))
+  assert_valid(checkout, :checkout)
+  assert [%{"item" => %{"price" => 3500}}] = checkout["line_items"]
 end
 ```
 
-## Error Responses
+Start `Bazaar.Store.ETS` in your `test_helper.exs` when the handler uses it.
 
-The controller automatically formats errors. Use these return values:
+## Rolling your own routes
 
-| Return Value | HTTP Status | Description |
-|--------------|-------------|-------------|
-| `{:ok, map}` | 200/201 | Success |
-| `{:error, :not_found}` | 404 | Resource not found |
-| `{:error, changeset}` | 422 | Validation error |
-| `{:error, :invalid_state}` | 422 | Invalid operation |
-| `{:error, :unauthorized}` | 422 | Auth required |
-| `{:error, :forbidden}` | 422 | Access denied |
-| `{:error, "message"}` | 422 | Custom error |
-
-## Using the Connection
-
-The `conn` parameter gives you access to request info:
-
-```elixir
-def create_checkout(params, conn) do
-  # Get UCP headers (if using UCPHeaders plug)
-  agent = conn.assigns[:ucp_agent]
-  request_id = conn.assigns[:ucp_request_id]
-
-  # Get auth info (if using your auth plug)
-  user = conn.assigns[:current_user]
-
-  # Get raw headers
-  auth_header = Plug.Conn.get_req_header(conn, "authorization")
-
-  # ... rest of implementation
-end
-```
-
-## UCP Response Format
-
-### Checkout Response
-
-Your handler must return checkouts in UCP format:
-
-```elixir
-%{
-  "id" => "checkout_abc123",
-  "status" => "incomplete",  # incomplete | requires_escalation | ready_for_complete | completed | canceled
-  "currency" => "USD",
-  "line_items" => [
-    %{
-      "item" => %{
-        "id" => "PROD-1",
-        "title" => "Widget",
-        "price" => 1999  # cents
-      },
-      "quantity" => 2,
-      "totals" => [
-        %{"type" => "subtotal", "amount" => 3998}
-      ]
-    }
-  ],
-  "totals" => [
-    %{"type" => "subtotal", "amount" => 3998},
-    %{"type" => "tax", "amount" => 320},
-    %{"type" => "total", "amount" => 4318}
-  ],
-  "links" => [
-    %{"type" => "privacy_policy", "url" => "https://..."},
-    %{"type" => "terms_of_service", "url" => "https://..."}
-  ],
-  "payment" => %{"handlers" => []}
-}
-```
-
-### Order Response
-
-```elixir
-%{
-  "id" => "order_xyz789",
-  "checkout_id" => "checkout_abc123",
-  "permalink_url" => "https://mystore.example/orders/xyz789",
-  "line_items" => [...],
-  "totals" => [...],
-  "fulfillment" => %{
-    "expectations" => [],
-    "events" => []
-  }
-}
-```
-
-## Complete Example
-
-```elixir
-defmodule MyApp.UCPHandler do
-  use Bazaar.Handler
-
-  alias MyApp.{Repo, Checkout, Order, Product}
-  require Logger
-
-  @impl true
-  def capabilities, do: [:checkout, :orders]
-
-  @impl true
-  def business_profile do
-    %{
-      "name" => Application.get_env(:my_app, :store_name),
-      "description" => "Your one-stop shop",
-      "support_email" => "support@example.com"
-    }
-  end
-
-  # Checkout
-
-  @impl true
-  def create_checkout(params, _conn) do
-    line_items = enrich_line_items(params["line_items"])
-    totals = calculate_totals(line_items)
-
-    checkout = %Checkout{
-      id: generate_id("checkout"),
-      currency: params["currency"],
-      line_items: line_items,
-      totals: totals,
-      status: :incomplete
-    }
-
-    case Repo.insert(checkout) do
-      {:ok, saved} -> {:ok, to_ucp(saved)}
-      {:error, changeset} -> {:error, changeset}
-    end
-  end
-
-  @impl true
-  def get_checkout(id, _conn) do
-    case Repo.get(Checkout, id) do
-      nil -> {:error, :not_found}
-      checkout -> {:ok, to_ucp(checkout)}
-    end
-  end
-
-  @impl true
-  def update_checkout(id, params, _conn) do
-    with checkout when not is_nil(checkout) <- Repo.get(Checkout, id),
-         false <- checkout.status == :completed,
-         {:ok, updated} <- Checkout.update(checkout, params) do
-      {:ok, to_ucp(updated)}
-    else
-      nil -> {:error, :not_found}
-      true -> {:error, :invalid_state}
-      {:error, changeset} -> {:error, changeset}
-    end
-  end
-
-  @impl true
-  def cancel_checkout(id, _conn) do
-    case Repo.get(Checkout, id) do
-      nil -> {:error, :not_found}
-      %{status: :canceled} -> {:error, :already_cancelled}
-      checkout ->
-        Repo.update!(Checkout.cancel(checkout))
-        {:ok, %{"id" => id, "status" => "canceled"}}
-    end
-  end
-
-  # Orders
-
-  @impl true
-  def get_order(id, _conn) do
-    case Repo.get(Order, id) do
-      nil -> {:error, :not_found}
-      order -> {:ok, order_to_ucp(order)}
-    end
-  end
-
-  @impl true
-  def cancel_order(id, _conn) do
-    case Repo.get(Order, id) do
-      nil -> {:error, :not_found}
-      %{status: s} when s in [:shipped, :delivered] -> {:error, :invalid_state}
-      order ->
-        Repo.update!(Order.cancel(order))
-        {:ok, %{"id" => id, "status" => "canceled"}}
-    end
-  end
-
-  # Webhooks
-
-  @impl true
-  def handle_webhook(%{"event" => "payment.completed"} = webhook) do
-    Logger.info("Payment completed: #{inspect(webhook["data"])}")
-    {:ok, :processed}
-  end
-
-  def handle_webhook(_), do: {:error, :unknown_event}
-
-  # Private helpers
-
-  defp enrich_line_items(line_items) do
-    Enum.map(line_items, fn li ->
-      product = Repo.get!(Product, li["item"]["id"])
-      %{
-        "item" => %{
-          "id" => product.id,
-          "title" => product.title,
-          "price" => product.price_cents
-        },
-        "quantity" => li["quantity"],
-        "totals" => [
-          %{"type" => "subtotal", "amount" => product.price_cents * li["quantity"]}
-        ]
-      }
-    end)
-  end
-
-  defp calculate_totals(line_items) do
-    subtotal = Enum.reduce(line_items, 0, fn li, acc ->
-      acc + hd(li["totals"])["amount"]
-    end)
-
-    tax = round(subtotal * 0.08)  # 8% tax
-
-    [
-      %{"type" => "subtotal", "amount" => subtotal},
-      %{"type" => "tax", "amount" => tax},
-      %{"type" => "total", "amount" => subtotal + tax}
-    ]
-  end
-
-  defp to_ucp(checkout) do
-    %{
-      "id" => checkout.id,
-      "status" => to_string(checkout.status),
-      "currency" => checkout.currency,
-      "line_items" => checkout.line_items,
-      "totals" => checkout.totals,
-      "links" => [
-        %{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"},
-        %{"type" => "terms_of_service", "url" => "https://mystore.example/terms"}
-      ],
-      "payment" => %{"handlers" => []}
-    }
-  end
-
-  defp order_to_ucp(order) do
-    %{
-      "id" => order.id,
-      "checkout_id" => order.checkout_id,
-      "permalink_url" => "https://mystore.example/orders/#{order.id}",
-      "line_items" => order.line_items,
-      "totals" => order.totals,
-      "fulfillment" => %{
-        "expectations" => order.fulfillment_expectations || [],
-        "events" => order.fulfillment_events || []
-      }
-    }
-  end
-
-  defp generate_id(prefix), do: "#{prefix}_#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
-end
-```
-
-## Next Steps
-
-- [Schemas Guide](schemas.md) - Learn about data validation
-- [Plugs Guide](plugs.md) - Add middleware features
-- [Testing Guide](testing.md) - Test your handler
+`bazaar_routes` is a convenience. To own the routes and controllers, build the discovery document with `Bazaar.DiscoveryProfile.from_handler/2`, call the handler's callbacks from your own actions, and keep the plugs. [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) mixes both: `bazaar_routes` for the spec's routes and two hand-written ones for what the conformance suite needs beyond it.

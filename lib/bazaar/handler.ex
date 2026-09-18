@@ -117,7 +117,7 @@ defmodule Bazaar.Handler do
               {:ok, map()} | {:error, :not_found | term()}
   @callback update_checkout(id(), params(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
-  @callback complete_checkout(id(), conn()) ::
+  @callback complete_checkout(id(), params(), conn()) ::
               {:ok, map()} | {:error, :not_found | :invalid_state | term()}
   @callback cancel_checkout(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
@@ -169,7 +169,7 @@ defmodule Bazaar.Handler do
     create_checkout: 2,
     get_checkout: 2,
     update_checkout: 3,
-    complete_checkout: 2,
+    complete_checkout: 3,
     cancel_checkout: 2,
     # Orders
     get_order: 2,
@@ -193,11 +193,36 @@ defmodule Bazaar.Handler do
     handle_webhook: 1
   ]
 
-  defmacro __using__(_opts) do
+  @doc """
+  Defines every capability's callbacks from `Bazaar.Handler.Defaults` over
+  the `Bazaar.Shop` and `Bazaar.Store` given, all overridable: declare
+  `capabilities/0` and `business_profile/0` and the store answers. Override
+  a callback when a default doesn't fit; `Bazaar.Handler.Defaults` is
+  there to call for the rest of it.
+
+      defmodule MyApp.CommerceHandler do
+        use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS
+
+        @impl true
+        def capabilities, do: [:checkout, :orders, :fulfillment]
+
+        @impl true
+        def business_profile, do: %{"name" => "My Store"}
+      end
+  """
+  defmacro __using__(opts) do
+    shop = Keyword.get(opts, :shop)
+    store = Keyword.get(opts, :store)
+
+    unless shop && store do
+      raise ArgumentError,
+            "use Bazaar.Handler needs a shop and a store: " <>
+              "use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS"
+    end
+
     quote do
       @behaviour Bazaar.Handler
 
-      # Default implementations
       @impl Bazaar.Handler
       def capabilities, do: [:checkout]
 
@@ -215,6 +240,80 @@ defmodule Bazaar.Handler do
       end
 
       defoverridable capabilities: 0, business_profile: 0, fulfillment_config: 0
+
+      unquote(Bazaar.Handler.defaults(shop, store))
+    end
+  end
+
+  @doc false
+  def defaults(shop, store) do
+    quote do
+      @doc false
+      def __bazaar__(:shop), do: unquote(shop)
+      def __bazaar__(:store), do: unquote(store)
+
+      alias Bazaar.Handler.Defaults
+
+      @impl Bazaar.Handler
+      def create_checkout(params, conn), do: Defaults.create_checkout(__MODULE__, params, conn)
+      @impl Bazaar.Handler
+      def get_checkout(id, conn), do: Defaults.get_checkout(__MODULE__, id, conn)
+      @impl Bazaar.Handler
+      def update_checkout(id, params, conn),
+        do: Defaults.update_checkout(__MODULE__, id, params, conn)
+
+      @impl Bazaar.Handler
+      def complete_checkout(id, params, conn),
+        do: Defaults.complete_checkout(__MODULE__, id, params, conn)
+
+      @impl Bazaar.Handler
+      def cancel_checkout(id, conn), do: Defaults.cancel_checkout(__MODULE__, id, conn)
+
+      @impl Bazaar.Handler
+      def create_cart(params, conn), do: Defaults.create_cart(__MODULE__, params, conn)
+      @impl Bazaar.Handler
+      def get_cart(id, conn), do: Defaults.get_cart(__MODULE__, id, conn)
+      @impl Bazaar.Handler
+      def update_cart(id, params, conn), do: Defaults.update_cart(__MODULE__, id, params, conn)
+      @impl Bazaar.Handler
+      def cancel_cart(id, conn), do: Defaults.cancel_cart(__MODULE__, id, conn)
+
+      @impl Bazaar.Handler
+      def get_order(id, conn), do: Defaults.get_order(__MODULE__, id, conn)
+      @impl Bazaar.Handler
+      def update_order(id, params, conn), do: Defaults.update_order(__MODULE__, id, params, conn)
+      @impl Bazaar.Handler
+      def cancel_order(id, conn), do: Defaults.cancel_order(__MODULE__, id, conn)
+
+      @impl Bazaar.Handler
+      def search_products(params, conn), do: Defaults.search_products(__MODULE__, params, conn)
+      @impl Bazaar.Handler
+      def lookup_products(params, conn), do: Defaults.lookup_products(__MODULE__, params, conn)
+      @impl Bazaar.Handler
+      def get_product(params, conn), do: Defaults.get_product(__MODULE__, params, conn)
+
+      @impl Bazaar.Handler
+      def search_locations(params, conn), do: Defaults.search_locations(__MODULE__, params, conn)
+      @impl Bazaar.Handler
+      def lookup_locations(params, conn), do: Defaults.lookup_locations(__MODULE__, params, conn)
+
+      defoverridable create_checkout: 2,
+                     get_checkout: 2,
+                     update_checkout: 3,
+                     complete_checkout: 3,
+                     cancel_checkout: 2,
+                     create_cart: 2,
+                     get_cart: 2,
+                     update_cart: 3,
+                     cancel_cart: 2,
+                     get_order: 2,
+                     update_order: 3,
+                     cancel_order: 2,
+                     search_products: 2,
+                     lookup_products: 2,
+                     get_product: 2,
+                     search_locations: 2,
+                     lookup_locations: 2
     end
   end
 end

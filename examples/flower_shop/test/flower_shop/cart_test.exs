@@ -1,8 +1,6 @@
 defmodule FlowerShop.CartTest do
   use ExUnit.Case, async: true
 
-  import Plug.Test, only: [conn: 2]
-
   alias Bazaar.Validator
   alias FlowerShop.Handler
 
@@ -57,17 +55,17 @@ defmodule FlowerShop.CartTest do
       "fulfillment" => %{"methods" => [%{"id" => "m1", "type" => "shipping"}]}
     }
 
-    {:ok, checkout} = Handler.create_checkout(payload, conn(:post, "/"))
+    {:ok, checkout} = Handler.create_checkout(payload, nil)
     valid(checkout, :checkout)
     assert [%{"item" => %{"id" => "bouquet_roses"}, "quantity" => 2}] = checkout["line_items"]
     assert checkout["buyer"]["email"] == "john.doe@example.com"
     # The known buyer's stored addresses reach the payload's method.
     assert [%{"destinations" => [%{"id" => "addr_1"}, _]}] = checkout["fulfillment"]["methods"]
 
-    assert {:ok, %{"id" => same}} = Handler.create_checkout(payload, conn(:post, "/"))
+    assert {:ok, %{"id" => same}} = Handler.create_checkout(payload, nil)
     assert same == checkout["id"]
 
-    assert Handler.create_checkout(%{"cart_id" => "nope"}, conn(:post, "/")) ==
+    assert Handler.create_checkout(%{"cart_id" => "nope"}, nil) ==
              {:error, :not_found}
   end
 end

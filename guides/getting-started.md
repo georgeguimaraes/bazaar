@@ -40,9 +40,9 @@ mix deps.get
 mix bazaar.gen.handler MyStore.CommerceHandler --name "My Store"
 ```
 
-This writes `lib/my_store/commerce_handler.ex` and `lib/my_store/commerce_handler/store.ex`, and prints the wiring below. The default capabilities are checkout, orders and fulfillment; add `--capabilities checkout,orders,fulfillment,discount,cart,catalog` for everything the scaffold generates (location, loyalty and payment terms are opt-in beyond it, see the handlers guide).
+This writes `lib/my_store/commerce_handler.ex` and `lib/my_store/shop.ex`, and prints the wiring below. The default capabilities are checkout, orders and fulfillment; add `--capabilities checkout,orders,fulfillment,discount,cart,catalog` for everything the scaffold generates (location, loyalty and payment terms are opt-in beyond it, see the handlers guide).
 
-The handler implements `Bazaar.Handler` on top of `Bazaar.Checkout` (and `Bazaar.Cart`, `Bazaar.Catalog`, `Bazaar.Order` when those capabilities are on). The protocol rules live in the library; the functions at the bottom of the file, under "Your store", are placeholders with a sample product, one flat shipping rate and an in-memory store, so the app works before you have written any commerce code.
+The handler is three lines: `use Bazaar.Handler, shop: MyStore.Shop, store: Bazaar.Store.ETS` plus the capabilities and the business profile. Every callback comes from the library's defaults over the shop. The shop is a `Bazaar.Shop` with placeholders (a sample product, one flat shipping rate), so the app works before you have written any commerce code; `Bazaar.Store.ETS` keeps checkouts and orders in memory until you move them to your database.
 
 ## 4. Wire it in
 
@@ -80,7 +80,7 @@ Start the store and the idempotency table (`lib/my_store/application.ex`):
 
 ```elixir
 children = [
-  MyStore.CommerceHandler.Store,
+  Bazaar.Store.ETS,
   Bazaar.Idempotency.ETS,
   MyStoreWeb.Endpoint
 ]
@@ -114,19 +114,20 @@ The response is a full checkout document: the line priced from `products/0`, tot
 
 ## 6. Make it yours
 
-Everything to replace is in one place, the "Your store" section of the handler:
+Everything to replace is in `lib/my_store/shop.ex`, one function per fact:
 
 | Function | What it answers |
 |---|---|
 | `products/0` | your catalog in the spec's shape (variants are what gets bought) |
-| `item/1` | a line item's title, price and stock for the checkout builder |
+| `item/1` | a line item's title, price and stock |
 | `fulfillment_options/2` | shipping or pickup options for a destination, with the priced line items and subtotal in hand |
 | `discount/2` | what a code is worth on the running total |
 | `stored_addresses/1` | addresses you know for a returning buyer |
 | `authorize/1` | charging the instruments through your payment provider |
-| `payment_handlers/0` and `business_profile/0` | the payment handlers you accept |
+| `payment_handlers/0` and the handler's `business_profile/0` | the payment handlers you accept |
+| `order_placed/2` | telling the platform about the order with `Bazaar.Webhook.deliver/2` |
 
-Then move `MyStore.CommerceHandler.Store` into your database (it is four maps), and when you complete an order, tell the platform with `Bazaar.Webhook.deliver/2` (see [handlers](handlers.md#sending-order-events)).
+Then implement `Bazaar.Store` on your database and pass it as `store:`. The [handlers guide](handlers.md) has every callback, what the defaults do, and how to override one.
 
 If you would rather own the routes and controllers, skip `bazaar_routes`: build the discovery document with `Bazaar.DiscoveryProfile.from_handler/2`, call the callbacks from your own actions, and keep the plugs and builders.
 

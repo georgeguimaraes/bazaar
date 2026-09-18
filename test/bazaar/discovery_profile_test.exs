@@ -7,7 +7,7 @@ defmodule Bazaar.DiscoveryProfileTest do
   @version DiscoveryProfile.version()
 
   defmodule TestHandler do
-    use Bazaar.Handler
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities, do: [:checkout, :orders]
@@ -24,7 +24,7 @@ defmodule Bazaar.DiscoveryProfileTest do
   end
 
   defmodule EverythingHandler do
-    use Bazaar.Handler
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities,
@@ -134,7 +134,7 @@ defmodule Bazaar.DiscoveryProfileTest do
 
     test "preserves absolute logo_url" do
       defmodule AbsoluteLogoHandler do
-        use Bazaar.Handler
+        use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
         @impl true
         def capabilities, do: [:checkout]
@@ -193,7 +193,7 @@ defmodule Bazaar.DiscoveryProfileTest do
 
     test "extensions extend only the capabilities the handler advertises, and the profile validates" do
       defmodule CheckoutOnlyExtensions do
-        use Bazaar.Handler
+        use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
         @impl true
         def capabilities, do: [:checkout, :loyalty, :payment_terms]

@@ -7,7 +7,7 @@ defmodule Bazaar.Phoenix.CartTest do
   alias Bazaar.Phoenix.Controller
 
   defmodule Handler do
-    use Bazaar.Handler
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities, do: [:checkout, :cart]

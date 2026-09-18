@@ -24,10 +24,8 @@ defmodule Mix.Tasks.Bazaar.Gen.HandlerTest do
   defp full, do: Module.concat(["ScaffoldFull", "Handler"])
   defp default, do: Module.concat(["ScaffoldDefault", "Handler"])
 
-  setup do
-    start_supervised!(Module.concat(full(), "Store"))
-    :ok
-  end
+  defp shop_module(module),
+    do: module |> String.split(".") |> Enum.drop(-1) |> Kernel.++(["Shop"]) |> Enum.join(".")
 
   # Runs the generator and loads what it wrote, the way an app would compile it.
   defp generate(module, args) do
@@ -39,13 +37,14 @@ defmodule Mix.Tasks.Bazaar.Gen.HandlerTest do
       end)
 
     path = Path.join(dir, Macro.underscore(module))
-    modules = Enum.flat_map([Path.join(path, "store.ex"), path <> ".ex"], &Code.compile_file/1)
-    {output, Enum.map(modules, &elem(&1, 0)), File.read!(path <> ".ex")}
+    shop = Path.join(dir, Macro.underscore(shop_module(module))) <> ".ex"
+    modules = Enum.flat_map([shop, path <> ".ex"], &Code.compile_file/1)
+    {output, Enum.map(modules, &elem(&1, 0)), File.read!(shop)}
   end
 
   test "prints the wiring and generates a handler that answers on first boot", %{output: output} do
     assert output =~ ~s(bazaar_routes "/", ScaffoldFull.Handler)
-    assert output =~ "ScaffoldFull.Handler.Store"
+    assert output =~ "Bazaar.Store.ETS"
     assert output =~ "body_reader"
 
     handler = full()
@@ -94,7 +93,7 @@ defmodule Mix.Tasks.Bazaar.Gen.HandlerTest do
     complete_body = %{"payment" => %{"instruments" => [instrument]}}
 
     {:ok, completed} =
-      handler.complete_checkout(checkout["id"], %{conn | body_params: complete_body})
+      handler.complete_checkout(checkout["id"], complete_body, conn)
 
     assert completed["status"] == "completed"
     {:ok, order} = handler.get_order(completed["order"]["id"], conn)
@@ -143,9 +142,7 @@ defmodule Mix.Tasks.Bazaar.Gen.HandlerTest do
              :buyer_consent
            ]
 
-    refute function_exported?(default, :create_cart, 2)
-    refute function_exported?(default, :search_products, 2)
-    refute source =~ "Bazaar.Cart"
+    refute source =~ "def discount"
 
     assert_raise Mix.Error, ~r/Unknown capabilities \["loyalty"\]/, fn ->
       capture_io(fn ->

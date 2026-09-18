@@ -1,54 +1,72 @@
 defmodule FlowerShop.Store do
   @moduledoc """
-  In-memory state: carts, checkouts, orders and idempotency records. An Agent
-  is all a demo merchant needs, and it keeps the example free of a database.
+  In-memory `Bazaar.Store` on an Agent, plus the idempotency records and
+  each order's webhook URL. All a demo merchant needs, and it keeps the
+  example free of a database.
   """
+
+  @behaviour Bazaar.Store
 
   use Agent
 
   def start_link(_opts) do
     Agent.start_link(
       fn ->
-        %{carts: %{}, checkout_for_cart: %{}, checkouts: %{}, orders: %{}, idempotency: %{}}
+        %{
+          carts: %{},
+          checkout_for_cart: %{},
+          checkouts: %{},
+          orders: %{},
+          webhook_urls: %{},
+          idempotency: %{}
+        }
       end,
       name: __MODULE__
     )
   end
 
-  def get_cart(id), do: Agent.get(__MODULE__, &Map.get(&1.carts, id))
+  @impl Bazaar.Store
+  def get_checkout(id), do: get(:checkouts, id)
 
-  def put_cart(%{id: id} = cart) do
-    Agent.update(__MODULE__, &put_in(&1, [:carts, id], cart))
-    cart
-  end
+  @impl Bazaar.Store
+  def put_checkout(%{id: id} = checkout), do: put(:checkouts, id, checkout)
 
+  @impl Bazaar.Store
+  def get_cart(id), do: get(:carts, id)
+
+  @impl Bazaar.Store
+  def put_cart(%{id: id} = cart), do: put(:carts, id, cart)
+
+  @impl Bazaar.Store
   def delete_cart(id),
     do: Agent.update(__MODULE__, &update_in(&1.carts, fn carts -> Map.delete(carts, id) end))
 
-  # The checkout a cart was converted into, so a second conversion answers the same one.
-  def get_checkout_for_cart(cart_id),
-    do: Agent.get(__MODULE__, &Map.get(&1.checkout_for_cart, cart_id))
+  @impl Bazaar.Store
+  def get_order(id), do: get(:orders, id)
 
-  def put_checkout_for_cart(cart_id, checkout_id),
-    do: Agent.update(__MODULE__, &put_in(&1, [:checkout_for_cart, cart_id], checkout_id))
+  @impl Bazaar.Store
+  def put_order(%{"id" => id} = order), do: put(:orders, id, order)
 
-  def get_checkout(id), do: Agent.get(__MODULE__, &Map.get(&1.checkouts, id))
+  @impl Bazaar.Store
+  def checkout_for_cart(cart_id), do: get(:checkout_for_cart, cart_id)
 
-  def put_checkout(%{id: id} = checkout) do
-    Agent.update(__MODULE__, &put_in(&1, [:checkouts, id], checkout))
-    checkout
+  @impl Bazaar.Store
+  def put_checkout_for_cart(cart_id, checkout_id) do
+    put(:checkout_for_cart, cart_id, checkout_id)
+    :ok
   end
 
-  def get_order(id), do: Agent.get(__MODULE__, &Map.get(&1.orders, id))
+  @doc "Where an order's events are delivered, learned when it was placed."
+  def get_webhook_url(order_id), do: get(:webhook_urls, order_id)
+  def put_webhook_url(order_id, url), do: put(:webhook_urls, order_id, url)
 
-  def put_order(%{id: id} = order) do
-    Agent.update(__MODULE__, &put_in(&1, [:orders, id], order))
-    order
-  end
+  def get_idempotency(key), do: get(:idempotency, key)
+  def put_idempotency(key, record), do: put(:idempotency, key, record)
 
-  def get_idempotency(key), do: Agent.get(__MODULE__, &Map.get(&1.idempotency, key))
+  defp get(bucket, key), do: Agent.get(__MODULE__, &Map.get(Map.fetch!(&1, bucket), key))
 
-  def put_idempotency(key, record) do
-    Agent.update(__MODULE__, &put_in(&1, [:idempotency, key], record))
+  defp put(bucket, key, value) do
+    Agent.update(__MODULE__, &put_in(&1, [bucket, key], value))
+    value
   end
 end

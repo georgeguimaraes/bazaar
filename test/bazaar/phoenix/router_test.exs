@@ -6,7 +6,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
   # Test handler with all capabilities
   defmodule FullHandler do
-    use Bazaar.Handler
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities, do: [:checkout, :orders, :identity]
@@ -60,7 +60,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
   # Test handler with only checkout
   defmodule CheckoutOnlyHandler do
-    use Bazaar.Handler
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities, do: [:checkout]
@@ -622,7 +622,7 @@ defmodule Bazaar.Phoenix.RouterTest do
     test "transforms response status for ACP protocol", %{conn: conn} do
       # Handler that returns UCP status
       defmodule StatusTestHandler do
-        use Bazaar.Handler
+        use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
         @impl true
         def capabilities, do: [:checkout]
@@ -651,7 +651,7 @@ defmodule Bazaar.Phoenix.RouterTest do
 
     test "UCP protocol passes through unchanged", %{conn: conn} do
       defmodule UcpPassthroughHandler do
-        use Bazaar.Handler
+        use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
         @impl true
         def capabilities, do: [:checkout]

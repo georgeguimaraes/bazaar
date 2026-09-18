@@ -61,6 +61,11 @@ defmodule Bazaar.Phoenix.Controller do
         |> put_status(:created)
         |> json(response)
 
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(Bazaar.Errors.response(:not_found, protocol: protocol))
+
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -147,12 +152,11 @@ defmodule Bazaar.Phoenix.Controller do
   def complete_checkout(conn, %{"id" => id}) do
     handler = conn.assigns.bazaar_handler
     protocol = Map.get(conn.assigns, :bazaar_protocol, :ucp)
-    # The handler reads the body from the conn, so it gets translated in place.
-    conn = translate_body(conn, protocol)
+    {:ok, body} = Transformer.transform_request(body_params(conn), protocol)
 
     result =
       Telemetry.span_with_metadata([:bazaar, :checkout, :complete], %{}, fn ->
-        case handler.complete_checkout(id, conn) do
+        case handler.complete_checkout(id, body, conn) do
           {:ok, checkout} = result ->
             {result, %{checkout_id: id, status: checkout["status"]}}
 
@@ -215,12 +219,8 @@ defmodule Bazaar.Phoenix.Controller do
     end
   end
 
-  defp translate_body(%{body_params: %{} = body} = conn, protocol) when not is_struct(body) do
-    {:ok, translated} = Transformer.transform_request(body, protocol)
-    %{conn | body_params: translated}
-  end
-
-  defp translate_body(conn, _protocol), do: conn
+  defp body_params(%{body_params: %{} = body}) when not is_struct(body), do: body
+  defp body_params(_conn), do: %{}
 
   # Orders
 

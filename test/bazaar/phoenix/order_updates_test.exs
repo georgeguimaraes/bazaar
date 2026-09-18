@@ -5,7 +5,7 @@ defmodule Bazaar.Phoenix.OrderUpdatesTest do
   import Plug.Test
 
   defmodule Handler do
-    use Bazaar.Handler
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities, do: [:checkout, :orders]

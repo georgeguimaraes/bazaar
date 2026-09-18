@@ -1,15 +1,13 @@
 defmodule FlowerShop.Orders do
   @moduledoc """
-  Orders are stored as `%{id, order, webhook_url}`: the UCP order document
-  (built and updated by `Bazaar.Order`) plus where to deliver its events.
+  What happens to an order after it is placed: shipping, as a fulfillment
+  event on the UCP order document.
   """
-
-  alias FlowerShop.Checkout
 
   @doc "Records a shipped event covering every line item."
   def ship(order) do
     event = %{
-      "id" => "evt_" <> Checkout.uuid(),
+      "id" => "evt_" <> Base.encode16(:crypto.strong_rand_bytes(8), case: :lower),
       "type" => "shipped",
       "occurred_at" => DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601(),
       "line_items" =>

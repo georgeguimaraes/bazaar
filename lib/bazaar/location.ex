@@ -60,15 +60,17 @@ defmodule Bazaar.Location do
   -> boolean end`, `target` being `%{"point" => geo}` or `%{"address" =>
   locality}`) and `filters.items` (`fn location, item_ids -> boolean end`).
 
-  A predicate the business gave no function for is unsupported, and the
-  spec has the request rejected rather than the predicate ignored:
-  `{:error, :unsupported_filter}`. A `distance` without a numeric center
+  A predicate the business gave no function for, or whose function answers
+  `:unsupported`, is unsupported, and the spec has the request rejected
+  rather than the predicate ignored: `{:error, :unsupported_filter}`. A `distance` without a numeric center
   and max is `{:error, :invalid_distance}`.
   """
   def filter(locations, request, opts \\ []) do
     with :ok <- supported(request, opts) do
       {:ok, Enum.filter(locations, &matches?(&1, request, opts))}
     end
+  catch
+    :unsupported -> {:error, :unsupported_filter}
   end
 
   defp supported(request, opts) do
@@ -112,7 +114,7 @@ defmodule Bazaar.Location do
   end
 
   defp serves?(_location, nil, _fun), do: true
-  defp serves?(location, target, fun), do: fun.(location, target)
+  defp serves?(location, target, fun), do: answer(fun.(location, target))
 
   defp amenities?(_location, nil), do: true
 
@@ -131,7 +133,11 @@ defmodule Bazaar.Location do
   end
 
   defp stocks?(_location, nil, _fun), do: true
-  defp stocks?(location, ids, fun), do: fun.(location, ids)
+  defp stocks?(location, ids, fun), do: answer(fun.(location, ids))
+
+  # A business function may answer :unsupported instead of a boolean.
+  defp answer(:unsupported), do: throw(:unsupported)
+  defp answer(boolean), do: boolean
 
   @doc """
   Whether a location is open at an instant, evaluated in its own `timezone`

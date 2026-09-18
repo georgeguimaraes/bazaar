@@ -7,69 +7,11 @@ defmodule Bazaar.Phoenix.AcpTest do
   alias Bazaar.Phoenix.Controller
   alias Bazaar.Validator
 
-  # A handler like the scaffold's, on Bazaar.Checkout with an in-test store.
   defmodule Handler do
-    use Bazaar.Handler
-
-    alias Bazaar.Checkout
+    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities, do: [:checkout, :orders, :fulfillment]
-
-    def start, do: Agent.start_link(fn -> %{} end, name: __MODULE__)
-
-    @impl true
-    def create_checkout(params, _conn), do: {:ok, params |> Checkout.new() |> store() |> build()}
-
-    @impl true
-    def get_checkout(id, _conn) do
-      case Agent.get(__MODULE__, &Map.get(&1, id)) do
-        nil -> {:error, :not_found}
-        state -> {:ok, build(state)}
-      end
-    end
-
-    @impl true
-    def update_checkout(id, params, _conn) do
-      {:ok, id |> fetch() |> Checkout.apply_update(params) |> store() |> build()}
-    end
-
-    @impl true
-    def complete_checkout(id, conn) do
-      state = id |> fetch() |> Checkout.apply_update(conn.body_params)
-
-      if Checkout.fulfillment_ready?(build(state)) and state.instruments != [] do
-        {:ok, %{state | status: :completed, order_id: "order_1"} |> store() |> build()}
-      else
-        {:ok,
-         build(state, [
-           Checkout.error("missing", "Select a fulfillment option and pay", "$.fulfillment")
-         ])}
-      end
-    end
-
-    defp fetch(id), do: Agent.get(__MODULE__, &Map.fetch!(&1, id))
-
-    defp store(state),
-      do: tap(state, &Agent.update(__MODULE__, fn s -> Map.put(s, state.id, &1) end))
-
-    defp build(state, messages \\ []) do
-      Checkout.build(state,
-        item: fn "roses" -> %{item: %{"title" => "Roses", "price" => 3500}, stock: nil} end,
-        fulfillment_options: fn _destination, _context ->
-          [
-            %{
-              "id" => "std",
-              "title" => "Standard",
-              "totals" => [%{"type" => "total", "amount" => 500}]
-            }
-          ]
-        end,
-        links: [%{"type" => "privacy_policy", "url" => "https://shop.test/privacy"}],
-        order_url: &("https://shop.test/orders/" <> &1),
-        messages: messages
-      )
-    end
   end
 
   defmodule Router do
@@ -77,11 +19,6 @@ defmodule Bazaar.Phoenix.AcpTest do
     use Bazaar.Phoenix.Router
 
     bazaar_routes("/acp", Handler, protocol: :acp)
-  end
-
-  setup do
-    start_supervised!(%{id: Handler, start: {Handler, :start, []}})
-    :ok
   end
 
   @create %{

@@ -2,9 +2,9 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
   @shortdoc "Generates a UCP handler that answers on first boot"
 
   @moduledoc """
-  Generates a `Bazaar.Handler` for your app, built on the library's checkout,
-  cart, catalog and order helpers, with placeholder data so it answers on
-  first boot, plus an in-memory store. Then prints the router, endpoint and
+  Generates a `Bazaar.Handler` for your app on `Bazaar.Store.ETS` and a
+  `Bazaar.Shop` with placeholder data (a sample product, one flat rate) so
+  it answers on first boot. Then prints the router, endpoint and
   supervision wiring the app still needs.
 
       $ mix bazaar.gen.handler MyApp.CommerceHandler
@@ -13,19 +13,21 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
   ## Options
 
     * `--capabilities` - Comma-separated capabilities (default:
-      `checkout,orders,fulfillment`). `checkout` is always on; `buyer_consent`
-      needs no code and rides along with it.
+      `checkout,orders,fulfillment`; also `discount`, `cart`, `catalog`,
+      `location`). `checkout` is always on; `buyer_consent` needs no code
+      and rides along with it.
     * `--name` - The store name in the discovery profile (default: derived
       from the module's app)
     * `--output-dir` - Where `lib/` files go (default: `lib`)
 
-  The generated functions under "Your store" are the ones to replace with your
-  catalog, rates and storage. See the getting started guide.
+  The shop's functions are the ones to replace with your catalog, rates and
+  payment provider; the store moves to your database when you outgrow ETS.
+  See the getting started guide.
   """
 
   use Mix.Task
 
-  @capabilities ~w(checkout orders fulfillment discount cart catalog)
+  @capabilities ~w(checkout orders fulfillment discount cart catalog location)
   @default_capabilities ~w(checkout orders fulfillment)
   @templates :code.priv_dir(:bazaar) |> Path.join("templates/bazaar.gen.handler")
 
@@ -54,21 +56,26 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
     output_dir = Keyword.get(opts, :output_dir, "lib")
     path = Path.join(output_dir, Macro.underscore(module))
 
+    [_ | rest] = parts = String.split(module, ".")
+    shop = Enum.join(Enum.drop(parts, -1) ++ ["Shop"], ".")
+    _ = rest
+
     assigns = [
       module: module,
-      store: module <> ".Store",
+      shop: shop,
       app: app,
       name: Keyword.get(opts, :name, app_module),
       capabilities: Enum.map(capabilities, &String.to_atom/1) ++ [:buyer_consent],
       cart?: "cart" in capabilities,
       catalog?: "catalog" in capabilities,
+      location?: "location" in capabilities,
       orders?: "orders" in capabilities,
       fulfillment?: "fulfillment" in capabilities,
       discount?: "discount" in capabilities
     ]
 
     write("handler.ex.eex", path <> ".ex", assigns)
-    write("store.ex.eex", Path.join(path, "store.ex"), assigns)
+    write("shop.ex.eex", Path.join(output_dir, Macro.underscore(shop)) <> ".ex", assigns)
 
     Mix.shell().info(wiring(assigns))
   end
@@ -130,7 +137,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
     3. Start the store and the idempotency table in lib/#{app}/application.ex:
 
         children = [
-          #{module}.Store,
+          Bazaar.Store.ETS,
           Bazaar.Idempotency.ETS,
           ...
         ]
@@ -145,9 +152,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
         curl -X POST localhost:4000/checkout-sessions -H 'content-type: application/json' \\
           -d '{"currency":"USD","line_items":[{"item":{"id":"sample"},"quantity":2}]}'
 
-    The functions under "Your store" in #{path_hint(module)} are the ones to replace.
+    The functions in lib/#{Macro.underscore(assigns[:shop])}.ex are the ones to replace.
     """
   end
-
-  defp path_hint(module), do: "lib/" <> Macro.underscore(module) <> ".ex"
 end

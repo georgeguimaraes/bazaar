@@ -1,0 +1,90 @@
+defmodule <%= @shop %> do
+  @moduledoc """
+  <%= @name %>'s facts for bazaar: what an item costs and how many you can
+  sell, how orders ship<%= if @cart?, do: "" %><%= if @catalog?, do: ", the catalog" %><%= if @location?, do: ", the stores" %>, what a code is worth, how
+  payment is taken. Placeholder data so the app answers on first boot;
+  replace each function with your own.
+  """
+
+  use Bazaar.Shop
+
+  @impl true
+  def base_url, do: Application.get_env(<%= inspect(@app) %>, :bazaar_base_url, "http://localhost:4000")
+
+  # TODO: your products in the spec's shape. Variants are what gets bought:
+  # a variant's id is the item id a checkout receives.
+  @impl true
+  def products do
+    [
+      %{
+        "id" => "sample",
+        "title" => "Sample product",
+        "description" => %{"plain" => "Replace me with your catalog"},
+        "price_range" => %{
+          "min" => %{"amount" => 1000, "currency" => "USD"},
+          "max" => %{"amount" => 1000, "currency" => "USD"}
+        },
+        "variants" => [
+          %{
+            "id" => "sample",
+            "title" => "Sample product",
+            "description" => %{"plain" => "Replace me with your catalog"},
+            "price" => %{"amount" => 1000, "currency" => "USD"},
+            "availability" => %{"available" => true}
+          }
+        ]
+      }
+    ]
+  end
+
+  # What a line item costs and how many you can sell (`stock: nil` is unlimited).
+  @impl true
+  def item(id) do
+    with %{"variants" => variants} <- Bazaar.Catalog.find(products(), id),
+         %{"title" => title, "price" => %{"amount" => amount}} <-
+           Enum.find(variants, &(&1["id"] == id)) || hd(variants) do
+      %{item: %{"title" => title, "price" => amount}, stock: nil}
+    else
+      _ -> nil
+    end
+  end
+<%= if @fulfillment? do %>
+  # TODO: the options for a destination; `context` has the priced line items and subtotal.
+  @impl true
+  def fulfillment_options(_destination, _context) do
+    [
+      %{
+        "id" => "standard",
+        "title" => "Standard shipping",
+        "totals" => [%{"type" => "total", "amount" => 500}]
+      }
+    ]
+  end
+<% end %><%= if @discount? do %>
+  # TODO: what a code is worth on the running total, `nil` for an unknown code.
+  @impl true
+  def discount(_code, _running_total), do: nil
+<% end %><%= if @location? do %>
+  # TODO: your stores in the spec's shape (id, name, address, geo, amenities, hours, timezone).
+  @impl true
+  def locations, do: []
+<% end %>
+  # TODO: stored addresses for a known buyer, injected into fulfillment methods.
+  @impl true
+  def stored_addresses(_buyer), do: nil
+
+  # TODO: charge the instruments through your payment provider.
+  @impl true
+  def authorize([]), do: {:error, "A payment instrument is required"}
+  def authorize(_instruments), do: :ok
+
+  # TODO: the payment handler registry advertised on checkouts, keyed by
+  # reverse-DNS name, matching the handler's business_profile/0.
+  @impl true
+  def payment_handlers, do: %{}
+<%= if @orders? do %>
+  # TODO: tell the platform about the order and its later events with
+  # Bazaar.Webhook.deliver/2 (see the handlers guide, "Sending Order Events").
+  @impl true
+  def order_placed(_order, _conn), do: :ok
+<% end %>end

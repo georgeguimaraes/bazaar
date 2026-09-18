@@ -9,7 +9,7 @@ defmodule Bazaar do
 
   - **Schemas**: Validated data structures using Ecto.Schema
   - **Phoenix Integration**: Router macros and plugs
-  - **Handler Behaviour**: Define your commerce logic
+  - **Shop, Store and Handler**: your facts, your persistence, every UCP callback by default
   - **Discovery**: Auto-generated `/.well-known/ucp` endpoints
 
   ## Quick Start
@@ -22,13 +22,20 @@ defmodule Bazaar do
       end
 
       defmodule MyApp.Commerce.Handler do
-        use Bazaar.Handler
+        use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS
 
         @impl true
-        def create_checkout(params, conn) do
-          # Your business logic
-          {:ok, checkout}
-        end
+        def capabilities, do: [:checkout, :orders, :fulfillment]
+      end
+
+      defmodule MyApp.Shop do
+        use Bazaar.Shop
+
+        @impl true
+        def base_url, do: "https://shop.example"
+
+        @impl true
+        def item(id), do: MyApp.Products.item(id)
       end
 
   ## Links

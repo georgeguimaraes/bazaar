@@ -170,19 +170,14 @@ The response is an ACP checkout session (`protocol`, `id`, `status: "ready_for_p
 
 ## Handler Implementation
 
-Your handler reads and returns UCP whatever the protocol, so it is written once. With `Bazaar.Checkout` the ACP translation is invisible to it:
+Your shop and handler read and return UCP whatever the protocol, so they are written once. The ACP translation is invisible to them:
 
 ```elixir
 defmodule MyApp.CommerceHandler do
-  use Bazaar.Handler
+  use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS
 
   @impl true
-  def create_checkout(params, _conn) do
-    # params are UCP: line_items[{item: {id}, quantity}], buyer, fulfillment.methods, discounts, payment
-    state = Bazaar.Checkout.new(params)
-    MyApp.Checkouts.put(state)
-    {:ok, Bazaar.Checkout.build(state, item: &MyApp.Products.item/1, links: links())}
-  end
+  def capabilities, do: [:checkout, :orders, :fulfillment]
 end
 ```
 
