@@ -26,6 +26,10 @@ defmodule Bazaar.Plugs.ValidateResponse do
   actions as `:order`, and the catalog actions as `:catalog_search_response`,
   `:catalog_lookup_response` and `:catalog_product_response`. The spec's
   error document (`ucp.status: "error"`) is let through at any status.
+
+  On routes mounted with `protocol: :acp` the checkout actions validate as
+  `:checkout_session` instead (ACP's with-order schema composes a closed
+  object with `order`, which nothing can satisfy, so `order` is set aside).
   """
 
   import Plug.Conn
@@ -51,6 +55,14 @@ defmodule Bazaar.Plugs.ValidateResponse do
     search_products: :catalog_search_response,
     lookup_products: :catalog_lookup_response,
     get_product: :catalog_product_response
+  }
+
+  @acp_schemas %{
+    create_checkout: :checkout_session,
+    get_checkout: :checkout_session,
+    update_checkout: :checkout_session,
+    complete_checkout: :checkout_session,
+    cancel_checkout: :checkout_session
   }
 
   @impl true
@@ -85,6 +97,7 @@ defmodule Bazaar.Plugs.ValidateResponse do
 
   defp validate_response(conn, %{schemas: schemas, strict: strict}) do
     action = conn.private[:phoenix_action]
+    schemas = if conn.assigns[:bazaar_protocol] == :acp, do: @acp_schemas, else: schemas
 
     # Only validate successful responses (2xx status codes) with a known action
     if action && conn.status in 200..299 do
@@ -123,7 +136,12 @@ defmodule Bazaar.Plugs.ValidateResponse do
     {conn, %{valid: true, action: action, skipped: :error_document}}
   end
 
+  defp validate_body(conn, body, :checkout_session, action, strict),
+    do: validate_body(conn, Map.delete(body, "order"), {:acp, :checkout_session}, action, strict)
+
   defp validate_body(conn, body, schema, action, strict) do
+    schema = with {:acp, name} <- schema, do: name
+
     case validate(body, schema) do
       :ok ->
         {conn, %{valid: true, action: action}}
@@ -165,10 +183,13 @@ defmodule Bazaar.Plugs.ValidateResponse do
     end
   end
 
+  # JSV nests details under compositions (allOf, $ref); the leaves say what failed.
   defp jsv_messages(details) do
-    for %{instanceLocation: at, errors: errors} <- details, %{message: message} <- errors do
-      "#{at}: #{message}"
-    end
+    Enum.flat_map(details, fn
+      %{details: [_ | _] = nested} -> jsv_messages(nested)
+      %{instanceLocation: at, errors: errors} -> for %{message: m} <- errors, do: "#{at}: #{m}"
+      _other -> []
+    end)
   end
 
   defmodule ValidationError do

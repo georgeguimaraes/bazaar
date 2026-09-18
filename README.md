@@ -200,6 +200,11 @@ curl http://localhost:4000/.well-known/ucp
 curl -X POST http://localhost:4000/checkout-sessions \
   -H "Content-Type: application/json" \
   -d '{"currency":"USD","line_items":[{"item":{"id":"sample"},"quantity":2}]}'
+
+# The same checkout via ACP
+curl -X POST http://localhost:4000/acp/checkout_sessions \
+  -H "Content-Type: application/json" \
+  -d '{"currency":"USD","line_items":[{"id":"sample","quantity":2}],"buyer":{"email":"agent@example.com"},"capabilities":{}}'
 ```
 
 ## Protocol Differences
@@ -214,9 +219,11 @@ Bazaar automatically handles the differences between UCP and ACP. Your handler c
 | Discovery | `/.well-known/ucp` | None |
 | Status: incomplete | `incomplete` | `not_ready_for_payment` |
 | Status: ready | `ready_for_complete` | `ready_for_payment` |
-| Address: street | `street_address` | `line_one` |
-| Address: city | `address_locality` | `city` |
-| Items key | `items` | `line_items` |
+| Line item | `item{id, title, price}` | `item{id, name, unit_amount}` |
+| Shipping address | a fulfillment method's destination | `fulfillment_details.address` |
+| Payment | `payment.instruments` | `payment_data` |
+
+The full mapping, validated against the bundled ACP `2026-01-30` schemas, is in the [protocols guide](guides/protocols.md).
 
 ## Validation
 

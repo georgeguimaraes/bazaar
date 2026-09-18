@@ -68,6 +68,16 @@ defmodule Bazaar.Protocol do
     canceled: :canceled
   }
 
+  @acp_version :code.priv_dir(:bazaar)
+               |> Path.join("acp_schemas/2026-01-30/VERSION")
+               |> File.read!()
+               |> then(&Regex.run(~r/Version: (\S+)/, &1, capture: :all_but_first))
+               |> hd()
+
+  @doc "The ACP version the bundled schemas describe, advertised as `protocol.version`."
+  @spec acp_version() :: String.t()
+  def acp_version, do: @acp_version
+
   @doc """
   Returns the list of valid protocol types.
   """

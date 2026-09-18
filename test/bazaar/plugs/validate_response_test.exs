@@ -97,6 +97,46 @@ defmodule Bazaar.Plugs.ValidateResponseTest do
       |> send_resp()
     end
 
+    test "an ACP route validates the session against the ACP schema, order set aside" do
+      session = %{
+        "id" => "cs_1",
+        "status" => "completed",
+        "currency" => "USD",
+        "line_items" => [],
+        "totals" => [],
+        "fulfillment_options" => [],
+        "messages" => [],
+        "links" => [],
+        "capabilities" => %{},
+        "order" => %{
+          "id" => "o1",
+          "checkout_session_id" => "cs_1",
+          "permalink_url" => "https://x/o1"
+        }
+      }
+
+      conn =
+        conn(:post, "/acp/checkout_sessions")
+        |> assign(:bazaar_protocol, :acp)
+        |> put_private(:phoenix_action, :create_checkout)
+        |> ValidateResponse.call(ValidateResponse.init(strict: true))
+        |> put_resp_content_type("application/json")
+        |> resp(201, Jason.encode!(session))
+        |> send_resp()
+
+      assert conn.status == 201
+
+      assert_raise ValidateResponse.ValidationError, ~r/status/, fn ->
+        conn(:post, "/acp/checkout_sessions")
+        |> assign(:bazaar_protocol, :acp)
+        |> put_private(:phoenix_action, :create_checkout)
+        |> ValidateResponse.call(ValidateResponse.init(strict: true))
+        |> put_resp_content_type("application/json")
+        |> resp(201, Jason.encode!(Map.put(session, "status", "ready_for_complete")))
+        |> send_resp()
+      end
+    end
+
     test "a checkout from the builder passes, a broken one names what is wrong" do
       state =
         Bazaar.Checkout.new(%{"line_items" => [%{"id" => "li_1", "item" => %{"id" => "r"}}]})

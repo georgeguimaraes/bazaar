@@ -185,6 +185,27 @@ defmodule Bazaar.CheckoutTest do
                "postal_code" => "00000"
              }
 
+      # The recipient fields UCP's postal address defines survive normalization.
+      named =
+        roses()
+        |> Map.merge(
+          shipping(%{
+            "destinations" => [
+              %{
+                "id" => "d1",
+                "country" => "US",
+                "postal_code" => "1",
+                "first_name" => "Ana",
+                "phone_number" => "555"
+              }
+            ]
+          })
+        )
+        |> new()
+
+      assert [%{destinations: [%{"first_name" => "Ana", "phone_number" => "555"}]}] =
+               named.methods
+
       assert unselected["status"] == "incomplete"
       refute Checkout.fulfillment_ready?(unselected)
 
@@ -214,6 +235,7 @@ defmodule Bazaar.CheckoutTest do
       [method] = updated.methods
       assert method.line_item_ids == ["li_1"]
       assert [%{"id" => "d1"}] = method.destinations
+      assert method.selected_destination_id == "d1"
       assert [%{id: "g1", selected_option_id: "std"}] = method.groups
 
       # A method with two line items and no groups gets one consolidating group.

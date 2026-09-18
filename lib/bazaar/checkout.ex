@@ -187,9 +187,16 @@ defmodule Bazaar.Checkout do
           resolve_destinations(method["destinations"], earlier, stored, type)
 
         selected =
-          case present(method["selected_destination_id"]) do
-            nil -> nil
-            client_id -> Map.get(id_map, client_id, client_id)
+          cond do
+            Map.has_key?(method, "selected_destination_id") ->
+              client_id = present(method["selected_destination_id"])
+              client_id && Map.get(id_map, client_id, client_id)
+
+            earlier ->
+              earlier.selected_destination_id
+
+            true ->
+              nil
           end
 
         %{
@@ -248,10 +255,14 @@ defmodule Bazaar.Checkout do
       "type" => raw["type"] || destination_type(type),
       "id" => present(raw["id"]),
       "street_address" => raw["street_address"] || raw["street"],
+      "extended_address" => raw["extended_address"],
       "address_locality" => raw["address_locality"] || raw["locality"] || raw["city"],
       "address_region" => raw["address_region"] || raw["region"] || raw["state"],
       "postal_code" => raw["postal_code"],
-      "address_country" => raw["address_country"] || raw["country"]
+      "address_country" => raw["address_country"] || raw["country"],
+      "first_name" => raw["first_name"],
+      "last_name" => raw["last_name"],
+      "phone_number" => raw["phone_number"]
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()

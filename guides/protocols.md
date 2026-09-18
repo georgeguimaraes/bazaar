@@ -28,9 +28,11 @@ This means you write your handler once using UCP conventions, and Bazaar automat
 |-----------|-----|-----|
 | Create | `POST /checkout-sessions` | `POST /checkout_sessions` |
 | Get | `GET /checkout-sessions/:id` | `GET /checkout_sessions/:id` |
-| Update | `PATCH /checkout-sessions/:id` | `POST /checkout_sessions/:id` |
-| Complete | `POST /checkout-sessions/:id/actions/complete` | `POST /checkout_sessions/:id/complete` |
-| Cancel | `DELETE /checkout-sessions/:id` | `POST /checkout_sessions/:id/cancel` |
+| Update | `PUT /checkout-sessions/:id` | `POST /checkout_sessions/:id` |
+| Complete | `POST /checkout-sessions/:id/complete` | `POST /checkout_sessions/:id/complete` |
+| Cancel | `POST /checkout-sessions/:id/cancel` | `POST /checkout_sessions/:id/cancel` |
+
+ACP has no discovery, catalog, cart or order routes; `bazaar_routes ... protocol: :acp` mounts the five above.
 
 ### Status Values
 
@@ -43,6 +45,43 @@ This means you write your handler once using UCP conventions, and Bazaar automat
 | `completed` | `completed` |
 | `canceled` | `canceled` |
 
+### Requests
+
+ACP requests are translated into the UCP shape your handler reads (`Bazaar.Protocol.Transformer.transform_request/2`):
+
+| ACP | UCP |
+|-----|-----|
+| `line_items[{id, quantity}]` (the RFC also spells it `items`) | `line_items[{item: {id}, quantity}]` |
+| `buyer` | `buyer` (same fields) |
+| `fulfillment_details{name, phone_number, address}` | one `shipping` method whose selected destination is the address (see the address table), with `first_name`, `last_name` and `phone_number` |
+| `selected_fulfillment_options[{option_id, item_ids}]` | that method's group `selected_option_id` |
+| `discounts.codes` and the deprecated `coupons` | `discounts.codes` |
+| `payment_data{handler_id, instrument, billing_address}` (complete) | `payment.instruments[instrument + handler_id + billing_address]` |
+| `capabilities`, `locale`, `metadata`, `authentication_result`, ... | dropped |
+
+ACP's `item_ids` name items, UCP groups name line items, so a selection applies to the whole shipping method (ACP models one shipping group).
+
+### Responses
+
+The UCP checkout document your handler returns becomes an ACP checkout session (`transform_response/2`), validated in bazaar's tests against the bundled `2026-01-30` schema:
+
+| UCP | ACP |
+|-----|-----|
+| `line_items[].item{id, title, price}` | `line_items[].item{id, name, unit_amount}` |
+| `totals[{type, amount}]` | `totals[{type, display_text, amount}]` (`display_text` from the type) |
+| `fulfillment.methods[].groups[].options` | `fulfillment_options[{type, id, title, totals}]` |
+| selected group option | `selected_fulfillment_options[{type, option_id, item_ids}]` |
+| selected destination | `fulfillment_details{name, phone_number, address}` |
+| `messages[]` | `messages[]` with ACP's code enum (`payment_failed` → `payment_declined`, `invalid_request` → `invalid`, `quantity_adjusted` → `low_stock`), severity (`unrecoverable` → `critical`, `requires_buyer_input` → `high`, ...), `content_type` and `param` |
+| `buyer` | `email`, `first_name`, `last_name`, `full_name`, `phone_number` only |
+| `discounts.applied[{code, title, amount}]` | `discounts.applied[{id, code, coupon{id, name}, amount, allocations}]` |
+| `links` | `links` (`terms_of_service` → `terms_of_use`, types ACP doesn't know dropped) |
+| `ucp.payment_handlers` | `capabilities.payment.handlers`, see below |
+| `order{id, permalink_url}` | `order{id, checkout_session_id, permalink_url}` |
+| `ucp`, `fulfillment`, `payment` | not present; `protocol.version` is `2026-01-30` |
+
+**Payment handlers.** ACP describes a handler with more than UCP does (`spec`, `psp`, `requires_delegate_payment`, `requires_pci_compliance`, `config_schema`, `instrument_schemas`, `config`). Registry entries in your checkout's `ucp.payment_handlers` that carry those fields are advertised to ACP agents; entries without them are left out, and `capabilities` is empty when none qualify.
+
 ### Address Fields
 
 | UCP | ACP |
@@ -53,43 +92,9 @@ This means you write your handler once using UCP conventions, and Bazaar automat
 | `address_region` | `state` |
 | `address_country` | `country` |
 | `postal_code` | `postal_code` |
+| `first_name` + `last_name` | `name` |
 
-### Item Fields
-
-| UCP | ACP |
-|-----|-----|
-| `items` | `line_items` |
-| `sku` | `product.id` |
-| `name` | `product.name` |
-| `price` | `base_amount` |
-
-### Product Schema Comparison
-
-UCP has a catalog capability (search, lookup and get product, see `Bazaar.Catalog`); ACP has none, its product information lives in checkout line items. Inside a checkout the two embed products like this:
-
-| Field | UCP (ItemResp) | ACP (LineItem) |
-|-------|----------------|----------------|
-| Product ID | `id` | `item.id` |
-| Name | `title` | `name` |
-| Description | — | `description` |
-| Unit price | `price` | `unit_amount` |
-| Image | `image_url` (single) | `images[]` (array) |
-| Quantity | (in LineItemResp) | `item.quantity` |
-| Custom attributes | — | `custom_attributes[]` |
-| Marketplace seller | — | `marketplace_seller_details` |
-| Disclosures | — | `disclosures[]` |
-
-**Line item pricing:**
-
-| Field | UCP (LineItemResp.totals[]) | ACP (LineItem) |
-|-------|---------------------------|----------------|
-| Base amount | `totals[type=base]` | `base_amount` |
-| Discount | `totals[type=discount]` | `discount` |
-| Subtotal | `totals[type=subtotal]` | `subtotal` |
-| Tax | `totals[type=tax]` | `tax` |
-| Total | `totals[type=total]` | `total` |
-
-ACP is flatter with fields directly on LineItem. UCP is more structured with nested ItemResp and a totals array. ACP includes additional product fields like description, multiple images, custom attributes, and marketplace seller details.
+ACP requires `name`, `line_one`, `city`, `state`, `country` and `postal_code` on every address; fields UCP has no value for are sent as `""`, as the ACP examples do.
 
 ## Router Configuration
 
@@ -146,42 +151,22 @@ When using `protocol: :acp`, Bazaar does not generate a discovery endpoint.
 ### UCP Request
 
 ```bash
-curl -X POST http://localhost:4000/ucp/checkout-sessions \
+curl -X POST http://localhost:4000/checkout-sessions \
   -H "Content-Type: application/json" \
-  -d '{
-    "currency": "usd",
-    "items": [{"sku": "PROD-001", "quantity": 1}]
-  }'
+  -d '{"currency":"USD","line_items":[{"item":{"id":"sample"},"quantity":1}]}'
 ```
 
-Response uses UCP format:
-```json
-{
-  "id": "...",
-  "status": "incomplete",
-  "items": [...]
-}
-```
+The response is the UCP checkout document (`ucp`, `id`, `status: "ready_for_complete"`, `line_items`, `totals`, ...).
 
 ### ACP Request
 
 ```bash
 curl -X POST http://localhost:4000/acp/checkout_sessions \
   -H "Content-Type: application/json" \
-  -d '{
-    "currency": "usd",
-    "line_items": [{"product": {"id": "PROD-001"}, "quantity": 1}]
-  }'
+  -d '{"currency":"USD","line_items":[{"id":"sample","quantity":1}],"buyer":{"email":"agent@example.com"},"capabilities":{}}'
 ```
 
-Response uses ACP format:
-```json
-{
-  "id": "...",
-  "status": "not_ready_for_payment",
-  "line_items": [...]
-}
-```
+The response is an ACP checkout session (`protocol`, `id`, `status: "ready_for_payment"`, `line_items` with `item.unit_amount`, `totals` with `display_text`, `fulfillment_options`, `capabilities`, ...).
 
 ## Handler Implementation
 
