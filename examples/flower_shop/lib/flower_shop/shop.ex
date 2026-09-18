@@ -168,5 +168,6 @@ defmodule FlowerShop.Shop do
     end
   end
 
-  defp signing_key, do: Application.fetch_env!(:flower_shop, :signing_key)
+  @doc "The key that signs the shop's webhooks and responses, generated at boot."
+  def signing_key, do: Application.fetch_env!(:flower_shop, :signing_key)
 end

@@ -12,6 +12,8 @@ defmodule FlowerShopWeb.Router do
     plug :accepts, ["json"]
     plug Bazaar.Plugs.UCP
     plug Bazaar.Plugs.VerifySignature, http_client: &FlowerShop.Http.get/1
+
+    plug Bazaar.Plugs.SignResponse, key: &FlowerShop.Shop.signing_key/0
   end
 
   scope "/" do

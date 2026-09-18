@@ -11,7 +11,9 @@ defmodule Bazaar.Signing.HttpSignature do
 
   `verify/2` checks a signed request against a public key, whatever label the
   signer used, and returns the signature parameters so the caller can apply
-  its own freshness rules.
+  its own freshness rules. `sign_response/3` and `verify_response/2` do the
+  same for responses, whose base starts with `@status` instead of the
+  request's method, authority and path.
 
   A request is `%{method: "POST", url: "https://...", headers: [{name, value}], body: binary}`
   with lowercase header names. A component is a header name, a derived
@@ -80,6 +82,38 @@ defmodule Bazaar.Signing.HttpSignature do
     end
   end
 
+  @doc """
+  Signs a response the way the spec has businesses sign theirs: the base
+  covers `@status`, then `content-digest` and `content-type` when there is
+  a body. A response is `%{status: 200, headers: [{name, value}], body: binary}`.
+  Returns the headers plus `content-digest`, `signature-input` and `signature`.
+  Options as `sign/3`.
+  """
+  def sign_response(response, %Key{} = key, opts \\ []) do
+    {headers, body_components} =
+      if response.body in [nil, ""] do
+        {response.headers, []}
+      else
+        {response.headers ++ [{"content-digest", content_digest(response.body)}],
+         ["content-digest", "content-type"]}
+      end
+
+    response = %{response | headers: headers}
+    components = ["@status"] ++ body_components ++ Keyword.get(opts, :components, [])
+    created = Keyword.get(opts, :created, System.os_time(:second))
+    params = params(components, created, key.kid)
+    signature = Key.sign(key, signature_base(response, components, params))
+
+    headers ++
+      [
+        {"signature-input", "#{@label}=#{params}"},
+        {"signature", "#{@label}=:#{Base.encode64(signature)}:"}
+      ]
+  end
+
+  @doc "Verifies a signed response against a public key; see `verify/2`."
+  def verify_response(response, %Key{} = key), do: verify(response, key)
+
   @doc "The `keyid` named by a request's `Signature-Input`, or `nil`."
   def keyid(headers) do
     case parse_signature_input(header(headers, "signature-input")) do
@@ -121,6 +155,7 @@ defmodule Bazaar.Signing.HttpSignature do
     end
   end
 
+  defp component_value(response, "@status"), do: Integer.to_string(response.status)
   defp component_value(request, "@method"), do: String.upcase(request.method)
   defp component_value(request, "@authority"), do: authority(URI.parse(request.url))
   defp component_value(request, "@path"), do: URI.parse(request.url).path || "/"
