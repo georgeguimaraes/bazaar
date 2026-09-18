@@ -7,65 +7,36 @@ defmodule Bazaar.Telemetry do
 
   ## Events
 
-  All events are emitted using `:telemetry.span/3`, which automatically generates
-  `:start`, `:stop`, and `:exception` events.
+  Every event is a `:telemetry.span/3`, so it comes as `:start`, `:stop` and
+  `:exception`. Start measurements carry `system_time`, stop and exception
+  carry `duration`; the metadata below is what `:stop` adds.
 
-  ### Checkout Events
+  ### Operations (from the controller)
 
-  * `[:bazaar, :checkout, :create, :start]` - Emitted when checkout creation begins.
-    * Measurement: `%{system_time: integer}`
-    * Metadata: `%{}`
+  * `[:bazaar, :checkout, :create | :get | :update | :complete | :cancel]`
+    with `checkout_id` and `status`
+  * `[:bazaar, :order, :get | :update | :cancel]` with `order_id`
+  * `[:bazaar, :cart, :create | :get | :update | :cancel]` with `cart_id`
+  * `[:bazaar, :catalog, :search | :lookup | :get]` with `count`
+  * `[:bazaar, :location, :search | :lookup]` with `count`
+  * `[:bazaar, :discovery, :profile]`
+  * `[:bazaar, :identity, :link]` with `provider`
+  * `[:bazaar, :webhook, :handle]` (an incoming webhook) with `event_type`
 
-  * `[:bazaar, :checkout, :create, :stop]` - Emitted when checkout creation completes.
-    * Measurement: `%{duration: integer}`
-    * Metadata: `%{checkout_id: String.t(), status: atom()}`
+  ### Webhook delivery
 
-  * `[:bazaar, :checkout, :create, :exception]` - Emitted when checkout creation fails.
-    * Measurement: `%{duration: integer}`
-    * Metadata: `%{kind: atom(), reason: term(), stacktrace: list()}`
+  * `[:bazaar, :webhook, :deliver]` per attempt, with `webhook_id`, `attempt`
+    and the response `status`
 
-  * `[:bazaar, :checkout, :get, :*]` - Retrieve checkout session.
-    * Stop metadata: `%{checkout_id: String.t(), status: atom()}`
+  ### Plugs
 
-  * `[:bazaar, :checkout, :update, :*]` - Update checkout session.
-    * Stop metadata: `%{checkout_id: String.t(), status: atom()}`
-
-  * `[:bazaar, :checkout, :cancel, :*]` - Cancel checkout session.
-    * Stop metadata: `%{checkout_id: String.t()}`
-
-  ### Order Events
-
-  * `[:bazaar, :order, :get, :*]` - Retrieve order.
-    * Stop metadata: `%{order_id: String.t(), status: atom()}`
-
-  * `[:bazaar, :order, :cancel, :*]` - Cancel order.
-    * Stop metadata: `%{order_id: String.t()}`
-
-  ### Identity Events
-
-  * `[:bazaar, :identity, :link, :*]` - Link user identity via OAuth.
-    * Stop metadata: `%{provider: String.t()}`
-
-  ### Webhook Events
-
-  * `[:bazaar, :webhook, :handle, :*]` - Process incoming webhook.
-    * Stop metadata: `%{event_type: String.t()}`
-
-  ### Discovery Events
-
-  * `[:bazaar, :discovery, :profile, :*]` - Serve discovery profile.
-    * Stop metadata: `%{}`
-
-  ### Plug Events
-
-  * `[:bazaar, :plug, :validate_request, :*]` - Request validation.
-    * Stop metadata: `%{valid: boolean}`
-
-  * `[:bazaar, :plug, :idempotency, :*]` - Idempotency key processing.
-    * Stop metadata: `%{key: String.t() | nil}`
-
-  * `[:bazaar, :plug, :ucp_headers, :*]` - UCP header extraction.
-    * Stop metadata: `%{request_id: String.t()}`
+  * `[:bazaar, :plug, :ucp_headers]` with `request_id`
+  * `[:bazaar, :plug, :idempotency]` with `key`
+  * `[:bazaar, :plug, :verify_signature]` with `outcome` (`:verified`,
+    `:rejected` or `:unsigned`) and `keyid`
+  * `[:bazaar, :plug, :sign_response]` with `status` and `keyid`
+  * `[:bazaar, :plug, :validate_request]` and `[:bazaar, :plug, :validate_response]`
+    with `action` and `valid`
 
   ## Quick Start with Built-in Logger
 

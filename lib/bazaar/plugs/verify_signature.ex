@@ -54,11 +54,13 @@ defmodule Bazaar.Plugs.VerifySignature do
 
   @impl true
   def call(conn, opts) do
-    case get_req_header(conn, "signature-input") do
-      [] when opts.required -> reject(conn, :signature_required)
-      [] -> conn
-      _ -> verify(conn, opts)
-    end
+    Bazaar.Telemetry.span_with_metadata([:bazaar, :plug, :verify_signature], %{}, fn ->
+      case get_req_header(conn, "signature-input") do
+        [] when opts.required -> {reject(conn, :signature_required), %{outcome: :rejected}}
+        [] -> {conn, %{outcome: :unsigned}}
+        _ -> verify(conn, opts)
+      end
+    end)
   end
 
   defp verify(conn, opts) do
@@ -67,10 +69,11 @@ defmodule Bazaar.Plugs.VerifySignature do
     with {:ok, keys} <- platform_keys(conn.assigns[:ucp_agent_profile], opts),
          {:ok, params} <- verify_with_any(request, candidates(keys, request)),
          :ok <- fresh(params, opts.max_age) do
-      assign(conn, :ucp_signature, %{keyid: params.keyid, created: params.created})
+      {assign(conn, :ucp_signature, %{keyid: params.keyid, created: params.created}),
+       %{outcome: :verified, keyid: params.keyid}}
     else
-      {:error, :signer_unknown} -> reject(conn, :signer_unknown)
-      {:error, _reason} -> reject(conn, :invalid_signature)
+      {:error, :signer_unknown} -> {reject(conn, :signer_unknown), %{outcome: :rejected}}
+      {:error, _reason} -> {reject(conn, :invalid_signature), %{outcome: :rejected}}
     end
   end
 
