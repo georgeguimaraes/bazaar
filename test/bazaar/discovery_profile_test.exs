@@ -216,6 +216,33 @@ defmodule Bazaar.DiscoveryProfileTest do
                )
     end
 
+    test "advertises the older profiles a business still serves" do
+      defmodule VersionedHandler do
+        use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
+
+        @impl true
+        def business_profile,
+          do: %{
+            "name" => "Old and new",
+            "supported_versions" => %{
+              "2026-04-08" => "https://shop.test/.well-known/ucp/2026-04-08"
+            }
+          }
+      end
+
+      profile = DiscoveryProfile.from_handler(VersionedHandler)
+      assert {:ok, _} = Bazaar.Validator.validate(profile, :profile)
+
+      assert profile["ucp"]["supported_versions"] == %{
+               "2026-04-08" => "https://shop.test/.well-known/ucp/2026-04-08"
+             }
+
+      refute Map.has_key?(
+               DiscoveryProfile.from_handler(EverythingHandler)["ucp"],
+               "supported_versions"
+             )
+    end
+
     test "carries the fulfillment config on the fulfillment capability" do
       profile = DiscoveryProfile.from_handler(EverythingHandler)
       [fulfillment] = profile["ucp"]["capabilities"]["dev.ucp.shopping.fulfillment"]

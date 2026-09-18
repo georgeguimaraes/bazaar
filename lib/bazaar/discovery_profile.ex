@@ -26,6 +26,10 @@ defmodule Bazaar.DiscoveryProfile do
   - `"payment_handlers"`: a list of `%{"name" => "com.stripe", "id" => "stripe", "config" => %{}}`
     entries, where `name` is the handler's reverse-domain namespace
   - `"keys"`: public signing keys as a JWK set
+  - `"supported_versions"`: previous protocol versions the business still
+    serves, mapped to the URL of each version's own profile (`%{"2026-04-08" =>
+    "https://shop.example/.well-known/ucp/2026-04-08"}`). Bazaar speaks one
+    version; this is for businesses that host older profiles themselves
 
   ## Example
 
@@ -48,6 +52,15 @@ defmodule Bazaar.DiscoveryProfile do
 
     # The schema puts the JWK set at the profile root; the reference platform
     # verifier reads it under `ucp`, so it is published in both places.
+    profile =
+      case Map.get(business, "supported_versions") do
+        %{} = versions when map_size(versions) > 0 ->
+          put_in(profile, ["ucp", "supported_versions"], versions)
+
+        _ ->
+          profile
+      end
+
     case Map.get(business, "keys") do
       keys when is_list(keys) and keys != [] ->
         profile |> Map.put("keys", keys) |> put_in(["ucp", "keys"], keys)
