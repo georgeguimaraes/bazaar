@@ -1,311 +1,137 @@
-# Getting Started with Bazaar
+# Getting Started
 
-This guide walks you through building your first UCP-compliant merchant API with Bazaar.
+From an empty Phoenix app to a store an agent can discover, browse and buy from, in a few minutes. The generator writes a handler that answers on first boot; then you swap its placeholder data for yours.
 
 ## Prerequisites
 
-- Elixir 1.14 or later
-- Phoenix 1.7 or later (for the router integration)
-- Basic familiarity with Elixir and Phoenix
+- Elixir 1.18 or later
+- Phoenix 1.7 or later
 
-## What We're Building
-
-By the end of this guide, you'll have a working API that:
-
-1. Exposes a discovery endpoint for AI agents
-2. Accepts checkout session creation requests
-3. Returns validated responses
-
-## Step 1: Create a New Phoenix Project
-
-If you don't have an existing project, create one:
+## 1. A Phoenix app
 
 ```bash
 mix phx.new my_store --no-html --no-assets --no-mailer
 cd my_store
 ```
 
-## Step 2: Add Bazaar
+An existing app works the same way.
 
-Add bazaar to your dependencies in `mix.exs`:
+## 2. Add bazaar
+
+In `mix.exs`:
 
 ```elixir
 defp deps do
   [
-    {:phoenix, "~> 1.7"},
-    # ... other deps
-    {:bazaar, "~> 0.1.0"}
+    {:bazaar, "~> 0.4"},
+    # optional: validates your responses against the spec's JSON Schemas in dev and test
+    {:jsv, "~> 0.15"}
   ]
 end
 ```
-
-Fetch dependencies:
 
 ```bash
 mix deps.get
 ```
 
-## Step 3: Create Your Handler
+## 3. Generate the handler
 
-Create a new file at `lib/my_store/ucp_handler.ex`:
+```bash
+mix bazaar.gen.handler MyStore.CommerceHandler --name "My Store"
+```
+
+This writes `lib/my_store/commerce_handler.ex` and `lib/my_store/commerce_handler/store.ex`, and prints the wiring below. The default capabilities are checkout, orders and fulfillment; add `--capabilities checkout,orders,fulfillment,discount,cart,catalog` for everything bazaar serves.
+
+The handler implements `Bazaar.Handler` on top of `Bazaar.Checkout` (and `Bazaar.Cart`, `Bazaar.Catalog`, `Bazaar.Order` when those capabilities are on). The protocol rules live in the library; the functions at the bottom of the file, under "Your store", are placeholders with a sample product, one flat shipping rate and an in-memory store, so the app works before you have written any commerce code.
+
+## 4. Wire it in
+
+The generator prints these four steps for your module names.
+
+Read the raw body in your endpoint, which signature verification needs (`lib/my_store_web/endpoint.ex`):
 
 ```elixir
-defmodule MyStore.UCPHandler do
-  use Bazaar.Handler
+plug Plug.Parsers,
+  parsers: [:json],
+  pass: ["*/*"],
+  json_decoder: Jason,
+  body_reader: {Bazaar.Plugs.RawBody, :read_body, []}
+```
 
-  @impl true
-  def capabilities, do: [:checkout]
+Mount the routes (`lib/my_store_web/router.ex`):
 
-  @impl true
-  def business_profile do
-    %{
-      "name" => "My Store",
-      "description" => "A demo store built with Bazaar"
-    }
-  end
+```elixir
+use Bazaar.Phoenix.Router
 
-  @impl true
-  def create_checkout(params, _conn) do
-    # params already validated by Bazaar
-    # In a real app, save to database and return full checkout
-    checkout_id = "checkout_#{System.unique_integer([:positive])}"
+pipeline :ucp do
+  plug :accepts, ["json"]
+  plug Bazaar.Plugs.UCP
+end
 
-    {:ok, %{
-      "id" => checkout_id,
-      "status" => "incomplete",
-      "currency" => params["currency"],
-      "line_items" => params["line_items"],
-      "totals" => [
-        %{"type" => "subtotal", "amount" => calculate_subtotal(params["line_items"])},
-        %{"type" => "total", "amount" => calculate_subtotal(params["line_items"])}
-      ],
-      "links" => [
-        %{"type" => "privacy_policy", "url" => "https://mystore.example/privacy"},
-        %{"type" => "terms_of_service", "url" => "https://mystore.example/terms"}
-      ],
-      "payment" => %{"handlers" => []}
-    }}
-  end
-
-  @impl true
-  def get_checkout(_id, _conn) do
-    # In a real app, fetch from database
-    {:error, :not_found}
-  end
-
-  @impl true
-  def update_checkout(_id, _params, _conn) do
-    {:error, :not_found}
-  end
-
-  @impl true
-  def cancel_checkout(_id, _conn) do
-    {:error, :not_found}
-  end
-
-  # Helper to calculate subtotal from line items
-  defp calculate_subtotal(line_items) do
-    Enum.reduce(line_items, 0, fn item, acc ->
-      price = get_in(item, ["item", "price"]) || 0
-      quantity = item["quantity"] || 1
-      acc + (price * quantity)
-    end)
-  end
+scope "/" do
+  pipe_through :ucp
+  bazaar_routes "/", MyStore.CommerceHandler
 end
 ```
 
-## Step 4: Mount the Routes
+`Bazaar.Plugs.UCP` negotiates the spec version from the `UCP-Agent` header and replays idempotent requests. Add `Bazaar.Plugs.VerifySignature` once you talk to a platform that signs its requests, and `Bazaar.Plugs.ValidateResponse, strict: true` in dev and test to have every response checked against the spec. The [plugs guide](plugs.md) has the details.
 
-Update your router at `lib/my_store_web/router.ex`:
+Start the store and the idempotency table (`lib/my_store/application.ex`):
 
 ```elixir
-defmodule MyStoreWeb.Router do
-  use MyStoreWeb, :router
-  use Bazaar.Phoenix.Router  # Add this line
-
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
-
-  # Add this scope
-  scope "/", MyStoreWeb do
-    pipe_through :api
-    bazaar_routes "/", MyStore.UCPHandler
-  end
-end
+children = [
+  MyStore.CommerceHandler.Store,
+  Bazaar.Idempotency.ETS,
+  MyStoreWeb.Endpoint
+]
 ```
 
-## Step 5: Start the Server
+Tell the handler where it lives (`config/runtime.exs`):
+
+```elixir
+config :my_store, bazaar_base_url: System.get_env("BASE_URL", "http://localhost:4000")
+```
+
+## 5. Try it
 
 ```bash
 mix phx.server
 ```
 
-## Step 6: Test Your API
+```bash
+curl localhost:4000/.well-known/ucp
+```
 
-### Test the Discovery Endpoint
+That is the discovery profile: the spec version, the capabilities and the endpoint an agent will use. Then a checkout for the sample product:
 
 ```bash
-curl http://localhost:4000/.well-known/ucp | jq
+curl -X POST localhost:4000/checkout-sessions \
+  -H 'content-type: application/json' \
+  -d '{"currency":"USD","line_items":[{"item":{"id":"sample"},"quantity":2}]}'
 ```
 
-You should see your store's profile and capabilities.
+The response is a full checkout document: the line priced from `products/0`, totals, links, status `ready_for_complete`. Send a fulfillment method with a destination in an update and the flat rate shows up as an option; select it and complete, and an order appears under `/orders/:id`.
 
-### Create a Checkout Session
+## 6. Make it yours
 
-```bash
-curl -X POST http://localhost:4000/checkout-sessions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "currency": "USD",
-    "line_items": [
-      {
-        "item": {"id": "WIDGET-001"},
-        "quantity": 2
-      }
-    ],
-    "payment": {}
-  }' | jq
-```
+Everything to replace is in one place, the "Your store" section of the handler:
 
-You should see a response with the checkout data and a generated ID:
+| Function | What it answers |
+|---|---|
+| `products/0` | your catalog in the spec's shape (variants are what gets bought) |
+| `item/1` | a line item's title, price and stock for the checkout builder |
+| `fulfillment_options/2` | shipping or pickup options for a destination, with the priced line items and subtotal in hand |
+| `discount/2` | what a code is worth on the running total |
+| `stored_addresses/1` | addresses you know for a returning buyer |
+| `authorize/1` | charging the instruments through your payment provider |
+| `payment_handlers/0` and `business_profile/0` | the payment handlers you accept |
 
-```json
-{
-  "id": "checkout_12345",
-  "status": "incomplete",
-  "currency": "USD",
-  "line_items": [...],
-  "totals": [
-    {"type": "subtotal", "amount": 0},
-    {"type": "total", "amount": 0}
-  ],
-  "links": [
-    {"type": "privacy_policy", "url": "https://mystore.example/privacy"},
-    {"type": "terms_of_service", "url": "https://mystore.example/terms"}
-  ],
-  "payment": {"handlers": []}
-}
-```
+Then move `MyStore.CommerceHandler.Store` into your database (it is four maps), and when you complete an order, tell the platform with `Bazaar.Webhook.deliver/2` (see [handlers](handlers.md#sending-order-events)).
 
-### Test Validation
+If you would rather own the routes and controllers, skip `bazaar_routes`: build the discovery document with `Bazaar.DiscoveryProfile.from_handler/2`, call the callbacks from your own actions, and keep the plugs and builders.
 
-Try creating a checkout with invalid data:
+## Where next
 
-```bash
-curl -X POST http://localhost:4000/checkout-sessions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "currency": "INVALID"
-  }' | jq
-```
-
-You should see a validation error response:
-
-```json
-{
-  "error": "validation_error",
-  "message": "Validation failed",
-  "details": [
-    {"field": "currency", "message": "is invalid"},
-    {"field": "line_items", "message": "can't be blank"},
-    {"field": "payment", "message": "can't be blank"}
-  ]
-}
-```
-
-## Adding ACP Support
-
-Want to also support OpenAI Operator and Stripe agents? Add ACP routes alongside UCP:
-
-```elixir
-scope "/", MyStoreWeb do
-  pipe_through :api
-
-  # UCP routes (Google agents)
-  bazaar_routes "/", MyStore.UCPHandler
-
-  # ACP routes (OpenAI/Stripe agents)
-  bazaar_routes "/acp", MyStore.UCPHandler, protocol: :acp
-end
-```
-
-Your handler code stays the same. Bazaar automatically transforms requests and responses between UCP and ACP formats.
-
-See the [Protocols Guide](protocols.md) for details on the differences between UCP and ACP.
-
-## What's Next?
-
-Now that you have a basic UCP merchant running:
-
-1. **Add persistence**: Store checkouts in a database
-2. **Add orders**: Implement the `:orders` capability
-3. **Add ACP support**: Serve OpenAI/Stripe agents too
-4. **Add plugs**: Use validation and idempotency plugs
-5. **Handle webhooks**: Process payment notifications
-
-Check out these guides:
-
-- [Protocols Guide](protocols.md) - Support both UCP and ACP
-- [Handlers Guide](handlers.md) - Learn all handler callbacks
-- [Schemas Guide](schemas.md) - Understand data validation
-- [Plugs Guide](plugs.md) - Add production-ready features
-- [Testing Guide](testing.md) - Test your implementation
-
-## Common Issues
-
-### "module Bazaar.Phoenix.Router is not available"
-
-Make sure you've added bazaar to your deps and run `mix deps.get`.
-
-### Routes not showing up
-
-Check that you:
-1. Added `use Bazaar.Phoenix.Router` to your router
-2. Called `bazaar_routes/2` inside a scope with `pipe_through :api`
-
-### Validation errors for valid data
-
-Make sure your params use string keys, not atom keys:
-
-```elixir
-# Correct
-%{"currency" => "USD"}
-
-# Wrong
-%{currency: "USD"}
-```
-
-## UCP Data Structure
-
-### Prices in Minor Units
-
-UCP uses **minor currency units** (cents) as integers:
-
-```elixir
-# $19.99 = 1999 cents
-%{"item" => %{"id" => "SKU-1", "price" => 1999}, "quantity" => 1}
-```
-
-### Totals Array
-
-Totals are an array of typed amounts:
-
-```elixir
-"totals" => [
-  %{"type" => "subtotal", "amount" => 1999},
-  %{"type" => "tax", "amount" => 160},
-  %{"type" => "total", "amount" => 2159}
-]
-```
-
-### Required Links
-
-Checkout responses must include legal links:
-
-```elixir
-"links" => [
-  %{"type" => "privacy_policy", "url" => "https://..."},
-  %{"type" => "terms_of_service", "url" => "https://..."}
-]
-```
+- [Handlers](handlers.md): every callback and the documents they return
+- [Plugs](plugs.md): version negotiation, idempotency, signatures, validation
+- [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop): a complete store that passes the official UCP conformance suite

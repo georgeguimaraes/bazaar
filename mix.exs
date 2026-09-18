@@ -53,7 +53,8 @@ defmodule Bazaar.MixProject do
       licenses: ["Apache-2.0"],
       links: %{"GitHub" => @source_url},
       files: ~w(lib priv .formatter.exs mix.exs README.md LICENSE),
-      exclude_patterns: ["lib/mix"]
+      # The schema generators are bazaar's own tooling; bazaar.gen.handler ships.
+      exclude_patterns: [~r{lib/mix/tasks/bazaar\.gen\.schemas?\.ex}]
     ]
   end
 

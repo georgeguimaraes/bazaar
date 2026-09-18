@@ -90,9 +90,13 @@ end
 
 ## Quick Start
 
-### Step 1: Create a Handler
+### Step 1: Generate a Handler
 
-The handler defines your store's capabilities and commerce logic:
+```bash
+mix bazaar.gen.handler MyApp.CommerceHandler --name "My Awesome Store"
+```
+
+This writes a `Bazaar.Handler` built on the library's checkout, cart, catalog and order helpers, with a sample product and an in-memory store so it answers on first boot, and prints the endpoint, router and supervision wiring below. The functions under "Your store" at the bottom of the file are the ones to replace with your catalog, rates and storage. The [getting started guide](guides/getting-started.md) walks through it; a hand-written handler looks like this:
 
 ```elixir
 defmodule MyApp.CommerceHandler do
@@ -103,24 +107,17 @@ defmodule MyApp.CommerceHandler do
 
   @impl true
   def business_profile do
-    %{
-      "name" => "My Awesome Store",
-      "description" => "We sell amazing products"
-    }
+    %{"name" => "My Awesome Store", "description" => "We sell amazing products"}
   end
 
   @impl true
   def create_checkout(params, _conn) do
-    # params already validated by Bazaar
-    {:ok, %{"id" => "chk_123", "status" => "incomplete", ...}}
+    state = Bazaar.Checkout.new(params)
+    MyApp.Checkouts.put(state)
+    {:ok, Bazaar.Checkout.build(state, item: &MyApp.Products.item/1, links: links())}
   end
 
-  @impl true
-  def get_checkout(id, _conn) do
-    {:ok, checkout} or {:error, :not_found}
-  end
-
-  # ... other callbacks: update_checkout, cancel_checkout, get_order, cancel_order
+  # ... get_checkout, update_checkout, complete_checkout, cancel_checkout, get_order, cancel_order
 end
 ```
 
@@ -189,13 +186,15 @@ ACP endpoints:
 # UCP discovery
 curl http://localhost:4000/.well-known/ucp
 
-# Create a checkout via UCP
+# Create a checkout via UCP (the generated handler ships a "sample" product)
 curl -X POST http://localhost:4000/checkout-sessions \
-  -H "Content-Type: application/json" -d '{"items": [...]}'
+  -H "Content-Type: application/json" \
+  -d '{"currency":"USD","line_items":[{"item":{"id":"sample"},"quantity":2}]}'
 
 # Create a checkout via ACP
 curl -X POST http://localhost:4000/acp/checkout_sessions \
-  -H "Content-Type: application/json" -d '{"line_items": [...]}'
+  -H "Content-Type: application/json" \
+  -d '{"currency":"usd","items":[{"id":"sample","quantity":2}]}'
 ```
 
 ## Protocol Differences
