@@ -33,7 +33,10 @@ defmodule FlowerShop.Checkout do
   def build(state, opts \\ []) do
     Checkout.build(state,
       item: &item/1,
-      fulfillment_options: &shipping_options/2,
+      fulfillment_options: &fulfillment_options/2,
+      pickup_locations: fn _context ->
+        Enum.map(Catalog.locations(), &Map.take(&1, ["id", "name", "address"]))
+      end,
       discount: &discount/2,
       payment_handlers: payment_handlers(),
       links: [
@@ -81,9 +84,23 @@ defmodule FlowerShop.Checkout do
     end
   end
 
-  # Rates depend on the destination country; standard shipping is free on
-  # orders with roses or over the free-shipping threshold.
-  defp shipping_options(%{"address_country" => country}, %{line_items: lines, subtotal: subtotal}) do
+  # Pickup at a store is free; shipping rates depend on the destination
+  # country, and standard shipping is free on orders with roses or over the
+  # free-shipping threshold.
+  defp fulfillment_options(%{"type" => "business_location"}, _context) do
+    [
+      %{
+        "id" => "in_store",
+        "title" => "In-store pickup",
+        "totals" => [%{"type" => "total", "amount" => 0}]
+      }
+    ]
+  end
+
+  defp fulfillment_options(%{"address_country" => country}, %{
+         line_items: lines,
+         subtotal: subtotal
+       }) do
     free? = Catalog.free_shipping?(subtotal, Enum.map(lines, & &1["item"]["id"]))
 
     country
@@ -97,7 +114,7 @@ defmodule FlowerShop.Checkout do
     end)
   end
 
-  defp shipping_options(_destination, _context), do: nil
+  defp fulfillment_options(_destination, _context), do: nil
 
   @doc "What a discount code is worth on a running total, `nil` for an unknown code."
   def discount(code, running) do

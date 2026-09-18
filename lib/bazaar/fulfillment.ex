@@ -4,16 +4,15 @@ defmodule Bazaar.Fulfillment do
   defines, and the default business and platform configuration a handler
   advertises.
 
-  The request and response shapes themselves come from the generated
-  `Bazaar.Schemas.Shopping.Fulfillment*` modules. During checkout the platform
-  sends methods with destinations, the business answers with options and
-  pricing under `fulfillment.methods[].groups[].options[]`, and the selected
-  option flows into the order's fulfillment expectations (see
-  `Bazaar.Order.from_checkout/3`).
+  During checkout the platform sends shipping methods with its addresses,
+  the business answers pickup methods with its locations, prices options
+  under `fulfillment.methods[].groups[].options[]`, and the selection flows
+  into the order's fulfillment expectations. `Bazaar.Checkout` implements
+  those rules.
   """
 
   @method_types [:shipping, :pickup]
-  @destination_types [:address, :pickup_location]
+  @destination_types [:shipping_address, :business_location]
 
   @doc "The fulfillment method types."
   def method_types, do: @method_types

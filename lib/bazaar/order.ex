@@ -77,14 +77,19 @@ defmodule Bazaar.Order do
 
   # One expectation per fulfillment method, described by the selected option
   # and addressed to the selected destination.
+  # One expectation per method with a selected destination; an offered
+  # method nobody selected states nothing about delivery.
   defp expectations(checkout, line_items) do
     methods = get_in(checkout, ["fulfillment", "methods"]) || []
 
     methods
-    |> Enum.with_index(1)
-    |> Enum.map(fn {method, index} ->
+    |> Enum.map(fn method ->
       destinations = method["destinations"] || []
-      destination = Enum.find(destinations, &(&1["id"] == method["selected_destination_id"]))
+      {method, Enum.find(destinations, &(&1["id"] == method["selected_destination_id"]))}
+    end)
+    |> Enum.reject(fn {_method, destination} -> is_nil(destination) end)
+    |> Enum.with_index(1)
+    |> Enum.map(fn {{method, destination}, index} ->
       option = selected_option(method)
       ids = method["line_item_ids"] || Enum.map(line_items, & &1["id"])
 
@@ -97,9 +102,15 @@ defmodule Bazaar.Order do
         "method_type" => method["type"] || "shipping"
       }
       |> maybe_put("description", option && option["title"])
-      |> maybe_put("destination", destination && Map.delete(destination, "id"))
+      |> Map.put("destination", expectation_destination(destination))
     end)
   end
+
+  # Expectations carry a postal address: a store's address for pickup.
+  defp expectation_destination(%{"type" => "business_location"} = location),
+    do: location["address"] || %{}
+
+  defp expectation_destination(destination), do: Map.delete(destination, "id")
 
   defp selected_option(method) do
     Enum.find_value(method["groups"] || [], fn group ->

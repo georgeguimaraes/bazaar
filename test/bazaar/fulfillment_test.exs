@@ -5,7 +5,7 @@ defmodule Bazaar.FulfillmentTest do
 
   test "lists the UCP method and destination types" do
     assert Fulfillment.method_types() == [:shipping, :pickup]
-    assert Fulfillment.destination_types() == [:address, :pickup_location]
+    assert Fulfillment.destination_types() == [:shipping_address, :business_location]
   end
 
   test "default configurations advertise nothing beyond the basics" do

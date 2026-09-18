@@ -156,6 +156,45 @@ defmodule FlowerShop.CheckoutTest do
       assert [%{"totals" => [%{"amount" => 500}]}, _] = group["options"]
     end
 
+    test "offers pickup at both stores and prices it free once one is chosen" do
+      offered = roses() |> create() |> Checkout.build()
+
+      assert [
+               %{
+                 "type" => "pickup",
+                 "destinations" => [%{"id" => "loc_springfield"}, %{"id" => "loc_metropolis"}]
+               }
+             ] = offered["fulfillment"]["methods"]
+
+      chosen =
+        roses()
+        |> create()
+        |> Checkout.apply_update(%{
+          "fulfillment" => %{
+            "methods" => [
+              %{
+                "id" => "pickup",
+                "selected_destination_id" => "loc_metropolis",
+                "groups" => [%{"id" => "group_1", "selected_option_id" => "in_store"}]
+              }
+            ]
+          }
+        })
+        |> Checkout.build()
+
+      assert {:ok, _} = Bazaar.Validator.validate(chosen, :checkout)
+
+      assert [
+               %{
+                 "selected_destination_id" => "loc_metropolis",
+                 "destinations" => [%{"name" => "Flower Shop Metropolis"}]
+               }
+             ] = chosen["fulfillment"]["methods"]
+
+      assert total(chosen, "fulfillment") == 0
+      assert Bazaar.Checkout.fulfillment_ready?(chosen)
+    end
+
     test "injects a known customer's stored addresses and keeps their ids on resubmission" do
       state = roses() |> Map.put("buyer", %{"email" => "john.doe@example.com"}) |> create()
 

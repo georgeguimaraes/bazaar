@@ -63,7 +63,8 @@ defmodule Bazaar.CheckoutTest do
           payment_handlers: %{"dev.example.pay" => [%{"id" => "pay", "version" => "2026-08-25"}]},
           links: [%{"type" => "privacy_policy", "url" => "https://shop.test/privacy"}],
           order_url: &("https://shop.test/orders/" <> &1)
-        ] ++ opts
+        ]
+        |> Keyword.merge(opts)
       )
 
     assert {:ok, _} = Bazaar.Validator.validate(doc, :checkout)
@@ -290,6 +291,142 @@ defmodule Bazaar.CheckoutTest do
 
       assert [%{destinations: []}] =
                update(unknown, %{"fulfillment" => %{"methods" => [%{}]}}).methods
+    end
+  end
+
+  describe "pickup" do
+    @stores [
+      %{
+        "id" => "loc_a",
+        "name" => "Store A",
+        "address" => %{"address_locality" => "Springfield", "address_country" => "US"}
+      },
+      %{"id" => "loc_b", "name" => "Store B"}
+    ]
+
+    defp pickup(state, extra \\ []) do
+      build(
+        state,
+        [pickup_locations: fn _context -> @stores end, fulfillment_options: &pickup_options/2] ++
+          extra
+      )
+    end
+
+    defp pickup_options(%{"type" => "business_location"}, _context),
+      do: [
+        %{
+          "id" => "in_store",
+          "title" => "In-store pickup",
+          "totals" => [%{"type" => "total", "amount" => 0}]
+        }
+      ]
+
+    defp pickup_options(_destination, _context), do: @rates
+
+    test "offers pickup at the business's locations when the platform sent no fulfillment" do
+      doc = roses() |> new() |> pickup()
+
+      assert [
+               %{
+                 "id" => "pickup",
+                 "type" => "pickup",
+                 "line_item_ids" => ["li_1"],
+                 "destinations" => [
+                   %{"type" => "business_location", "id" => "loc_a", "name" => "Store A"},
+                   %{"id" => "loc_b"}
+                 ],
+                 "groups" => [%{"line_item_ids" => ["li_1"]}]
+               } = method
+             ] = doc["fulfillment"]["methods"]
+
+      refute Map.has_key?(method, "selected_destination_id")
+      assert doc["status"] == "incomplete"
+
+      hinted = roses() |> Map.put("context", %{"location" => "loc_b"}) |> new() |> pickup()
+
+      assert [%{"selected_destination_id" => "loc_b", "destinations" => [%{"id" => "loc_b"}]}] =
+               hinted["fulfillment"]["methods"]
+
+      refute Map.has_key?(roses() |> new() |> build(), "fulfillment")
+
+      # An offered method nobody selected states no delivery expectation.
+      order = Bazaar.Order.from_checkout(doc, "o1", "https://shop.test/orders/o1")
+      assert {:ok, _} = Bazaar.Validator.validate(order, :order)
+      assert order["fulfillment"]["expectations"] == []
+    end
+
+    test "a selected location narrows the destinations, prices pickup, and reaches the order" do
+      state = roses() |> new()
+
+      selected =
+        update(state, %{
+          "fulfillment" => %{
+            "methods" => [
+              %{
+                "id" => "pickup",
+                "selected_destination_id" => "loc_a",
+                "destinations" => [%{"id" => "hacked", "name" => "Not yours"}],
+                "groups" => [%{"id" => "group_1", "selected_option_id" => "in_store"}]
+              }
+            ]
+          }
+        })
+
+      assert [%{type: "pickup", destinations: [], selected_destination_id: "loc_a"}] =
+               selected.methods
+
+      doc = pickup(selected)
+
+      assert [
+               %{
+                 "type" => "pickup",
+                 "selected_destination_id" => "loc_a",
+                 "destinations" => [%{"id" => "loc_a", "type" => "business_location"}],
+                 "groups" => [
+                   %{"selected_option_id" => "in_store", "options" => [%{"id" => "in_store"}]}
+                 ]
+               }
+             ] = doc["fulfillment"]["methods"]
+
+      assert doc["status"] == "ready_for_complete"
+      assert total(doc, "total") == 3500
+
+      order = Bazaar.Order.from_checkout(doc, "o1", "https://shop.test/orders/o1")
+      assert {:ok, _} = Bazaar.Validator.validate(order, :order)
+
+      assert [
+               %{
+                 "method_type" => "pickup",
+                 "description" => "In-store pickup",
+                 "destination" => %{"address_locality" => "Springfield"}
+               }
+             ] = order["fulfillment"]["expectations"]
+    end
+
+    test "an unknown location is reported at the method's path and not substituted" do
+      state =
+        roses()
+        |> new()
+        |> update(%{
+          "fulfillment" => %{
+            "methods" => [%{"id" => "pickup", "selected_destination_id" => "loc_zzz"}]
+          }
+        })
+
+      doc = pickup(state)
+      [method] = doc["fulfillment"]["methods"]
+      refute Map.has_key?(method, "selected_destination_id")
+      assert length(method["destinations"]) == 2
+
+      assert [
+               %{
+                 "code" => "invalid",
+                 "severity" => "recoverable",
+                 "path" => "$.fulfillment.methods[0].selected_destination_id"
+               }
+             ] = doc["messages"]
+
+      assert doc["status"] == "incomplete"
     end
   end
 

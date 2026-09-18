@@ -41,11 +41,28 @@ defmodule Bazaar.Checkout do
   send are accepted), a buyer's stored addresses are injected when a method
   carries none, and a destination whose content matches a stored address
   takes over the stored id, so resubmissions land on the same destination.
+
+  ## Pickup
+
+  A `pickup` method's destinations are the business's locations, never the
+  platform's: `build/2` fills them from the `:pickup_locations` function and
+  ignores any the platform wrote, and the platform picks one by its id in
+  `selected_destination_id`. When the platform has sent no fulfillment at
+  all and the business offers pickup, the document carries a pickup method
+  (id `"pickup"`) over every line item listing the locations, preselected
+  from `context.location` when that names one, so a platform can select a
+  store on the next update. An id the business doesn't recognize is
+  reported with an `invalid` error at the method's `selected_destination_id`
+  and no destination is substituted.
   """
 
   alias Bazaar.BuyerConsent
 
   @address_fields ~w(street_address address_locality address_region postal_code address_country)
+
+  # The id of the pickup method the builder offers when the platform sent none,
+  # so a later update naming it resolves to a pickup method.
+  @pickup_method_id "pickup"
 
   # Currency
 
@@ -190,7 +207,7 @@ defmodule Bazaar.Checkout do
       |> Enum.map(fn {method, index} ->
         id = present(method["id"]) || "method_#{index}"
         earlier = Enum.find(previous, &(&1.id == id))
-        type = method["type"] || (earlier && earlier.type) || "shipping"
+        type = method["type"] || (earlier && earlier.type) || default_type(id)
 
         line_item_ids =
           method["line_item_ids"] || (earlier && earlier.line_item_ids) || all_line_ids
@@ -224,12 +241,18 @@ defmodule Bazaar.Checkout do
     %{state | methods: normalized}
   end
 
+  defp default_type(@pickup_method_id), do: "pickup"
+  defp default_type(_id), do: "shipping"
+
   defp stored_addresses(buyer, opts) do
     case Keyword.get(opts, :stored_addresses) do
       nil -> []
       fun -> fun.(buyer) || []
     end
   end
+
+  # Pickup destinations are business-authored at build time; the platform's are dropped.
+  defp resolve_destinations(_provided, _earlier, _stored, "pickup"), do: {[], %{}}
 
   defp resolve_destinations(provided, earlier, stored, type) do
     case provided do
@@ -336,7 +359,11 @@ defmodule Bazaar.Checkout do
     * `:fulfillment_options`: `fn destination, context -> [option] end`, the
       options for a method whose destination is selected; `context` carries
       `method`, the priced `line_items` and the `subtotal`. Options are the
-      spec's (`id`, `title`, `totals` with a `total`).
+      spec's (`id`, `title`, `totals` with a `total`). For a pickup method the
+      destination is a business location (`type` `business_location`).
+    * `:pickup_locations`: `fn context -> [location] end`, the stores a
+      pickup method may be fulfilled at (`id`, `name`, optional `address`),
+      see the pickup rules above. Without it no pickup is offered.
     * `:discount`: `fn code, running_total -> %{"code", "title", "amount"} | nil end`.
       Codes apply in order on the running total (items plus fulfillment), so a
       second percentage discounts the already reduced amount; the library adds
@@ -371,8 +398,12 @@ defmodule Bazaar.Checkout do
 
     context = %{line_items: line_docs, subtotal: subtotal}
 
-    {method_docs, fulfillment_amount} =
-      build_methods(state.methods, Keyword.get(opts, :fulfillment_options), context)
+    locations = pickup_locations(Keyword.get(opts, :pickup_locations), context)
+
+    {method_docs, fulfillment_amount, fulfillment_messages} =
+      state
+      |> methods_to_build(locations)
+      |> build_methods(Keyword.get(opts, :fulfillment_options), context, locations)
 
     {applied, discount_entries} =
       apply_discounts(
@@ -390,7 +421,10 @@ defmodule Bazaar.Checkout do
 
     context = %{total: total, subtotal: subtotal, line_items: line_docs, state: state}
     {payment, term_messages} = payment_doc(state, Keyword.get(opts, :payment_terms), context)
-    messages = line_messages ++ term_messages ++ Keyword.get(opts, :messages, [])
+
+    messages =
+      line_messages ++ fulfillment_messages ++ term_messages ++ Keyword.get(opts, :messages, [])
+
     version = Bazaar.DiscoveryProfile.version()
 
     ucp =
@@ -539,12 +573,85 @@ defmodule Bazaar.Checkout do
 
   # Fulfillment
 
-  defp build_methods(nil, _options_fun, _context), do: {nil, 0}
+  defp pickup_locations(nil, _context), do: nil
 
-  defp build_methods(methods, options_fun, context) do
-    Enum.map_reduce(methods, 0, fn method, amount ->
-      selected = Enum.find(method.destinations, &(&1["id"] == method.selected_destination_id))
+  defp pickup_locations(fun, context) do
+    for location <- fun.(context) || [], do: Map.put(location, "type", "business_location")
+  end
 
+  # With no methods from the platform and pickup on offer, the document
+  # carries a pickup method over everything, preselected from context.location.
+  defp methods_to_build(%{methods: nil} = state, [_ | _] = locations) do
+    line_item_ids = Enum.map(state.line_items, & &1.id)
+    hint = get_in(state.context || %{}, ["location"])
+    selected = if Enum.any?(locations, &(&1["id"] == hint)), do: hint
+
+    [
+      %{
+        id: @pickup_method_id,
+        type: "pickup",
+        line_item_ids: line_item_ids,
+        destinations: [],
+        selected_destination_id: selected,
+        groups: [%{id: "group_1", line_item_ids: line_item_ids, selected_option_id: nil}]
+      }
+    ]
+  end
+
+  defp methods_to_build(state, _locations), do: state.methods
+
+  defp build_methods(nil, _options_fun, _context, _locations), do: {nil, 0, []}
+
+  defp build_methods(methods, options_fun, context, locations) do
+    {docs, {amount, messages}} =
+      methods
+      |> Enum.with_index()
+      |> Enum.map_reduce({0, []}, fn {method, index}, {amount, messages} ->
+        {doc, method_amount, method_messages} =
+          build_method(method, index, options_fun, context, locations)
+
+        {doc, {amount + method_amount, messages ++ method_messages}}
+      end)
+
+    {docs, amount, messages}
+  end
+
+  defp build_method(%{type: "pickup"} = method, index, options_fun, context, locations) do
+    locations = locations || []
+    selected = Enum.find(locations, &(&1["id"] == method.selected_destination_id))
+
+    {destinations, messages} =
+      cond do
+        selected -> {[selected], []}
+        is_nil(method.selected_destination_id) -> {locations, []}
+        true -> {locations, [unknown_location(method, index)]}
+      end
+
+    {doc, amount} =
+      method_doc(%{method | destinations: destinations}, selected, options_fun, context)
+
+    {doc, amount, messages}
+  end
+
+  defp build_method(method, _index, options_fun, context, _locations) do
+    selected = Enum.find(method.destinations, &(&1["id"] == method.selected_destination_id))
+    {doc, amount} = method_doc(method, selected, options_fun, context)
+    {doc, amount, []}
+  end
+
+  defp unknown_location(method, index) do
+    %{
+      "type" => "error",
+      "code" => "invalid",
+      "content" =>
+        "#{method.selected_destination_id} is not a location this method can be fulfilled at",
+      "severity" => "recoverable",
+      "path" => "$.fulfillment.methods[#{index}].selected_destination_id"
+    }
+  end
+
+  defp method_doc(method, selected, options_fun, context) do
+    Enum.map_reduce([method], 0, fn method, amount ->
       options =
         if selected && options_fun, do: options_fun.(selected, Map.put(context, :method, method))
 
@@ -572,6 +679,7 @@ defmodule Bazaar.Checkout do
 
       {doc, amount + method_amount}
     end)
+    |> then(fn {[doc], amount} -> {doc, amount} end)
   end
 
   defp option_amount(nil), do: 0

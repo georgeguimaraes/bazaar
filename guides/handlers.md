@@ -108,6 +108,8 @@ defmodule MyApp.CommerceHandler do
 end
 ```
 
+Pickup: give `build/2` a `pickup_locations` function returning your stores (`id`, `name`, `address`) and the builder offers a pickup method over the whole cart when the platform sent no fulfillment, lists the stores as its destinations (preselected from `context.location` when that names one), narrows to the chosen store once the platform selects one by id, asks `fulfillment_options` for pickup options with the store as the destination, and reports an unknown store id with an error at the method's path instead of substituting. The order's expectation then carries the store's address.
+
 `new/2` and `apply_update/3` turn a request into state with the spec's merge rules: only keys present change, fulfillment methods keep their earlier destinations and groups, a method without groups gets one consolidating group, a buyer's stored addresses are injected when a method carries none. `build/2` prices every line from `item` (unknown products and sold-out ones become error messages, a quantity above stock is clamped with a warning), asks `fulfillment_options` once a destination is selected, applies discount codes in order on the running total, and reports `incomplete` until every error is gone and every method has a destination and option, `ready_for_complete` after. The state is a plain map; set `status` to `:canceled` or `:completed` (with `order_id`) yourself and the document follows. [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) is a complete handler on top of it.
 
 ### create_checkout/2
