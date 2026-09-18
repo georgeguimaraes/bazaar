@@ -293,6 +293,99 @@ defmodule Bazaar.CheckoutTest do
     end
   end
 
+  describe "loyalty and payment terms" do
+    defp terms(%{total: total}) do
+      [
+        %{
+          "id" => "now",
+          "title" => "Pay now",
+          "schedules" => [
+            %{
+              "id" => "full",
+              "type" => "immediate",
+              "description" => %{"plain" => "All of it now"},
+              "amount" => total
+            }
+          ]
+        },
+        %{
+          "id" => "later_#{total}",
+          "title" => "Pay on delivery",
+          "schedules" => [
+            %{
+              "id" => "balance",
+              "type" => "on_delivery",
+              "description" => %{"plain" => "All of it on delivery"},
+              "amount" => total
+            }
+          ]
+        }
+      ]
+    end
+
+    test "offers terms with a default, keeps a selection, and warns when it is lost" do
+      state = roses() |> new()
+      doc = build(state, payment_terms: &terms/1)
+      assert {:ok, _} = Bazaar.Validator.validate(doc, :checkout_payment_terms)
+      assert doc["payment"]["selected_term_id"] == "now"
+      assert [%{"id" => "now"}, %{"id" => "later_3500"}] = doc["payment"]["terms"]
+
+      selected = update(state, %{"payment" => %{"selected_term_id" => "later_3500"}})
+
+      assert build(selected, payment_terms: &terms/1)["payment"]["selected_term_id"] ==
+               "later_3500"
+
+      # Two roses change the total, the chosen term id no longer resolves.
+      changed = update(selected, roses(2))
+      doc = build(changed, payment_terms: &terms/1)
+      assert doc["payment"]["selected_term_id"] == "now"
+      assert [%{"type" => "warning", "code" => "payment_term_changed"}] = doc["messages"]
+      assert doc["status"] == "ready_for_complete"
+
+      order = Bazaar.Order.from_checkout(doc, "o1", "https://shop.test/orders/o1")
+      assert {:ok, _} = Bazaar.Validator.validate(order, :order_payment_terms)
+      assert order["payment"]["accepted_term"]["id"] == "now"
+
+      refute Map.has_key?(build(state)["payment"], "terms")
+    end
+
+    test "answers eligibility claims with the business's memberships" do
+      state = roses() |> Map.put("context", %{"eligibility" => ["com.shop.rewards"]}) |> new()
+      assert Checkout.eligibility(state) == ["com.shop.rewards"]
+      assert Checkout.eligibility(roses() |> new()) == []
+
+      loyalty = fn %{subtotal: subtotal} ->
+        %{
+          "com.shop.rewards" => %{
+            "id" => "m1",
+            "name" => "Rewards",
+            "provisional" => true,
+            "rewards" => [
+              %{
+                "currency" => %{"name" => "Points", "code" => "PTS"},
+                "earning_forecast" => %{"amount" => div(subtotal, 100)}
+              }
+            ]
+          }
+        }
+      end
+
+      doc = build(state, loyalty: loyalty)
+      assert {:ok, _} = Bazaar.Validator.validate(doc, :checkout_loyalty)
+
+      assert get_in(doc, [
+               "loyalty",
+               "com.shop.rewards",
+               "rewards",
+               Access.at(0),
+               "earning_forecast",
+               "amount"
+             ]) == 35
+
+      refute Map.has_key?(build(state), "loyalty")
+    end
+  end
+
   describe "lifecycle and envelope" do
     test "reports canceled and completed with the order reference" do
       state = roses() |> new()

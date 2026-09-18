@@ -47,12 +47,23 @@ defmodule Bazaar.Order do
       "adjustments" => []
     }
     |> maybe_put("buyer", checkout["buyer"])
+    |> maybe_put("payment", accepted_term(checkout["payment"]))
   end
 
   def from_checkout(checkout, _order_id, _permalink_url) do
     raise ArgumentError,
           "checkout #{inspect(checkout["id"])} has no currency, which UCP orders require"
   end
+
+  # The payment terms extension carries the accepted term onto the order.
+  defp accepted_term(%{"terms" => terms, "selected_term_id" => id}) when is_list(terms) do
+    case Enum.find(terms, &(&1["id"] == id)) do
+      nil -> nil
+      term -> %{"accepted_term" => term}
+    end
+  end
+
+  defp accepted_term(_payment), do: nil
 
   defp order_line_item(line) do
     %{

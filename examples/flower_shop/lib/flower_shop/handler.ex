@@ -15,7 +15,18 @@ defmodule FlowerShop.Handler do
 
   @impl true
   def capabilities,
-    do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent, :catalog, :cart, :location]
+    do: [
+      :checkout,
+      :orders,
+      :fulfillment,
+      :discount,
+      :buyer_consent,
+      :catalog,
+      :cart,
+      :location,
+      :loyalty,
+      :payment_terms
+    ]
 
   @impl true
   def business_profile do

@@ -63,6 +63,11 @@ defmodule Bazaar.Handler do
   without the `ucp` metadata; `Bazaar.Location` has the distance, hours,
   amenity and lookup rules.
 
+  ### Loyalty and Payment Terms (extensions)
+  No callbacks: `:loyalty` and `:payment_terms` advertise the extensions and
+  the checkout builder answers them through its `:loyalty` and
+  `:payment_terms` options (see `Bazaar.Checkout.build/2`).
+
   ### Catalog Capability
   - `search_products/2` - Search by `query`, `filters` and `pagination`
   - `lookup_products/2` - Resolve a list of product or variant `ids`
@@ -95,6 +100,8 @@ defmodule Bazaar.Handler do
           | :catalog
           | :cart
           | :location
+          | :loyalty
+          | :payment_terms
 
   # Discovery
   @callback capabilities() :: [capability()]

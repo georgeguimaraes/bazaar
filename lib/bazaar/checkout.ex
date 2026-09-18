@@ -28,7 +28,8 @@ defmodule Bazaar.Checkout do
     * `context`: the platform's localization context, as sent
     * `methods`: fulfillment methods with their destinations and groups, or
       `nil` before the platform sent any
-    * `discount_codes`, `instruments`
+    * `discount_codes`, `instruments`, `selected_term_id` (payment terms
+      extension, from `payment.selected_term_id`)
 
   ## Update rules
 
@@ -86,6 +87,7 @@ defmodule Bazaar.Checkout do
       methods: nil,
       discount_codes: [],
       instruments: [],
+      selected_term_id: nil,
       order_id: nil
     }
     |> apply_update(params, opts)
@@ -108,7 +110,17 @@ defmodule Bazaar.Checkout do
     |> update_methods(get_in(params, ["fulfillment", "methods"]), opts)
     |> update_discounts(params["discounts"])
     |> update_instruments(get_in(params, ["payment", "instruments"]))
+    |> update_selected_term(params["payment"])
   end
+
+  @doc """
+  The loyalty eligibility claims the platform asserted in
+  `context.eligibility`, reverse-DNS strings, `[]` without any.
+  """
+  def eligibility(%{context: %{"eligibility" => claims}}) when is_list(claims),
+    do: Enum.filter(claims, &is_binary/1)
+
+  def eligibility(_state), do: []
 
   defp update_line_items(state, nil), do: state
 
@@ -303,6 +315,11 @@ defmodule Bazaar.Checkout do
     %{state | discount_codes: Enum.filter(codes, &is_binary/1)}
   end
 
+  defp update_selected_term(state, %{"selected_term_id" => id}),
+    do: %{state | selected_term_id: id}
+
+  defp update_selected_term(state, _payment), do: state
+
   defp update_instruments(state, nil), do: state
   defp update_instruments(state, list) when is_list(list), do: %{state | instruments: list}
 
@@ -331,6 +348,17 @@ defmodule Bazaar.Checkout do
     * `:order_url`: `fn order_id -> url end`, the permalink for a completed
       checkout's order (required once `state.order_id` is set)
     * `:messages`: extra messages appended to what pricing found
+    * `:loyalty` (loyalty extension): `fn context -> %{claim => membership} | nil end`
+      with the same context as `:payment_terms`; a map becomes the
+      document's `loyalty`. `eligibility/1` gives the claims to answer.
+    * `:payment_terms` (payment terms extension): `fn %{total, subtotal,
+      line_items, state} -> [term] end`, terms in the spec's shape (`id`,
+      `title`, `schedules` of `id`, `type`, `description`, `amount`). The
+      document carries `payment.terms` and `payment.selected_term_id`: the
+      state's selection when it still resolves, else the first term as the
+      default with a `payment_term_changed` warning when a selection was
+      lost. The selected term's schedules must sum to the total; that is
+      the business's promise.
 
   Status is `canceled` or `completed` from the state, `incomplete` while an
   error message exists or a fulfillment method lacks a destination or option,
@@ -360,7 +388,9 @@ defmodule Bazaar.Checkout do
         fulfillment_entry(state.methods, fulfillment_amount) ++
         discount_entries ++ [%{"type" => "total", "amount" => total}]
 
-    messages = line_messages ++ Keyword.get(opts, :messages, [])
+    context = %{total: total, subtotal: subtotal, line_items: line_docs, state: state}
+    {payment, term_messages} = payment_doc(state, Keyword.get(opts, :payment_terms), context)
+    messages = line_messages ++ term_messages ++ Keyword.get(opts, :messages, [])
     version = Bazaar.DiscoveryProfile.version()
 
     ucp =
@@ -378,11 +408,12 @@ defmodule Bazaar.Checkout do
       "line_items" => line_docs,
       "totals" => totals,
       "links" => Keyword.get(opts, :links, []),
-      "payment" => %{"instruments" => state.instruments},
+      "payment" => payment,
       "messages" => messages
     }
     |> put_unless_nil("buyer", buyer_doc(state))
     |> put_unless_nil("context", state.context)
+    |> put_unless_nil("loyalty", loyalty_doc(Keyword.get(opts, :loyalty), context))
     |> put_unless_nil("fulfillment", method_docs && %{"methods" => method_docs})
     |> put_unless_nil("discounts", discounts_doc(state.discount_codes, applied))
     |> put_unless_nil("order", order_ref(state, Keyword.get(opts, :order_url)))
@@ -398,6 +429,44 @@ defmodule Bazaar.Checkout do
       methods != nil and not fulfillment_ready?(%{"fulfillment" => %{"methods" => methods}})
 
     if errors? or unready?, do: "incomplete", else: "ready_for_complete"
+  end
+
+  defp loyalty_doc(nil, _context), do: nil
+  defp loyalty_doc(fun, context), do: fun.(context)
+
+  # Payment terms: the selection when it resolves, else the first term as the
+  # default, with a warning when a selection was lost to changed options.
+  defp payment_doc(state, terms_fun, context) do
+    terms = if terms_fun, do: terms_fun.(context) || [], else: []
+    instruments = %{"instruments" => state.instruments}
+
+    case terms do
+      [] ->
+        {instruments, []}
+
+      [default | _] ->
+        case Enum.find(terms, &(&1["id"] == state.selected_term_id)) do
+          %{"id" => id} ->
+            {Map.merge(instruments, %{"terms" => terms, "selected_term_id" => id}), []}
+
+          nil ->
+            messages =
+              if state.selected_term_id,
+                do: [
+                  %{
+                    "type" => "warning",
+                    "code" => "payment_term_changed",
+                    "content" =>
+                      "The selected payment term is no longer offered; #{default["title"]} applies",
+                    "path" => "$.payment.selected_term_id"
+                  }
+                ],
+                else: []
+
+            {Map.merge(instruments, %{"terms" => terms, "selected_term_id" => default["id"]}),
+             messages}
+        end
+    end
   end
 
   defp buyer_doc(%{buyer: nil}), do: nil

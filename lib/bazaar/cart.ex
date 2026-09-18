@@ -15,21 +15,21 @@ defmodule Bazaar.Cart do
 
   alias Bazaar.Checkout
 
-  @cart_fields ~w(id line_items currency totals messages buyer context links)
+  @cart_fields ~w(id line_items currency totals messages buyer context links loyalty)
 
   defdelegate new(params, opts \\ []), to: Checkout
   defdelegate apply_update(state, params, opts \\ []), to: Checkout
 
   @doc """
   The cart document for a state. Takes `Bazaar.Checkout.build/2`'s `:item`,
-  `:discount`, `:links` and `:messages`, plus `:continue_url` and
-  `:expires_at` (RFC 3339) for the cart itself.
+  `:discount`, `:links`, `:messages` and `:loyalty`, plus `:continue_url`
+  and `:expires_at` (RFC 3339) for the cart itself.
   """
   def build(state, opts) do
     version = Bazaar.DiscoveryProfile.version()
 
     %{state | methods: nil, instruments: []}
-    |> Checkout.build(Keyword.take(opts, [:item, :discount, :links, :messages]))
+    |> Checkout.build(Keyword.take(opts, [:item, :discount, :links, :messages, :loyalty]))
     |> Map.take(@cart_fields)
     |> Map.reject(fn {key, value} -> key == "links" and value == [] end)
     |> Map.put("ucp", %{

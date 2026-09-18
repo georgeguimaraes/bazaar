@@ -195,6 +195,9 @@ defmodule FlowerShop.Catalog do
     }
   ]
 
+  # The loyalty program: one petal per dollar, a single tier for everyone.
+  @loyalty_program "com.flowershop.rewards"
+
   # How far a store serves, for the location search's `serves` relation.
   @service_radius_m 25_000
 
@@ -277,6 +280,85 @@ defmodule FlowerShop.Catalog do
   end
 
   def payment_handler, do: @payment_handler
+
+  @doc "The reverse-DNS name of the shop's loyalty program."
+  def loyalty_program, do: @loyalty_program
+
+  @doc """
+  The membership for the program, verified for a known customer (masked
+  display id) and provisional for anyone else, with the petals a subtotal earns.
+  """
+  def membership(email, subtotal) do
+    known? = is_binary(email) and Map.has_key?(@customers, String.downcase(email))
+    petals = div(subtotal, 100)
+
+    %{
+      "id" => "mem_" <> Base.encode16(:crypto.hash(:md5, email || ""), case: :lower),
+      "name" => "Flower Shop Rewards",
+      "provisional" => not known?,
+      "tiers" => [
+        %{
+          "id" => "bloomer",
+          "name" => "Bloomer",
+          "benefits" => [%{"id" => "free_wrapping", "description" => "Free gift wrapping"}]
+        }
+      ],
+      "rewards" => [
+        %{
+          "currency" => %{"name" => "Petals", "code" => "PTL"},
+          "earning_forecast" => %{
+            "amount" => petals,
+            "breakdown" => [
+              %{"id" => "base", "amount" => petals, "description" => "1 petal per dollar"}
+            ]
+          }
+        }
+      ]
+    }
+    |> then(fn membership ->
+      if known?,
+        do: Map.put(membership, "display_id", "****" <> String.slice(membership["id"], -4, 4)),
+        else: membership
+    end)
+  end
+
+  @doc "The payment terms for a total: everything now, or half now and half on delivery."
+  def payment_terms(total) do
+    deposit = div(total, 2)
+
+    [
+      %{
+        "id" => "pay_now",
+        "title" => "Pay now",
+        "schedules" => [
+          %{
+            "id" => "full",
+            "type" => "immediate",
+            "description" => %{"plain" => "The full amount when the order is placed"},
+            "amount" => total
+          }
+        ]
+      },
+      %{
+        "id" => "half_now",
+        "title" => "Half now, half on delivery",
+        "schedules" => [
+          %{
+            "id" => "deposit",
+            "type" => "immediate",
+            "description" => %{"plain" => "Half when the order is placed"},
+            "amount" => deposit
+          },
+          %{
+            "id" => "balance",
+            "type" => "on_delivery",
+            "description" => %{"plain" => "The rest when the flowers arrive"},
+            "amount" => total - deposit
+          }
+        ]
+      }
+    ]
+  end
 
   @doc "The stores as UCP location documents."
   def locations, do: @locations

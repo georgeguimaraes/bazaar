@@ -51,7 +51,11 @@ if Code.ensure_loaded?(JSV) do
       catalog_lookup_response: {"shopping/catalog_lookup_resp.json", "lookup_response"},
       catalog_product_response: {"shopping/catalog_lookup_resp.json", "get_product_response"},
       location_search_response: {"common/location_search_resp.json", "search_response"},
-      location_lookup_response: {"common/location_lookup_resp.json", "lookup_response"}
+      location_lookup_response: {"common/location_lookup_resp.json", "lookup_response"},
+      checkout_loyalty: {"common/loyalty_resp.json", "dev.ucp.shopping.checkout"},
+      cart_loyalty: {"common/loyalty_resp.json", "dev.ucp.shopping.cart"},
+      checkout_payment_terms: {"common/payment_terms_resp.json", "dev.ucp.shopping.checkout"},
+      order_payment_terms: {"common/payment_terms_resp.json", "dev.ucp.shopping.order"}
     }
 
     @ucp_schemas [:checkout, :cart, :order, :profile, :error_response] ++ Map.keys(@ucp_defs)
@@ -95,6 +99,8 @@ if Code.ensure_loaded?(JSV) do
     - `:catalog_product_response` - Get product response
     - `:location_search_response` - Location search response
     - `:location_lookup_response` - Location lookup response
+    - `:checkout_loyalty`, `:cart_loyalty` - Checkout and cart with the loyalty extension
+    - `:checkout_payment_terms`, `:order_payment_terms` - Checkout and order with payment terms
 
     ## ACP schemas (from open ACP repo)
 

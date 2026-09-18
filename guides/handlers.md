@@ -48,6 +48,7 @@ Available capabilities:
 - `:checkout` - Checkout sessions
 - `:cart` - Carts before checkout
 - `:location` - Store search and lookup
+- `:loyalty`, `:payment_terms` - Extensions answered by the checkout builder
 - `:orders` - Order tracking and management
 - `:identity` - User identity linking (OAuth)
 
@@ -312,6 +313,28 @@ def get_product(%{"id" => id} = params, _conn) do
   end
 end
 ```
+
+## Loyalty and Payment Terms
+
+Two extensions ride on the checkout document rather than adding routes. Adding `:loyalty` or `:payment_terms` to `capabilities/0` advertises them (with the capabilities they extend); the checkout builder answers them through two options.
+
+Loyalty: the platform asserts claims in `context.eligibility` (reverse-DNS program names). `Bazaar.Checkout.eligibility/1` returns them, and the `:loyalty` function answers with a map of claim to membership (`id`, `name`, `provisional`, optional `display_id`, `tiers`, `rewards` with an `earning_forecast`). A claim you can't verify is `provisional: true` without a `display_id`; a claim you don't run gets a recoverable `eligibility_invalid` error message. The same option works on `Bazaar.Cart.build/2`.
+
+Payment terms: the `:payment_terms` function returns the terms for the checkout (`id`, `title`, `schedules` of `id`, `type`, `description`, `amount`; the selected term's schedules must sum to the total). The document carries `payment.terms` and `payment.selected_term_id`, the platform selects with `payment.selected_term_id` on update, the first term is the default, a lost selection gets a `payment_term_changed` warning, and `Bazaar.Order.from_checkout/3` carries the accepted term onto the order as `payment.accepted_term`.
+
+```elixir
+Bazaar.Checkout.build(state,
+  item: &Shop.item/1,
+  loyalty: fn %{state: state, subtotal: subtotal} ->
+    if "com.shop.rewards" in Bazaar.Checkout.eligibility(state),
+      do: %{"com.shop.rewards" => Shop.membership(state.buyer, subtotal)}
+  end,
+  payment_terms: fn %{total: total} -> Shop.terms(total) end,
+  ...
+)
+```
+
+Validate with `:checkout_loyalty`, `:cart_loyalty`, `:checkout_payment_terms` and `:order_payment_terms`.
 
 ## Location Callbacks
 

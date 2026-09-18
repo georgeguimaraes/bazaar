@@ -43,6 +43,16 @@ defmodule Bazaar.CartTest do
              []
   end
 
+  test "carries loyalty from the business" do
+    loyalty = fn _context ->
+      %{"com.shop.rewards" => %{"id" => "m1", "name" => "Rewards", "provisional" => false}}
+    end
+
+    doc = @params |> Cart.new() |> build(loyalty: loyalty)
+    assert {:ok, _} = Bazaar.Validator.validate(doc, :cart_loyalty)
+    assert %{"com.shop.rewards" => %{"provisional" => false}} = doc["loyalty"]
+  end
+
   test "an update replaces the line items" do
     state =
       @params

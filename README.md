@@ -242,6 +242,8 @@ Bazaar.Validator.validate(data, :catalog_lookup_response)
 Bazaar.Validator.validate(data, :catalog_product_response)
 Bazaar.Validator.validate(data, :location_search_response)
 Bazaar.Validator.validate(data, :location_lookup_response)
+Bazaar.Validator.validate(data, :checkout_loyalty)
+Bazaar.Validator.validate(data, :checkout_payment_terms)
 
 # ACP schemas (via JSV against bundled JSON Schemas with $defs)
 Bazaar.Validator.validate(data, :checkout_session)
@@ -271,6 +273,8 @@ UCP schemas track the [UCP spec](https://ucp.dev) (currently `2026-08-25`). ACP 
 | `:identity` | User identity linking | `link_identity` |
 | `:catalog` | Product discovery | `search_products`, `lookup_products`, `get_product` (see `Bazaar.Catalog` for filters, pagination and option availability) |
 | `:discount` | Discount codes | Extends checkout with discount support |
+| `:loyalty` | Loyalty memberships on checkouts, carts and the catalog | `Bazaar.Checkout.build/2`'s `:loyalty` option, `eligibility/1` for the platform's claims |
+| `:payment_terms` | Selectable payment terms on checkouts, carried onto orders | `Bazaar.Checkout.build/2`'s `:payment_terms` option |
 | `:location` | Store discovery | `search_locations`, `lookup_locations` (see `Bazaar.Location` for distance, hours, amenities and lookup rules) |
 
 ## Schemas

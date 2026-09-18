@@ -51,6 +51,57 @@ defmodule FlowerShop.CheckoutTest do
     end
   end
 
+  describe "loyalty and payment terms" do
+    test "answers the program's claim, verified for a known customer, and flags unknown claims" do
+      known =
+        roses(2)
+        |> Map.merge(%{
+          "buyer" => %{"email" => "john.doe@example.com"},
+          "context" => %{"eligibility" => ["com.flowershop.rewards"]}
+        })
+        |> create()
+        |> Checkout.build()
+
+      assert {:ok, _} = Bazaar.Validator.validate(known, :checkout_loyalty)
+      membership = known["loyalty"]["com.flowershop.rewards"]
+      assert membership["provisional"] == false
+      assert membership["display_id"] =~ ~r/^\*\*\*\*/
+      assert get_in(membership, ["rewards", Access.at(0), "earning_forecast", "amount"]) == 70
+
+      stranger =
+        roses()
+        |> Map.merge(%{
+          "buyer" => %{"email" => "new@example.com"},
+          "context" => %{"eligibility" => ["com.flowershop.rewards", "com.other.club"]}
+        })
+        |> create()
+        |> Checkout.build()
+
+      assert stranger["loyalty"]["com.flowershop.rewards"]["provisional"] == true
+      refute Map.has_key?(stranger["loyalty"]["com.flowershop.rewards"], "display_id")
+
+      assert [%{"code" => "eligibility_invalid", "severity" => "recoverable"}] =
+               stranger["messages"]
+    end
+
+    test "offers two payment terms, pay now by default, and carries the chosen one onto the order" do
+      state = roses() |> create()
+      doc = Checkout.build(state)
+      assert {:ok, _} = Bazaar.Validator.validate(doc, :checkout_payment_terms)
+      assert doc["payment"]["selected_term_id"] == "pay_now"
+
+      chosen = Checkout.apply_update(state, %{"payment" => %{"selected_term_id" => "half_now"}})
+      doc = Checkout.build(chosen)
+
+      assert [%{"amount" => 1750}, %{"amount" => 1750, "type" => "on_delivery"}] =
+               Enum.find(doc["payment"]["terms"], &(&1["id"] == "half_now"))["schedules"]
+
+      order = Bazaar.Order.from_checkout(doc, "order_1", "http://shop.test/orders/order_1")
+      assert {:ok, _} = Bazaar.Validator.validate(order, :order_payment_terms)
+      assert order["payment"]["accepted_term"]["id"] == "half_now"
+    end
+  end
+
   describe "discounts" do
     test "stack sequentially on the running total and echo canonical codes" do
       doc =

@@ -140,6 +140,29 @@ defmodule Bazaar.DiscoveryProfile do
     [{"dev.ucp.shopping.cart", capability("shopping/cart", "shopping/cart")}]
   end
 
+  defp capability_entries(:loyalty, _handler) do
+    entry =
+      "common/extensions/loyalty"
+      |> capability("common/loyalty")
+      |> Map.put("extends", [
+        "dev.ucp.shopping.catalog.search",
+        "dev.ucp.shopping.catalog.lookup",
+        "dev.ucp.shopping.cart",
+        "dev.ucp.shopping.checkout"
+      ])
+
+    [{"dev.ucp.common.loyalty", entry}]
+  end
+
+  defp capability_entries(:payment_terms, _handler) do
+    entry =
+      "payment/extensions/terms"
+      |> capability("common/payment_terms")
+      |> Map.put("extends", ["dev.ucp.shopping.checkout", "dev.ucp.shopping.order"])
+
+    [{"dev.ucp.common.payment.terms", entry}]
+  end
+
   defp capability_entries(:location, _handler) do
     [
       {"dev.ucp.common.location.search",
