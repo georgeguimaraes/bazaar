@@ -173,3 +173,13 @@ end
 
 - [Handlers Guide](handlers.md) - Access plug data in handlers
 - [Testing Guide](testing.md) - Test with plugs
+
+## SignResponse
+
+Signs every successful response with an RFC 9421 signature over `@status`, `Content-Digest` and `Content-Type`, which the spec recommends for checkout completion and payment responses. Platforms verify against the public key you publish as `"keys"` in `business_profile/0`, so pass the same key:
+
+```elixir
+plug Bazaar.Plugs.SignResponse, key: &MyApp.Signing.key/0
+```
+
+`key:` takes a `Bazaar.Signing.Key` or a zero-arity function (for a key loaded at boot); `statuses:` narrows what gets signed (default `200..299`).

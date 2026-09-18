@@ -123,7 +123,7 @@ defmodule MyApp.Shop do
 end
 ```
 
-Every UCP callback (checkout, carts, orders, catalog, locations) is defined by default from the shop and the store, and any of them can be overridden. `Bazaar.Store.ETS` keeps state in memory; implement `Bazaar.Store` on your database for production.
+Every UCP callback (checkout, carts, orders, catalog, locations) is defined by default from the shop and the store, and any of them can be overridden. `Bazaar.Store.ETS` keeps state in memory; `Bazaar.Store.Ecto` (with the migration from `mix bazaar.gen.store`) keeps it in your database.
 
 ### Step 2: Mount Routes
 
@@ -338,6 +338,7 @@ pipeline :ucp do
   plug :accepts, ["json"]
   plug Bazaar.Plugs.UCP              # UCPHeaders (version negotiation) then Idempotency (replay)
   plug Bazaar.Plugs.VerifySignature, http_client: &MyApp.Http.get/1   # RFC 9421 request signatures, when present
+  plug Bazaar.Plugs.SignResponse, key: &MyApp.Signing.key/0            # sign responses with your published key
   plug Bazaar.Plugs.ValidateRequest  # Validate request body
 end
 ```

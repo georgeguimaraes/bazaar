@@ -76,7 +76,20 @@ Everything protocol-shaped happens in the library on top of these: pricing lines
 
 ## The store
 
-`Bazaar.Store` is nine functions over checkouts (states), carts (states), orders (documents) and the cart-to-checkout index. `Bazaar.Store.ETS` is the in-memory one: add it to your supervision tree next to `Bazaar.Idempotency.ETS`. For production, implement the behaviour on your database:
+`Bazaar.Store` is nine functions over checkouts (states), carts (states), orders (documents) and the cart-to-checkout index. `Bazaar.Store.ETS` is the in-memory one: add it to your supervision tree next to `Bazaar.Idempotency.ETS`. For production, `Bazaar.Store.Ecto` runs on your repo:
+
+```bash
+mix bazaar.gen.store        # writes the migration for bazaar_checkouts, bazaar_carts and bazaar_orders
+mix ecto.migrate
+```
+
+```elixir
+defmodule MyApp.CommerceStore do
+  use Bazaar.Store.Ecto, repo: MyApp.Repo
+end
+```
+
+States are stored as opaque binaries and orders as JSON; `prefix:` renames the tables. Or implement the behaviour yourself on whatever you have:
 
 ```elixir
 defmodule MyApp.CommerceStore do

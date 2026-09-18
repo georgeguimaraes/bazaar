@@ -127,7 +127,7 @@ Everything to replace is in `lib/my_store/shop.ex`, one function per fact:
 | `payment_handlers/0` and the handler's `business_profile/0` | the payment handlers you accept |
 | `order_placed/2` | telling the platform about the order with `Bazaar.Webhook.deliver/2` |
 
-Then implement `Bazaar.Store` on your database and pass it as `store:`. The [handlers guide](handlers.md) has every callback, what the defaults do, and how to override one.
+Then move the state to your database: `mix bazaar.gen.store` writes the migration, `use Bazaar.Store.Ecto, repo: MyStore.Repo` is the store, and you pass it as `store:`. The [handlers guide](handlers.md) has every callback, what the defaults do, and how to override one.
 
 If you would rather own the routes and controllers, skip `bazaar_routes`: build the discovery document with `Bazaar.DiscoveryProfile.from_handler/2`, call the callbacks from your own actions, and keep the plugs and builders.
 
