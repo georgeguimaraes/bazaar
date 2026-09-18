@@ -135,6 +135,69 @@ defmodule FlowerShop.Catalog do
 
   @payment_handler %{namespace: "dev.flowershop.mock", id: "mock_payment_handler"}
 
+  # The two stores, in the spec's location shape. Pickup happens in Springfield.
+  @locations [
+    %{
+      "id" => "loc_springfield",
+      "name" => "Flower Shop Springfield",
+      "address" => %{
+        "street_address" => "123 Main St",
+        "address_locality" => "Springfield",
+        "address_region" => "IL",
+        "postal_code" => "62704",
+        "address_country" => "US"
+      },
+      "geo" => %{"latitude" => 39.7817, "longitude" => -89.6501},
+      "amenities" => %{
+        "dev.ucp.amenity.shopping.in_store_pickup" => %{"description" => "In-store pickup"},
+        "dev.ucp.amenity.shopping.curbside_pickup" => %{"description" => "Curbside pickup"},
+        "dev.ucp.amenity.parking" => %{"description" => "Free parking"}
+      },
+      "timezone" => "America/Chicago",
+      "hours" => [
+        %{"day" => "monday", "opens" => "09:00", "closes" => "18:00"},
+        %{"day" => "tuesday", "opens" => "09:00", "closes" => "18:00"},
+        %{"day" => "wednesday", "opens" => "09:00", "closes" => "18:00"},
+        %{"day" => "thursday", "opens" => "09:00", "closes" => "18:00"},
+        %{"day" => "friday", "opens" => "09:00", "closes" => "20:00"},
+        %{"day" => "saturday", "opens" => "10:00", "closes" => "16:00"}
+      ],
+      "exception_hours" => [
+        %{
+          "title" => "Independence Day",
+          "valid_from" => "2026-07-04",
+          "valid_through" => "2026-07-04"
+        }
+      ]
+    },
+    %{
+      "id" => "loc_metropolis",
+      "name" => "Flower Shop Metropolis",
+      "address" => %{
+        "street_address" => "456 Oak Ave",
+        "address_locality" => "Metropolis",
+        "address_region" => "NY",
+        "postal_code" => "10012",
+        "address_country" => "US"
+      },
+      "geo" => %{"latitude" => 40.7259, "longitude" => -73.9986},
+      "amenities" => %{
+        "dev.ucp.amenity.shopping.in_store_pickup" => %{"description" => "In-store pickup"}
+      },
+      "timezone" => "America/New_York",
+      "hours" => [
+        %{"day" => "monday", "opens" => "10:00", "closes" => "19:00"},
+        %{"day" => "tuesday", "opens" => "10:00", "closes" => "19:00"},
+        %{"day" => "wednesday", "opens" => "10:00", "closes" => "19:00"},
+        %{"day" => "thursday", "opens" => "10:00", "closes" => "19:00"},
+        %{"day" => "friday", "opens" => "10:00", "closes" => "19:00"}
+      ]
+    }
+  ]
+
+  # How far a store serves, for the location search's `serves` relation.
+  @service_radius_m 25_000
+
   def product(id), do: Map.get(@products, id)
 
   @doc """
@@ -214,4 +277,26 @@ defmodule FlowerShop.Catalog do
   end
 
   def payment_handler, do: @payment_handler
+
+  @doc "The stores as UCP location documents."
+  def locations, do: @locations
+
+  @doc "Whether a store serves a target: a point within its radius, or an address in its region."
+  def serves?(location, %{"point" => point}),
+    do: Bazaar.Location.distance(location["geo"], point) <= @service_radius_m
+
+  def serves?(location, %{"address" => address}),
+    do: address["address_region"] == location["address"]["address_region"]
+
+  def serves?(_location, _target), do: false
+
+  @doc "Every store stocks what the catalog has in stock."
+  def stocks?(_location, item_ids) do
+    Enum.all?(item_ids, fn id ->
+      case product(id) do
+        %{stock: stock} -> stock > 0
+        nil -> false
+      end
+    end)
+  end
 end

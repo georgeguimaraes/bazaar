@@ -36,7 +36,8 @@ defmodule Bazaar.DiscoveryProfileTest do
         :discount,
         :buyer_consent,
         :catalog,
-        :cart
+        :cart,
+        :location
       ]
 
     @impl true
@@ -175,6 +176,8 @@ defmodule Bazaar.DiscoveryProfileTest do
       assert consent["extends"] == "dev.ucp.shopping.checkout"
 
       assert Map.has_key?(capabilities, "dev.ucp.shopping.cart")
+      assert Map.has_key?(capabilities, "dev.ucp.common.location.search")
+      assert Map.has_key?(capabilities, "dev.ucp.common.location.lookup")
       assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.search")
       assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.lookup")
     end

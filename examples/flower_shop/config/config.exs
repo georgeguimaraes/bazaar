@@ -9,3 +9,6 @@ config :flower_shop, FlowerShopWeb.Endpoint,
 config :phoenix, :json_library, Jason
 
 config :logger, level: :info
+
+# Store hours are evaluated in each store's own time zone.
+config :elixir, :time_zone_database, Tz.TimeZoneDatabase

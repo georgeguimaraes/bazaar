@@ -58,6 +58,8 @@ defmodule Bazaar.Phoenix.Router do
   | GET | `/carts/:id` | Get cart |
   | PUT | `/carts/:id` | Update cart |
   | POST | `/carts/:id/cancel` | Cancel cart |
+  | POST | `/locations/search` | Search locations |
+  | POST | `/locations/lookup` | Look up locations by id |
   | POST | `/catalog/search` | Search products |
   | POST | `/catalog/lookup` | Look up products by id |
   | POST | `/catalog/product` | Get one product |
@@ -203,6 +205,7 @@ defmodule Bazaar.Phoenix.Router do
         Bazaar.Phoenix.Router.mount_identity(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_cart(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_catalog(unquote(assigns), unquote(capabilities))
+        Bazaar.Phoenix.Router.mount_location(unquote(assigns), unquote(capabilities))
         Bazaar.Phoenix.Router.mount_webhooks(unquote(assigns), unquote(opts))
       end
     end
@@ -245,6 +248,21 @@ defmodule Bazaar.Phoenix.Router do
         put("/carts/:id", Bazaar.Phoenix.Controller, :update_cart, assigns: unquote(assigns))
 
         post("/carts/:id/cancel", Bazaar.Phoenix.Controller, :cancel_cart,
+          assigns: unquote(assigns)
+        )
+      end
+    end
+  end
+
+  @doc false
+  defmacro mount_location(assigns, capabilities) do
+    quote do
+      if :location in unquote(capabilities) do
+        post("/locations/search", Bazaar.Phoenix.Controller, :search_locations,
+          assigns: unquote(assigns)
+        )
+
+        post("/locations/lookup", Bazaar.Phoenix.Controller, :lookup_locations,
           assigns: unquote(assigns)
         )
       end

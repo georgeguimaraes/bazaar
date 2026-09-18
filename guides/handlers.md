@@ -47,6 +47,7 @@ def capabilities, do: [:checkout, :orders, :identity]
 Available capabilities:
 - `:checkout` - Checkout sessions
 - `:cart` - Carts before checkout
+- `:location` - Store search and lookup
 - `:orders` - Order tracking and management
 - `:identity` - User identity linking (OAuth)
 
@@ -308,6 +309,32 @@ def get_product(%{"id" => id} = params, _conn) do
   case Bazaar.Catalog.find(Shop.products(), id) do
     nil -> {:error, :not_found}
     product -> {:ok, %{"product" => Bazaar.Catalog.detail_product(product, params["selected"])}}
+  end
+end
+```
+
+## Location Callbacks
+
+If you include `:location` in capabilities, `bazaar_routes` mounts `POST /locations/search` and `POST /locations/lookup` and advertises `dev.ucp.common.location.search` and `.lookup`. Locations are string-keyed maps in the spec's shape: `id`, `name`, `address`, `geo`, `amenities` (keyed by reverse-DNS amenity id), `hours`, `exception_hours` and `timezone`.
+
+`Bazaar.Location.filter/3` applies the request's predicates with AND: `distance` (a WGS 84 geodesic against `geo`), `filters.amenities`, `filters.hours.open_at` (evaluated in the location's own time zone, which needs the `tz` or `tzdata` package configured as `:elixir, :time_zone_database`), and through your functions `serves` (does a store serve a point or an address?) and `filters.items` (does it stock these items?). A predicate you gave no function for makes the request fail with `:unsupported_filter`, as the spec asks, rather than being ignored. `lookup/3` dedupes ids, applies the batch limit, correlates `inputs` and writes the `not_found` and `batch_limit_applied` messages.
+
+```elixir
+@impl true
+def search_locations(params, _conn) do
+  with {:ok, locations} <-
+         Bazaar.Location.filter(Shop.locations(), params, serves: &Shop.serves?/2, items: &Shop.stocks?/2) do
+    {page, pagination} = Bazaar.Location.paginate(locations, params["pagination"])
+    {:ok, %{"locations" => page, "pagination" => pagination}}
+  end
+end
+
+@impl true
+def lookup_locations(%{"ids" => ids} = params, _conn) do
+  {locations, messages} = Bazaar.Location.lookup(Shop.locations(), ids)
+
+  with {:ok, locations} <- Bazaar.Location.filter(locations, params, serves: &Shop.serves?/2) do
+    {:ok, %{"locations" => locations, "messages" => messages}}
   end
 end
 ```

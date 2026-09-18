@@ -15,7 +15,7 @@ defmodule FlowerShop.Handler do
 
   @impl true
   def capabilities,
-    do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent, :catalog, :cart]
+    do: [:checkout, :orders, :fulfillment, :discount, :buyer_consent, :catalog, :cart, :location]
 
   @impl true
   def business_profile do
@@ -80,6 +80,35 @@ defmodule FlowerShop.Handler do
         {:ok, %{"product" => detail}}
     end
   end
+
+  # Locations: the query matches store names; distance, hours and amenities
+  # are the library's, serving and stock are the shop's.
+
+  @impl true
+  def search_locations(params, _conn) do
+    stores = Enum.filter(Catalog.locations(), &store_matches?(&1, params["query"]))
+
+    with {:ok, locations} <- Bazaar.Location.filter(stores, params, location_opts()) do
+      {page, pagination} = Bazaar.Location.paginate(locations, params["pagination"])
+      {:ok, %{"locations" => page, "pagination" => pagination}}
+    end
+  end
+
+  @impl true
+  def lookup_locations(%{"ids" => ids} = params, _conn) do
+    {locations, messages} = Bazaar.Location.lookup(Catalog.locations(), ids)
+
+    with {:ok, locations} <- Bazaar.Location.filter(locations, params, location_opts()) do
+      {:ok, %{"locations" => locations, "messages" => messages}}
+    end
+  end
+
+  defp location_opts, do: [serves: &Catalog.serves?/2, items: &Catalog.stocks?/2]
+
+  defp store_matches?(_location, query) when query in [nil, ""], do: true
+
+  defp store_matches?(location, query),
+    do: String.contains?(String.downcase(location["name"]), String.downcase(query))
 
   # Carts
 

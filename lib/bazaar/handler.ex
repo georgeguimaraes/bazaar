@@ -54,6 +54,15 @@ defmodule Bazaar.Handler do
     buyer and context (`Bazaar.Checkout.from_cart/3`) and must answer with
     the existing checkout when one was already created for that cart.
 
+  ### Location Capability
+  - `search_locations/2` - Find stores by `query`, `distance`, `serves`,
+    `filters` (amenities, hours, items) and `pagination`
+  - `lookup_locations/2` - Resolve a list of location `ids`
+
+  Both take the request body and return `{:ok, %{"locations" => [...], ...}}`
+  without the `ucp` metadata; `Bazaar.Location` has the distance, hours,
+  amenity and lookup rules.
+
   ### Catalog Capability
   - `search_products/2` - Search by `query`, `filters` and `pagination`
   - `lookup_products/2` - Resolve a list of product or variant `ids`
@@ -85,6 +94,7 @@ defmodule Bazaar.Handler do
           | :buyer_consent
           | :catalog
           | :cart
+          | :location
 
   # Discovery
   @callback capabilities() :: [capability()]
@@ -123,6 +133,12 @@ defmodule Bazaar.Handler do
   @callback cancel_cart(id(), conn()) ::
               {:ok, map()} | {:error, :not_found | term()}
 
+  # Location capability
+  @callback search_locations(params(), conn()) ::
+              {:ok, map()} | {:error, term()}
+  @callback lookup_locations(params(), conn()) ::
+              {:ok, map()} | {:error, term()}
+
   # Catalog capability
   @callback search_products(params(), conn()) ::
               {:ok, map()} | {:error, term()}
@@ -157,6 +173,9 @@ defmodule Bazaar.Handler do
     get_cart: 2,
     update_cart: 3,
     cancel_cart: 2,
+    # Location
+    search_locations: 2,
+    lookup_locations: 2,
     # Catalog
     search_products: 2,
     lookup_products: 2,

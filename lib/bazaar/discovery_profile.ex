@@ -140,6 +140,15 @@ defmodule Bazaar.DiscoveryProfile do
     [{"dev.ucp.shopping.cart", capability("shopping/cart", "shopping/cart")}]
   end
 
+  defp capability_entries(:location, _handler) do
+    [
+      {"dev.ucp.common.location.search",
+       capability("common/location/search", "common/location_search")},
+      {"dev.ucp.common.location.lookup",
+       capability("common/location/lookup", "common/location_lookup")}
+    ]
+  end
+
   defp capability_entries(:catalog, _handler) do
     [
       {"dev.ucp.shopping.catalog.search",

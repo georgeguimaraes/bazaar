@@ -45,15 +45,16 @@ if Code.ensure_loaded?(JSV) do
       delegate_payment_resp: {"delegate_payment.json", "DelegatePaymentResponse"}
     }
 
-    # UCP catalog schemas live as $defs of one file per capability: {file, def_name}
-    @ucp_catalog_defs %{
+    # UCP schemas that live as $defs of a capability file: {file, def_name}
+    @ucp_defs %{
       catalog_search_response: {"shopping/catalog_search_resp.json", "search_response"},
       catalog_lookup_response: {"shopping/catalog_lookup_resp.json", "lookup_response"},
-      catalog_product_response: {"shopping/catalog_lookup_resp.json", "get_product_response"}
+      catalog_product_response: {"shopping/catalog_lookup_resp.json", "get_product_response"},
+      location_search_response: {"common/location_search_resp.json", "search_response"},
+      location_lookup_response: {"common/location_lookup_resp.json", "lookup_response"}
     }
 
-    @ucp_schemas [:checkout, :cart, :order, :profile, :error_response] ++
-                   Map.keys(@ucp_catalog_defs)
+    @ucp_schemas [:checkout, :cart, :order, :profile, :error_response] ++ Map.keys(@ucp_defs)
     @acp_bundle_schemas Map.keys(@acp_bundle_defs)
 
     # Convenience functions
@@ -92,6 +93,8 @@ if Code.ensure_loaded?(JSV) do
     - `:catalog_search_response` - Catalog search response
     - `:catalog_lookup_response` - Catalog lookup response
     - `:catalog_product_response` - Get product response
+    - `:location_search_response` - Location search response
+    - `:location_lookup_response` - Location lookup response
 
     ## ACP schemas (from open ACP repo)
 
@@ -172,8 +175,8 @@ if Code.ensure_loaded?(JSV) do
 
     # Private: UCP schema loading
 
-    defp get_ucp_schema(schema_name) when is_map_key(@ucp_catalog_defs, schema_name) do
-      {file, def_name} = @ucp_catalog_defs[schema_name]
+    defp get_ucp_schema(schema_name) when is_map_key(@ucp_defs, schema_name) do
+      {file, def_name} = @ucp_defs[schema_name]
 
       # The file keeps its $id so the relative refs inside the def resolve.
       with {:ok, schema} <- read_json(Path.join(@ucp_schemas_dir, file)) do

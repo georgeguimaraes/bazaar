@@ -54,7 +54,9 @@ defmodule Bazaar.Plugs.ValidateResponse do
     cancel_order: :order,
     search_products: :catalog_search_response,
     lookup_products: :catalog_lookup_response,
-    get_product: :catalog_product_response
+    get_product: :catalog_product_response,
+    search_locations: :location_search_response,
+    lookup_locations: :location_lookup_response
   }
 
   @acp_schemas %{

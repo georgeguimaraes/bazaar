@@ -410,6 +410,32 @@ defmodule Bazaar.Phoenix.Controller do
 
   def get_product(conn, _params), do: missing(conn, :missing_id)
 
+  # Location (UCP only, same binding shape as the catalog)
+
+  def search_locations(conn, params) do
+    discovery_action(
+      conn,
+      [:bazaar, :location, :search],
+      &Bazaar.Location.envelope(&1, :search),
+      fn handler ->
+        handler.search_locations(params, conn)
+      end
+    )
+  end
+
+  def lookup_locations(conn, %{"ids" => [_ | _]} = params) do
+    discovery_action(
+      conn,
+      [:bazaar, :location, :lookup],
+      &Bazaar.Location.envelope(&1, :lookup),
+      fn handler ->
+        handler.lookup_locations(params, conn)
+      end
+    )
+  end
+
+  def lookup_locations(conn, _params), do: missing(conn, :missing_ids)
+
   # The schemas require them, so a handler never sees a body without.
   defp missing(conn, reason) do
     conn
@@ -418,22 +444,31 @@ defmodule Bazaar.Phoenix.Controller do
   end
 
   defp catalog(conn, operation, fun) do
+    envelope = &Bazaar.Catalog.envelope(&1, catalog_capability(operation))
+    discovery_action(conn, [:bazaar, :catalog, operation], envelope, fun, operation == :get)
+  end
+
+  defp catalog_capability(:search), do: :search
+  defp catalog_capability(_lookup_or_get), do: :lookup
+
+  # Discovery operations answer 200 with an enveloped document; a single
+  # unknown resource is the spec's error document, still a 200.
+  defp discovery_action(conn, span, envelope, fun, not_found_in_band? \\ false) do
     handler = conn.assigns.bazaar_handler
 
     result =
-      Telemetry.span_with_metadata([:bazaar, :catalog, operation], %{}, fn ->
+      Telemetry.span_with_metadata(span, %{}, fn ->
         case fun.(handler) do
-          {:ok, document} -> {{:ok, document}, %{count: catalog_count(document)}}
+          {:ok, document} -> {{:ok, document}, %{count: document_count(document)}}
           error -> {error, %{}}
         end
       end)
 
     case result do
       {:ok, document} ->
-        json(conn, Bazaar.Catalog.envelope(document, catalog_capability(operation)))
+        json(conn, envelope.(document))
 
-      # Unknown product: the spec's error document, still a 200.
-      {:error, :not_found} when operation == :get ->
+      {:error, :not_found} when not_found_in_band? ->
         json(conn, Bazaar.Errors.response(:not_found))
 
       {:error, reason} ->
@@ -443,12 +478,10 @@ defmodule Bazaar.Phoenix.Controller do
     end
   end
 
-  defp catalog_capability(:search), do: :search
-  defp catalog_capability(_lookup_or_get), do: :lookup
-
-  defp catalog_count(%{"products" => products}) when is_list(products), do: length(products)
-  defp catalog_count(%{"product" => _}), do: 1
-  defp catalog_count(_document), do: 0
+  defp document_count(%{"products" => list}) when is_list(list), do: length(list)
+  defp document_count(%{"locations" => list}) when is_list(list), do: length(list)
+  defp document_count(%{"product" => _}), do: 1
+  defp document_count(_document), do: 0
 
   # Webhooks
 
