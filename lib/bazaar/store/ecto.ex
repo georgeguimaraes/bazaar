@@ -15,7 +15,10 @@ defmodule Bazaar.Store.Ecto do
   the conversion index.
 
   Options: `:repo` (required), `:prefix` for the table names (default
-  `"bazaar_"`). Needs `ecto_sql` in your app.
+  `"bazaar_"`). Needs `ecto_sql` in your app. Writes are upserts on the id
+  (`on_conflict` with a `conflict_target`), which Postgres and SQLite
+  support; MySQL does not. The `state` columns are bazaar's to read and
+  write: they hold Erlang terms, not something to query.
   """
 
   defmodule Checkout do

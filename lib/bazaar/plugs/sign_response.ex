@@ -14,6 +14,10 @@ defmodule Bazaar.Plugs.SignResponse do
     (for keys loaded at boot), required
   - `:statuses` - the statuses to sign (default: `200..299`)
 
+  Mount it after every plug that can answer on its own (`Bazaar.Plugs.UCP`
+  replays idempotent responses with the headers they were first sent with,
+  signature included) and before anything that rewrites the body.
+
   Emits `[:bazaar, :plug, :sign_response]` spans with the signed status.
   """
 

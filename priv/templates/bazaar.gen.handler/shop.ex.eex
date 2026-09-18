@@ -87,4 +87,8 @@ defmodule <%= @shop %> do
   # Bazaar.Webhook.deliver/2 (see the handlers guide, "Sending Order Events").
   @impl true
   def order_placed(_order, _conn), do: :ok
+
+  # TODO: send the full order again after every change (events, adjustments).
+  @impl true
+  def order_updated(_order, _conn), do: :ok
 <% end %>end

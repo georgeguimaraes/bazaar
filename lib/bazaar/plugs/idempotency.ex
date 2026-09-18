@@ -85,8 +85,16 @@ defmodule Bazaar.Plugs.Idempotency do
     fingerprint = :erlang.phash2({conn.method, conn.request_path, conn.body_params})
 
     case store_module.fetch(store, key) do
-      {:ok, %{fingerprint: ^fingerprint, status: status, body: body}} ->
-        {conn |> send_json(status, body) |> halt(), %{key: key, outcome: :replay}}
+      {:ok, %{fingerprint: ^fingerprint, status: status, body: body} = record} ->
+        # The same response as first sent, headers included (content type,
+        # digest and signature among them), plus this request's own key echo.
+        conn =
+          conn
+          |> merge_resp_headers(Map.get(record, :headers, []))
+          |> send_json(status, body)
+          |> halt()
+
+        {conn, %{key: key, outcome: :replay}}
 
       {:ok, %{fingerprint: ^fingerprint, reserved_at: reserved_at}} ->
         if stale?(reserved_at, opts.reservation_ttl) do
@@ -117,6 +125,7 @@ defmodule Bazaar.Plugs.Idempotency do
               store_module.put(store, key, %{
                 fingerprint: fingerprint,
                 status: conn.status,
+                headers: List.keydelete(conn.resp_headers, "idempotency-key", 0),
                 body: IO.iodata_to_binary(conn.resp_body)
               })
             else

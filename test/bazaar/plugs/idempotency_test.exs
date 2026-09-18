@@ -47,6 +47,7 @@ defmodule Bazaar.Plugs.IdempotencyTest do
         assert replay.status == 201
         assert replay.resp_body == first.resp_body
         assert get_resp_header(replay, "idempotency-key") == ["key-1"]
+        assert Enum.sort(replay.resp_headers) == Enum.sort(first.resp_headers)
       end
 
       test "conflicts when the same key carries a different body", %{opts: opts} do
