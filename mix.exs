@@ -42,6 +42,8 @@ defmodule Bazaar.MixProject do
       {:cachex, "~> 4.1", optional: true},
       {:plug, "~> 1.16", optional: true},
       {:phoenix, "~> 1.7", optional: true},
+      {:ecto_sql, "~> 3.12", only: :test},
+      {:ecto_sqlite3, "~> 0.17", only: :test},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]

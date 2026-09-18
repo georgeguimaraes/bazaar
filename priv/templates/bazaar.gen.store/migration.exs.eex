@@ -1,0 +1,26 @@
+defmodule <%= @module %> do
+  use Ecto.Migration
+
+  def change do
+    create table(:<%= @prefix %>checkouts, primary_key: false) do
+      add :id, :string, primary_key: true
+      add :state, :binary, null: false
+      add :cart_id, :string
+      timestamps(type: :utc_datetime)
+    end
+
+    create index(:<%= @prefix %>checkouts, [:cart_id])
+
+    create table(:<%= @prefix %>carts, primary_key: false) do
+      add :id, :string, primary_key: true
+      add :state, :binary, null: false
+      timestamps(type: :utc_datetime)
+    end
+
+    create table(:<%= @prefix %>orders, primary_key: false) do
+      add :id, :string, primary_key: true
+      add :document, :map, null: false
+      timestamps(type: :utc_datetime)
+    end
+  end
+end
