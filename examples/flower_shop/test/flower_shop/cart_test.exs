@@ -17,9 +17,16 @@ defmodule FlowerShop.CartTest do
 
   test "creates, replaces, cancels, and then the cart is gone" do
     {:ok, cart} =
-      Handler.create_cart(Map.put(@roses, "buyer", %{"email" => "c@example.com"}), nil)
+      Handler.create_cart(
+        Map.merge(@roses, %{
+          "buyer" => %{"email" => "c@example.com"},
+          "context" => %{"eligibility" => ["com.flowershop.rewards"]}
+        }),
+        nil
+      )
 
-    valid(cart, :cart)
+    valid(cart, :cart_loyalty)
+    assert cart["loyalty"]["com.flowershop.rewards"]["provisional"] == true
     assert [%{"totals" => [%{"amount" => 7000}, _]}] = cart["line_items"]
     assert cart["continue_url"] =~ "/carts/" <> cart["id"]
 

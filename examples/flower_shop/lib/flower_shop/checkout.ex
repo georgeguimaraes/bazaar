@@ -43,31 +43,21 @@ defmodule FlowerShop.Checkout do
       order_url: &(state.base_url <> "/orders/" <> &1),
       loyalty: &loyalty/1,
       payment_terms: fn %{total: total} -> Catalog.payment_terms(total) end,
-      messages: unknown_claims(state) ++ Keyword.get(opts, :messages, [])
+      messages: Keyword.get(opts, :messages, [])
     )
   end
 
-  # The program's claim gets a membership; a claim the shop doesn't run is
-  # reported, as the loyalty extension asks, with a recoverable error.
-  defp loyalty(%{state: state, subtotal: subtotal}) do
+  # The program's claim gets a membership; claims for programs the shop
+  # doesn't run are ignored (the extension defines eligibility_invalid only for
+  # a recognized claim that fails verification).
+  @doc "The membership for the program's claim, `nil` when the platform made none."
+  def loyalty(%{state: state, subtotal: subtotal}) do
     if Catalog.loyalty_program() in Checkout.eligibility(state),
       do: %{
         Catalog.loyalty_program() =>
           Catalog.membership(state.buyer && state.buyer["email"], subtotal)
       },
       else: nil
-  end
-
-  defp unknown_claims(state) do
-    for claim <- Checkout.eligibility(state), claim != Catalog.loyalty_program() do
-      %{
-        "type" => "error",
-        "code" => "eligibility_invalid",
-        "content" => "#{claim} is not a program this shop runs",
-        "severity" => "recoverable",
-        "path" => "$.context.eligibility"
-      }
-    end
   end
 
   @doc "A known customer's stored addresses, by email."

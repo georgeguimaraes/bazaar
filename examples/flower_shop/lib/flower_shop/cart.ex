@@ -15,6 +15,7 @@ defmodule FlowerShop.Cart do
     Cart.build(state,
       item: &FlowerShop.Checkout.item/1,
       discount: &FlowerShop.Checkout.discount/2,
+      loyalty: &FlowerShop.Checkout.loyalty/1,
       continue_url: state.base_url <> "/carts/" <> state.id
     )
   end

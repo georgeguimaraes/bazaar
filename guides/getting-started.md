@@ -40,7 +40,7 @@ mix deps.get
 mix bazaar.gen.handler MyStore.CommerceHandler --name "My Store"
 ```
 
-This writes `lib/my_store/commerce_handler.ex` and `lib/my_store/commerce_handler/store.ex`, and prints the wiring below. The default capabilities are checkout, orders and fulfillment; add `--capabilities checkout,orders,fulfillment,discount,cart,catalog` for everything bazaar serves.
+This writes `lib/my_store/commerce_handler.ex` and `lib/my_store/commerce_handler/store.ex`, and prints the wiring below. The default capabilities are checkout, orders and fulfillment; add `--capabilities checkout,orders,fulfillment,discount,cart,catalog` for everything the scaffold generates (location, loyalty and payment terms are opt-in beyond it, see the handlers guide).
 
 The handler implements `Bazaar.Handler` on top of `Bazaar.Checkout` (and `Bazaar.Cart`, `Bazaar.Catalog`, `Bazaar.Order` when those capabilities are on). The protocol rules live in the library; the functions at the bottom of the file, under "Your store", are placeholders with a sample product, one flat shipping rate and an in-memory store, so the app works before you have written any commerce code.
 

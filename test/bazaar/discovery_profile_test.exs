@@ -191,6 +191,31 @@ defmodule Bazaar.DiscoveryProfileTest do
       assert Map.has_key?(capabilities, "dev.ucp.shopping.catalog.lookup")
     end
 
+    test "extensions extend only the capabilities the handler advertises, and the profile validates" do
+      defmodule CheckoutOnlyExtensions do
+        use Bazaar.Handler
+
+        @impl true
+        def capabilities, do: [:checkout, :loyalty, :payment_terms]
+      end
+
+      profile = DiscoveryProfile.from_handler(CheckoutOnlyExtensions)
+      assert {:ok, _} = Bazaar.Validator.validate(profile, :profile)
+      capabilities = profile["ucp"]["capabilities"]
+
+      assert [%{"extends" => ["dev.ucp.shopping.checkout"]}] =
+               capabilities["dev.ucp.common.loyalty"]
+
+      assert [%{"extends" => ["dev.ucp.shopping.checkout"]}] =
+               capabilities["dev.ucp.common.payment.terms"]
+
+      assert {:ok, _} =
+               Bazaar.Validator.validate(
+                 DiscoveryProfile.from_handler(EverythingHandler),
+                 :profile
+               )
+    end
+
     test "carries the fulfillment config on the fulfillment capability" do
       profile = DiscoveryProfile.from_handler(EverythingHandler)
       [fulfillment] = profile["ucp"]["capabilities"]["dev.ucp.shopping.fulfillment"]

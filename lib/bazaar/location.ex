@@ -62,7 +62,8 @@ defmodule Bazaar.Location do
 
   A predicate the business gave no function for is unsupported, and the
   spec has the request rejected rather than the predicate ignored:
-  `{:error, :unsupported_filter}`.
+  `{:error, :unsupported_filter}`. A `distance` without a numeric center
+  and max is `{:error, :invalid_distance}`.
   """
   def filter(locations, request, opts \\ []) do
     with :ok <- supported(request, opts) do
@@ -72,6 +73,9 @@ defmodule Bazaar.Location do
 
   defp supported(request, opts) do
     cond do
+      not is_nil(request["distance"]) and not distance?(request["distance"]) ->
+        {:error, :invalid_distance}
+
       is_map(request["serves"]) and is_nil(opts[:serves]) ->
         {:error, :unsupported_filter}
 
@@ -92,6 +96,11 @@ defmodule Bazaar.Location do
       open_at?(location, get_in(filters, ["hours", "open_at"])) and
       stocks?(location, filters["items"], opts[:items])
   end
+
+  defp distance?(%{"center" => %{"latitude" => lat, "longitude" => lon}, "max" => max}),
+    do: is_number(lat) and is_number(lon) and is_number(max)
+
+  defp distance?(_distance), do: false
 
   defp within?(_location, nil), do: true
 

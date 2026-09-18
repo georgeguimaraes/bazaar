@@ -140,25 +140,35 @@ defmodule Bazaar.DiscoveryProfile do
     [{"dev.ucp.shopping.cart", capability("shopping/cart", "shopping/cart")}]
   end
 
-  defp capability_entries(:loyalty, _handler) do
+  # Extensions extend only the capabilities this handler advertises.
+  defp capability_entries(:loyalty, handler) do
     entry =
       "common/extensions/loyalty"
       |> capability("common/loyalty")
-      |> Map.put("extends", [
-        "dev.ucp.shopping.catalog.search",
-        "dev.ucp.shopping.catalog.lookup",
-        "dev.ucp.shopping.cart",
-        "dev.ucp.shopping.checkout"
-      ])
+      |> Map.put(
+        "extends",
+        extended(handler, [
+          {:catalog, "dev.ucp.shopping.catalog.search"},
+          {:catalog, "dev.ucp.shopping.catalog.lookup"},
+          {:cart, "dev.ucp.shopping.cart"},
+          {:checkout, "dev.ucp.shopping.checkout"}
+        ])
+      )
 
     [{"dev.ucp.common.loyalty", entry}]
   end
 
-  defp capability_entries(:payment_terms, _handler) do
+  defp capability_entries(:payment_terms, handler) do
     entry =
       "payment/extensions/terms"
       |> capability("common/payment_terms")
-      |> Map.put("extends", ["dev.ucp.shopping.checkout", "dev.ucp.shopping.order"])
+      |> Map.put(
+        "extends",
+        extended(handler, [
+          {:checkout, "dev.ucp.shopping.checkout"},
+          {:orders, "dev.ucp.shopping.order"}
+        ])
+      )
 
     [{"dev.ucp.common.payment.terms", entry}]
   end
@@ -179,6 +189,11 @@ defmodule Bazaar.DiscoveryProfile do
       {"dev.ucp.shopping.catalog.lookup",
        capability("shopping/catalog/lookup", "shopping/catalog_lookup")}
     ]
+  end
+
+  defp extended(handler, candidates) do
+    capabilities = handler.capabilities()
+    for {capability, name} <- candidates, capability in capabilities, do: name
   end
 
   defp capability(spec_path, schema_path) do

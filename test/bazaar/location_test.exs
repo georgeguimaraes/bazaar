@@ -67,6 +67,9 @@ defmodule Bazaar.LocationTest do
 
       assert Location.filter([shop], request) == {:error, :unsupported_filter}
 
+      assert Location.filter([shop], %{"distance" => %{"center" => %{"latitude" => 1}}}) ==
+               {:error, :invalid_distance}
+
       assert {:ok, [^shop]} =
                Location.filter([shop], request,
                  serves: fn _location, %{"point" => _} -> true end,

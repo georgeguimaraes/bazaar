@@ -52,7 +52,7 @@ defmodule FlowerShop.CheckoutTest do
   end
 
   describe "loyalty and payment terms" do
-    test "answers the program's claim, verified for a known customer, and flags unknown claims" do
+    test "answers the program's claim, verified for a known customer, provisional otherwise" do
       known =
         roses(2)
         |> Map.merge(%{
@@ -80,8 +80,9 @@ defmodule FlowerShop.CheckoutTest do
       assert stranger["loyalty"]["com.flowershop.rewards"]["provisional"] == true
       refute Map.has_key?(stranger["loyalty"]["com.flowershop.rewards"], "display_id")
 
-      assert [%{"code" => "eligibility_invalid", "severity" => "recoverable"}] =
-               stranger["messages"]
+      # A program the shop doesn't run is simply not answered.
+      refute Map.has_key?(stranger["loyalty"], "com.other.club")
+      assert stranger["messages"] == []
     end
 
     test "offers two payment terms, pay now by default, and carries the chosen one onto the order" do
