@@ -4,121 +4,76 @@ This guide shows you how to test your Bazaar implementation.
 
 ## Testing Handlers
 
-### Basic Handler Test
+`Bazaar.Test` drives `Bazaar.Phoenix.Controller` with your handler assigned, the way `bazaar_routes` does, and validates documents against the bundled spec schemas (needs the `jsv` dependency). Start `Bazaar.Store.ETS` in `test_helper.exs` when the handler uses it.
 
 ```elixir
-defmodule MyApp.UCPHandlerTest do
+# test/test_helper.exs
+{:ok, _} = Bazaar.Store.ETS.start_link()
+ExUnit.start()
+```
+
+```elixir
+defmodule MyApp.CommerceHandlerTest do
   use ExUnit.Case, async: true
 
-  alias MyApp.UCPHandler
+  import Bazaar.Test
 
-  describe "capabilities/0" do
-    test "returns expected capabilities" do
-      assert UCPHandler.capabilities() == [:checkout, :orders]
-    end
+  alias MyApp.CommerceHandler
+
+  test "advertises what it serves" do
+    assert CommerceHandler.capabilities() == [:checkout, :orders, :fulfillment]
+    assert_valid(Bazaar.DiscoveryProfile.from_handler(CommerceHandler), :profile)
   end
 
-  describe "business_profile/0" do
-    test "returns store profile" do
-      profile = UCPHandler.business_profile()
-
-      assert profile["name"] == "My Store"
-      assert is_binary(profile["description"])
-    end
+  test "prices the line from the shop and offers the rate for the destination" do
+    {201, checkout} = request(CommerceHandler, :create_checkout, checkout_request(%{"line_items" => [%{"id" => "li_1", "item" => %{"id" => "roses"}, "quantity" => 2}]}))
+    assert_valid(checkout, :checkout)
+    assert [%{"item" => %{"price" => 3500}, "quantity" => 2}] = checkout["line_items"]
+    assert [%{"groups" => [%{"options" => [%{"id" => "standard"}]}]}] = checkout["fulfillment"]["methods"]
   end
 
-  describe "create_checkout/2" do
-    test "creates checkout with valid params" do
-      params = valid_checkout_params()
+  test "completes into an order once fulfillment and payment are in" do
+    {201, checkout} = request(CommerceHandler, :create_checkout, checkout_request())
+    id = checkout["id"]
 
-      assert {:ok, checkout} = UCPHandler.create_checkout(params, nil)
-      assert checkout["currency"] == "USD"
-      assert checkout["status"] == "incomplete"
-      assert is_list(checkout["totals"])
-      assert is_list(checkout["links"])
-    end
+    {200, ready} = request(CommerceHandler, :update_checkout, %{"id" => id, "fulfillment" => %{"methods" => [%{"id" => "m1", "groups" => [%{"id" => "group_1", "selected_option_id" => "standard"}]}]}})
+    assert ready["status"] == "ready_for_complete"
 
-    test "returns error for invalid params" do
-      params = %{"currency" => "INVALID"}
+    {200, completed} = request(CommerceHandler, :complete_checkout, %{"id" => id, "payment" => %{"instruments" => [%{"id" => "i1", "handler_id" => "pay", "type" => "card"}]}})
+    assert completed["status"] == "completed"
 
-      assert {:error, _} = UCPHandler.create_checkout(params, nil)
-    end
+    {200, order} = request(CommerceHandler, :get_order, %{"id" => completed["order"]["id"]})
+    assert_valid(order, :order)
   end
 
-  describe "get_checkout/2" do
-    test "returns checkout when found" do
-      # Setup: create a checkout first
-      {:ok, created} = UCPHandler.create_checkout(valid_checkout_params(), nil)
-
-      assert {:ok, checkout} = UCPHandler.get_checkout(created["id"], nil)
-      assert checkout["id"] == created["id"]
-    end
-
-    test "returns not_found for missing checkout" do
-      assert {:error, :not_found} = UCPHandler.get_checkout("nonexistent", nil)
-    end
-  end
-
-  defp valid_checkout_params do
-    %{
-      "currency" => "USD",
-      "line_items" => [
-        %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
-      ],
-      "payment" => %{}
-    }
+  test "an unknown checkout is a 404" do
+    assert {404, _} = request(CommerceHandler, :get_checkout, %{"id" => "nope"})
   end
 end
 ```
 
-### Testing with Database
+`request/4` takes `protocol: :acp` to exercise the ACP translation and `assigns:` for whatever your plugs would have set (a current user, the agent profile).
+
+### Testing the shop alone
+
+`Bazaar.Shop` callbacks are pure, so the facts test without a handler:
 
 ```elixir
-defmodule MyApp.UCPHandlerTest do
-  use MyApp.DataCase, async: true
+test "standard shipping is free over the threshold" do
+  assert [%{"id" => "standard", "totals" => [%{"amount" => 0}]} | _] =
+           MyApp.Shop.fulfillment_options(%{"address_country" => "US"}, %{subtotal: 10_000, line_items: []})
+end
+```
 
-  alias MyApp.UCPHandler
-  alias MyApp.Repo
+### Testing with a database store
 
-  setup do
-    # Clean up before each test
-    :ok
-  end
+With `Bazaar.Store` implemented on your repo, use your `DataCase` and assert on the rows the defaults wrote:
 
-  describe "create_checkout/2" do
-    test "persists checkout to database" do
-      params = valid_checkout_params()
-
-      {:ok, checkout} = UCPHandler.create_checkout(params, nil)
-
-      # Verify it's in the database
-      assert Repo.get!(MyApp.Checkout, checkout["id"])
-    end
-  end
-
-  describe "cancel_checkout/2" do
-    test "updates status to canceled" do
-      {:ok, checkout} = UCPHandler.create_checkout(valid_checkout_params(), nil)
-
-      {:ok, cancelled} = UCPHandler.cancel_checkout(checkout["id"], nil)
-
-      assert cancelled["status"] == "canceled"
-
-      # Verify in database
-      db_checkout = Repo.get!(MyApp.Checkout, checkout["id"])
-      assert db_checkout.status == :canceled
-    end
-  end
-
-  defp valid_checkout_params do
-    %{
-      "currency" => "USD",
-      "line_items" => [
-        %{"item" => %{"id" => "TEST-1"}, "quantity" => 1}
-      ],
-      "payment" => %{}
-    }
-  end
+```elixir
+test "a completed checkout leaves an order row" do
+  {201, checkout} = request(CommerceHandler, :create_checkout, checkout_request())
+  # ... update and complete as above ...
+  assert MyApp.Repo.get!(MyApp.OrderRow, completed["order"]["id"])
 end
 ```
 
@@ -610,125 +565,31 @@ end
 
 ## Integration Tests
 
-### Full Flow Test
+Through the endpoint, with `Phoenix.ConnTest`, the flow is the same as above with real routes and plugs:
 
 ```elixir
 defmodule MyAppWeb.CheckoutFlowTest do
   use MyAppWeb.ConnCase, async: true
 
-  test "complete checkout flow", %{conn: conn} do
-    # 1. Create checkout
-    create_params = %{
-      "currency" => "USD",
-      "line_items" => [
-        %{"item" => %{"id" => "LAPTOP-1"}, "quantity" => 1}
-      ],
-      "payment" => %{}
-    }
+  import Bazaar.Test, only: [checkout_request: 1, assert_valid: 2]
 
-    conn = post(conn, "/checkout-sessions", create_params)
-    assert %{"id" => checkout_id, "status" => "incomplete"} = json_response(conn, 201)
+  test "create, select the rate, complete", %{conn: conn} do
+    conn = post(conn, "/checkout-sessions", checkout_request(%{}))
+    assert %{"id" => id, "status" => "incomplete"} = checkout = json_response(conn, 201)
+    assert_valid(checkout, :checkout)
 
-    # 2. Update with buyer info
-    update_params = %{
-      "buyer" => %{
-        "first_name" => "Test",
-        "last_name" => "User",
-        "email" => "test@example.com"
-      },
-      "shipping_address" => %{
-        "street_address" => "123 Main St",
-        "address_locality" => "NYC",
-        "address_region" => "NY",
-        "postal_code" => "10001",
-        "address_country" => "US"
-      }
-    }
+    conn = put(conn, "/checkout-sessions/#{id}", %{"fulfillment" => %{"methods" => [%{"id" => "m1", "groups" => [%{"id" => "group_1", "selected_option_id" => "standard"}]}]}})
+    assert json_response(conn, 200)["status"] == "ready_for_complete"
 
-    conn = patch(conn, "/checkout-sessions/#{checkout_id}", update_params)
-    assert json_response(conn, 200)["buyer"]["email"] == "test@example.com"
-
-    # 3. Get checkout to verify
-    conn = get(conn, "/checkout-sessions/#{checkout_id}")
-    checkout = json_response(conn, 200)
-
-    assert checkout["id"] == checkout_id
-    assert checkout["buyer"]["email"] == "test@example.com"
+    conn = post(conn, "/checkout-sessions/#{id}/complete", %{"payment" => %{"instruments" => [%{"id" => "i1", "handler_id" => "pay", "type" => "card"}]}})
+    assert %{"status" => "completed", "order" => %{"id" => _}} = json_response(conn, 200)
   end
 end
 ```
 
 ## Test Helpers
 
-Create a test helper module:
-
-```elixir
-# test/support/ucp_helpers.ex
-defmodule MyApp.UCPHelpers do
-  def valid_checkout_params(overrides \\ %{}) do
-    Map.merge(
-      %{
-        "currency" => "USD",
-        "line_items" => [
-          %{
-            "item" => %{"id" => "TEST-#{System.unique_integer([:positive])}"},
-            "quantity" => 1
-          }
-        ],
-        "payment" => %{}
-      },
-      overrides
-    )
-  end
-
-  def valid_checkout_response(overrides \\ %{}) do
-    Map.merge(
-      %{
-        "id" => "checkout_#{System.unique_integer([:positive])}",
-        "status" => "incomplete",
-        "currency" => "USD",
-        "line_items" => [
-          %{
-            "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1999},
-            "quantity" => 1,
-            "totals" => [%{"type" => "subtotal", "amount" => 1999}]
-          }
-        ],
-        "totals" => [
-          %{"type" => "subtotal", "amount" => 1999},
-          %{"type" => "total", "amount" => 1999}
-        ],
-        "links" => [
-          %{"type" => "privacy_policy", "url" => "https://example.com/privacy"},
-          %{"type" => "terms_of_service", "url" => "https://example.com/terms"}
-        ],
-        "payment" => %{"handlers" => []}
-      },
-      overrides
-    )
-  end
-
-  def valid_order_response(overrides \\ %{}) do
-    Map.merge(
-      %{
-        "id" => "order_#{System.unique_integer([:positive])}",
-        "checkout_id" => "checkout_123",
-        "permalink_url" => "https://shop.example/orders/123",
-        "line_items" => [
-          %{
-            "item" => %{"id" => "PROD-1", "title" => "Widget", "price" => 1999},
-            "quantity" => 1,
-            "totals" => [%{"type" => "subtotal", "amount" => 1999}]
-          }
-        ],
-        "totals" => [%{"type" => "total", "amount" => 1999}],
-        "fulfillment" => %{"expectations" => [], "events" => []}
-      },
-      overrides
-    )
-  end
-end
-```
+`Bazaar.Test.checkout_request/1` is the create fixture (one line item, a shipping method to a selected US destination), taking overrides. For response documents, build them the way the library does rather than by hand: `Bazaar.Checkout.build/2` on a `Bazaar.Checkout.new/2` state, `Bazaar.Order.from_checkout/3` for orders, and `assert_valid/2` on the result. A fixture that isn't spec-valid tests the wrong thing.
 
 ## Running Tests
 

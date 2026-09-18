@@ -1,45 +1,32 @@
 defmodule Bazaar.Handler do
   @moduledoc """
-  Behaviour for implementing UCP merchant handlers.
-
-  Implement this behaviour to define your commerce logic. The callbacks
-  correspond to UCP capabilities (checkout, orders, identity).
-
-  ## Example
+  The behaviour a bazaar store answers UCP through, and the macro that
+  defines it for you.
 
       defmodule MyApp.Commerce.Handler do
-        use Bazaar.Handler
+        use Bazaar.Handler, shop: MyApp.Shop, store: Bazaar.Store.ETS
 
         @impl Bazaar.Handler
-        def capabilities, do: [:checkout, :orders]
+        def capabilities, do: [:checkout, :orders, :fulfillment]
 
         @impl Bazaar.Handler
-        def create_checkout(params, conn) do
-          case MyApp.Checkouts.create(params) do
-            {:ok, checkout} -> {:ok, checkout}
-            {:error, changeset} -> {:error, changeset}
-          end
-        end
-
-        @impl Bazaar.Handler
-        def get_checkout(id, _conn) do
-          case MyApp.Checkouts.get(id) do
-            nil -> {:error, :not_found}
-            checkout -> {:ok, checkout}
-          end
-        end
+        def business_profile, do: %{"name" => "My Store"}
       end
 
-  ## Required Callbacks
+  `use Bazaar.Handler, shop:, store:` defines every capability callback below
+  from `Bazaar.Handler.Defaults`, over your `Bazaar.Shop` (prices, rates,
+  stores) and `Bazaar.Store` (persistence). All of them are overridable.
 
-  Depending on which capabilities you declare, you must implement
-  the corresponding callbacks:
+  ## Callbacks
+
+  Which callbacks are routed depends on `capabilities/0`; the defaults cover
+  all of them. What each returns:
 
   ### Checkout Capability
   - `create_checkout/2` - Create a new checkout session
   - `get_checkout/2` - Retrieve a checkout session
   - `update_checkout/3` - Update a checkout session
-  - `complete_checkout/2` - Complete a checkout session and create an order
+  - `complete_checkout/3` - Complete a checkout session and create an order
   - `cancel_checkout/2` - Cancel a checkout session
 
   ### Orders Capability
