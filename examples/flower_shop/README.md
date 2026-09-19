@@ -25,7 +25,9 @@ With the app running and [uv](https://docs.astral.sh/uv/) installed:
 bin/conformance
 ```
 
-The script clones the suite at a pinned commit into `tmp/`, installs it with `uv sync --no-sources`, and runs every test file with `conformance/conformance_input.json`, which declares the spec version this app speaks. The discovery URL test skips by design (the suite marks it so); everything else has to pass.
+The script clones the suite at a pinned commit into `tmp/`, installs it with `uv sync --no-sources`, and runs every test file with `conformance/conformance_input.json`, which declares the spec version this app speaks. The discovery URL test skips at the pinned commit; everything else has to pass.
+
+The suite doesn't exercise catalog, carts, locations, loyalty, payment terms or pickup. `test/flower_shop_web/uncovered_capabilities_test.exs` drives those through the endpoint with the platform's headers, plugs included, and validates every response against the bundled schemas; `mix test` runs it.
 
 ## Layout
 
