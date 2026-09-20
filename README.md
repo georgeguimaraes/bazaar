@@ -250,6 +250,13 @@ mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 \
 
 `--roots` keeps the generated modules to the capabilities bazaar exposes and what they reference; the validator still uses the full schema tree in `priv/`.
 
+The task ships with the library and so do the schemas, so you can generate from them yourself: the transport envelopes bazaar leaves out (MCP, A2A, embedded), a capability it doesn't serve, or your own JSON Schemas.
+
+```bash
+mix bazaar.gen.schemas deps/bazaar/priv/ucp_schemas/2026-08-25 \
+  --roots "transports/*.json" --output-dir lib/my_app/schemas --prefix MyApp.Schemas
+```
+
 ## Webhooks
 
 Platforms learn about orders through webhooks: the full order document, POSTed to the URL the platform advertises in its profile, signed, with `Webhook-Id` and `Webhook-Timestamp` headers and retries that keep both. Bazaar does all of it once your shop names an HTTP client and a signing key:

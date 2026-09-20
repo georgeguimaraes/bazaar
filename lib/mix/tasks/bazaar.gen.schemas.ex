@@ -9,6 +9,16 @@ defmodule Mix.Tasks.Bazaar.Gen.Schemas do
   This will generate Elixir modules for all `.json` schema files found
   in the directory (recursively) and output them to `lib/bazaar/schemas/ucp/`.
 
+  Bazaar ships the schemas it generates from, so this is here for your own
+  generating too: the parts of the spec bazaar leaves out (the MCP, A2A and
+  embedded transport envelopes, capabilities it doesn't serve), or your own
+  JSON Schemas. Point `--roots` at what you need and `--output-dir` and
+  `--prefix` at your app:
+
+      $ mix bazaar.gen.schemas deps/bazaar/priv/ucp_schemas/2026-08-25 \\
+          --roots "transports/*.json" \\
+          --output-dir lib/my_app/schemas --prefix MyApp.Schemas
+
   ## Options
 
     * `--output-dir` - Output directory (default: lib/bazaar/schemas/ucp)
