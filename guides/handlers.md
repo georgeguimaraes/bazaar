@@ -238,7 +238,9 @@ def business_profile do
 end
 ```
 
-The handler callbacks are transport-agnostic: they take params and return documents, so a JSON-RPC dispatcher can call the same `create_checkout/2` and `get_checkout/2` a REST route does. What doesn't carry over is anything HTTP-shaped. `Bazaar.Plugs.Idempotency` reads a header, so over MCP you read `params.arguments.meta["idempotency-key"]` and use a `Bazaar.Idempotency.Store` directly. RFC 9421 signatures sign HTTP messages, so the signature story for a tool call is yours to define. Order webhooks work unchanged: pass the platform's profile URL, which MCP carries as `meta["ucp-agent"]["profile"]`, to `Bazaar.Webhook.deliver_order/3` in place of a conn.
+`service/1` fills in the version and the spec URL; `transport` is the only key the spec requires, and `endpoint` is what an agent calls. A `schema` key is optional, and the conformance suite fetches every `spec` and `schema` URL in the registry and fails on one that doesn't resolve, so only advertise a schema you actually serve. There's no canonical MCP schema URL published under `ucp.dev` today.
+
+The handler callbacks are transport-agnostic: they take params and return documents, so a JSON-RPC dispatcher can call the same `create_checkout/2` and `get_checkout/2` a REST route does. What doesn't carry over is anything HTTP-shaped. `Bazaar.Plugs.Idempotency` reads a header, so over MCP you read `params.arguments.meta["idempotency-key"]` and call a `Bazaar.Idempotency.Store` implementation, `Bazaar.Idempotency.ETS` or `Bazaar.Idempotency.Cachex`, directly. RFC 9421 signatures sign HTTP messages, so the signature story for a tool call is yours to define. Order webhooks work unchanged: pass the platform's profile URL, which MCP carries as `meta["ucp-agent"]["profile"]`, to `Bazaar.Webhook.deliver_order/3` in place of a conn.
 
 `mix bazaar.gen.schemas` generates Ecto schemas for the transport envelopes bazaar leaves out:
 
