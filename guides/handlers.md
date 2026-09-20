@@ -220,6 +220,33 @@ end
 
 No setup needed: the in-memory store starts itself.
 
+## Serving another transport
+
+Bazaar serves UCP over REST and advertises that binding in discovery. The spec also defines MCP, A2A and embedded bindings; if you serve one of those yourself, advertise it from `business_profile/0` and bazaar appends it to its own entry:
+
+```elixir
+@impl true
+def business_profile do
+  %{
+    "name" => "My Store",
+    "services" => %{
+      "dev.ucp.shopping" => [
+        Bazaar.DiscoveryProfile.service(transport: "mcp", endpoint: "https://shop.example/ucp/mcp")
+      ]
+    }
+  }
+end
+```
+
+The handler callbacks are transport-agnostic: they take params and return documents, so a JSON-RPC dispatcher can call the same `create_checkout/2` and `get_checkout/2` a REST route does. What doesn't carry over is anything HTTP-shaped. `Bazaar.Plugs.Idempotency` reads a header, so over MCP you read `params.arguments.meta["idempotency-key"]` and use a `Bazaar.Idempotency.Store` directly. RFC 9421 signatures sign HTTP messages, so the signature story for a tool call is yours to define. Order webhooks work unchanged: pass the platform's profile URL, which MCP carries as `meta["ucp-agent"]["profile"]`, to `Bazaar.Webhook.deliver_order/3` in place of a conn.
+
+`mix bazaar.gen.schemas` generates Ecto schemas for the transport envelopes bazaar leaves out:
+
+```bash
+mix bazaar.gen.schemas deps/bazaar/priv/ucp_schemas/2026-08-25 \
+  --roots "transports/*.json" --output-dir lib/my_app/schemas --prefix MyApp.Schemas
+```
+
 ## Rolling your own routes
 
 `bazaar_routes` is a convenience. To own the routes and controllers, build the discovery document with `Bazaar.DiscoveryProfile.from_handler/2`, call the handler's callbacks from your own actions, and keep the plugs. [examples/flower_shop](https://github.com/georgeguimaraes/bazaar/tree/main/examples/flower_shop) mixes both: `bazaar_routes` for the spec's routes and two hand-written ones for what the conformance suite needs beyond it.

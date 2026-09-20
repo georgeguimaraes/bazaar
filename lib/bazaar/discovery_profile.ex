@@ -26,6 +26,9 @@ defmodule Bazaar.DiscoveryProfile do
   - `"payment_handlers"`: a list of `%{"name" => "com.stripe", "id" => "stripe", "config" => %{}}`
     entries, where `name` is the handler's reverse-domain namespace
   - `"keys"`: public signing keys as a JWK set
+  - `"services"`: extra service entries, `%{"dev.ucp.shopping" => [entry]}`,
+    for a transport you serve yourself. Bazaar advertises its REST binding
+    and appends yours; build each with `service/1`
 
   ## Example
 
@@ -39,7 +42,7 @@ defmodule Bazaar.DiscoveryProfile do
     profile = %{
       "ucp" => %{
         "version" => @ucp_version,
-        "services" => %{"dev.ucp.shopping" => [rest_service(base_url)]},
+        "services" => build_services(Map.get(business, "services", %{}), base_url),
         "capabilities" => build_capabilities(capabilities, handler_module),
         "payment_handlers" => build_payment_handlers(Map.get(business, "payment_handlers", []))
       },
@@ -55,6 +58,30 @@ defmodule Bazaar.DiscoveryProfile do
       _ ->
         profile
     end
+  end
+
+  @doc """
+  A service entry for the profile's `services` registry, with this spec
+  version filled in. Give it at least a `transport` and an `endpoint`:
+
+      Bazaar.DiscoveryProfile.service(transport: "mcp", endpoint: "https://shop.example/ucp/mcp")
+
+  Bazaar serves the REST binding and advertises it itself; this is for a
+  transport you serve yourself (see `business_profile/0`'s `"services"`).
+  """
+  def service(attrs) do
+    Map.merge(
+      %{"version" => @ucp_version, "spec" => "#{@ucp_base}/specification/overview/"},
+      Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+    )
+  end
+
+  # Bazaar's REST binding, plus whatever transports the business serves
+  # itself, appended under the same reverse-DNS names.
+  defp build_services(extra, base_url) do
+    Map.merge(%{"dev.ucp.shopping" => [rest_service(base_url)]}, extra, fn _name, ours, theirs ->
+      ours ++ List.wrap(theirs)
+    end)
   end
 
   defp rest_service(base_url) do

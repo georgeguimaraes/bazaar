@@ -223,6 +223,49 @@ defmodule Bazaar.DiscoveryProfileTest do
                )
     end
 
+    test "advertises a transport the business serves itself alongside bazaar's REST binding" do
+      defmodule McpShop do
+        use Bazaar.Shop
+
+        defdelegate base_url, to: Bazaar.TestShop
+        defdelegate item(id), to: Bazaar.TestShop
+      end
+
+      defmodule McpHandler do
+        use Bazaar.Handler, shop: McpShop, store: Bazaar.Store.ETS
+
+        @impl true
+        def business_profile do
+          %{
+            "name" => "Tools and REST",
+            "services" => %{
+              "dev.ucp.shopping" => [
+                DiscoveryProfile.service(transport: "mcp", endpoint: "https://shop.test/ucp/mcp")
+              ]
+            }
+          }
+        end
+      end
+
+      profile = DiscoveryProfile.from_handler(McpHandler, base_url: "https://shop.test")
+      assert {:ok, _} = Bazaar.Validator.validate(profile, :profile)
+
+      assert [
+               %{"transport" => "rest", "endpoint" => "https://shop.test"},
+               %{
+                 "transport" => "mcp",
+                 "endpoint" => "https://shop.test/ucp/mcp",
+                 "version" => "2026-08-25"
+               }
+             ] = profile["ucp"]["services"]["dev.ucp.shopping"]
+
+      # A business that advertises nothing extra still gets exactly the one entry.
+      assert [%{"transport" => "rest"}] =
+               DiscoveryProfile.from_handler(EverythingHandler)["ucp"]["services"][
+                 "dev.ucp.shopping"
+               ]
+    end
+
     test "carries the fulfillment config on the fulfillment capability" do
       profile = DiscoveryProfile.from_handler(EverythingHandler)
       [fulfillment] = profile["ucp"]["capabilities"]["dev.ucp.shopping.fulfillment"]
