@@ -46,7 +46,7 @@ The handler is three lines: `use Bazaar.Handler, shop: MyStore.Shop, store: Baza
 
 ## 4. Wire it in
 
-The generator prints these four steps for your module names.
+The generator prints these steps for your module names.
 
 Read the raw body in your endpoint, which signature verification needs (`lib/my_store_web/endpoint.ex`):
 
@@ -74,19 +74,11 @@ scope "/" do
 end
 ```
 
-`Bazaar.Plugs.UCP` negotiates the spec version from the `UCP-Agent` header and replays idempotent requests. Add `Bazaar.Plugs.VerifySignature` once you talk to a platform that signs its requests, and `Bazaar.Plugs.ValidateResponse, strict: true` in dev and test to have every response checked against the spec. The [plugs guide](plugs.md) has the details.
+`Bazaar.Plugs.UCP` is the whole request path: it negotiates the spec version from the `UCP-Agent` header, replays idempotent requests, verifies signatures from platforms that sign, and signs your answers once your shop has a key. Add `Bazaar.Plugs.ValidateResponse, strict: true` in dev and test to have every response checked against the spec. The [plugs guide](plugs.md) has the details.
 
-Start the store and the idempotency table (`lib/my_store/application.ex`):
+Nothing goes in your supervision tree: the in-memory stores start the first time a handler uses them.
 
-```elixir
-children = [
-  Bazaar.Store.ETS,
-  Bazaar.Idempotency.ETS,
-  MyStoreWeb.Endpoint
-]
-```
-
-Tell the handler where it lives (`config/runtime.exs`):
+Tell the shop where it lives (`config/runtime.exs`):
 
 ```elixir
 config :my_store, bazaar_base_url: System.get_env("BASE_URL", "http://localhost:4000")

@@ -1,13 +1,8 @@
 defmodule Bazaar.Idempotency.ETS do
   @moduledoc """
-  In-memory idempotency store on a named ETS table.
-
-  Add it to your supervision tree:
-
-      children = [
-        Bazaar.Idempotency.ETS,
-        MyAppWeb.Endpoint
-      ]
+  In-memory idempotency store on a named ETS table, started the first time a
+  request carries an `Idempotency-Key`, so there is nothing to add to your
+  supervision tree.
 
   Records never expire and live until the process restarts, which is fine for
   development and a single node. In production, and always with more than one
@@ -58,9 +53,11 @@ defmodule Bazaar.Idempotency.ETS do
     :ok
   end
 
+  # Started the first time a request carries an Idempotency-Key, so an app
+  # with a Cachex or database store never starts it.
   defp running!(table) do
     if :ets.whereis(table) == :undefined do
-      raise "idempotency table #{inspect(table)} is not running; add Bazaar.Idempotency.ETS to your supervision tree"
+      Bazaar.Application.ensure_started({__MODULE__, name: table})
     end
 
     table

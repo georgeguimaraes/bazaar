@@ -39,7 +39,7 @@ Handlers speak UCP. On ACP routes the controller translates requests before and 
 | `loyalty/1` | memberships answering `context.eligibility` claims | none |
 | `payment_terms/1` | selectable payment terms for a total | immediate only |
 | `authorize/1` | charging the instruments at completion | an instrument is required |
-| `http_client/0` | `%{get: fn url -> ... end, post: fn url, body, headers -> ... end}` for reaching platforms | none, so no outbound requests |
+| `http_client/0` | `%{get: ..., post: ...}` for reaching platforms | Req's client, when Req is a dependency |
 | `signing_key/0` | the key order webhooks are signed with | none, unsigned with a warning |
 | `order_placed/2`, `order_updated/2` | called when an order is placed or changes | deliver the signed order to the platform |
 | `fulfillment_config/0` | the fulfillment capability's config in discovery | no multi-destination, no method combinations |
@@ -78,7 +78,7 @@ Everything protocol-shaped happens in the library on top of these: pricing lines
 
 ## The store
 
-`Bazaar.Store` is nine functions over checkouts (states), carts (states), orders (documents) and the cart-to-checkout index. `Bazaar.Store.ETS` is the in-memory one: add it to your supervision tree next to `Bazaar.Idempotency.ETS`. For production, `Bazaar.Store.Ecto` runs on your repo:
+`Bazaar.Store` is nine functions over checkouts (states), carts (states), orders (documents) and the cart-to-checkout index. `Bazaar.Store.ETS` is the in-memory one, started the first time a handler uses it, so there is nothing to supervise. For production, `Bazaar.Store.Ecto` runs on your repo:
 
 ```bash
 mix bazaar.gen.store        # writes the migration for bazaar_checkouts, bazaar_carts and bazaar_orders
@@ -173,18 +173,10 @@ Platforms expect the full order document whenever an order is created or changes
 
 ```elixir
 @impl true
-def http_client do
-  %{
-    get: fn url -> with {:ok, r} <- Req.get(url), do: {:ok, %{status: r.status, body: r.body}} end,
-    post: fn url, body, headers ->
-      with {:ok, r} <- Req.post(url, body: body, headers: headers), do: {:ok, %{status: r.status, body: r.body}}
-    end
-  }
-end
-
-@impl true
 def signing_key, do: Bazaar.Signing.Key.from_pem(File.read!(System.fetch_env!("UCP_SIGNING_KEY_PEM")))
 ```
+
+With [Req](https://hex.pm/packages/req) in your dependencies that is all of it: `http_client/0` defaults to `Bazaar.Http.Req.client/0`. Override it for another client or different timeouts.
 
 Publish the key's public half so platforms can verify:
 
@@ -226,7 +218,7 @@ test "roses are priced from the catalog" do
 end
 ```
 
-Start `Bazaar.Store.ETS` in your `test_helper.exs` when the handler uses it.
+No setup needed: the in-memory store starts itself.
 
 ## Rolling your own routes
 

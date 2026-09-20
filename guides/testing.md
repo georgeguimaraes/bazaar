@@ -4,13 +4,7 @@ This guide shows you how to test your Bazaar implementation.
 
 ## Testing Handlers
 
-`Bazaar.Test` drives `Bazaar.Phoenix.Controller` with your handler assigned, the way `bazaar_routes` does, and validates documents against the bundled spec schemas (needs the `jsv` dependency). Start `Bazaar.Store.ETS` in `test_helper.exs` when the handler uses it.
-
-```elixir
-# test/test_helper.exs
-{:ok, _} = Bazaar.Store.ETS.start_link()
-ExUnit.start()
-```
+`Bazaar.Test` drives `Bazaar.Phoenix.Controller` with your handler assigned, the way `bazaar_routes` does, and validates documents against the bundled spec schemas (needs the `jsv` dependency).
 
 ```elixir
 defmodule MyApp.CommerceHandlerTest do

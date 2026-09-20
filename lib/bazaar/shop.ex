@@ -26,11 +26,10 @@ defmodule Bazaar.Shop do
   pure functions taking exactly what `Bazaar.Checkout.build/2`,
   `Bazaar.Catalog` and `Bazaar.Location` document for the matching option.
 
-  Three callbacks are the shop's connection to the outside: `http_client/0`,
-  `signing_key/0` and, when an order is placed or changes, delivery of the
-  signed order to the platform, which `order_placed/2` and `order_updated/2`
-  do by default. Name the first two and webhooks work; leave them out and
-  bazaar makes no outbound requests at all.
+  Two callbacks are the shop's connection to the outside: `http_client/0`,
+  which defaults to Req when you have it, and `signing_key/0`. With both,
+  order webhooks deliver themselves, signed, through `order_placed/2` and
+  `order_updated/2`.
   """
 
   @type context :: map()
@@ -71,8 +70,10 @@ defmodule Bazaar.Shop do
   @doc """
   The HTTP client bazaar reaches platforms with: `%{get: fn url -> ... end,
   post: fn url, body, headers -> ... end}`, each answering `{:ok, %{status:
-  integer, body: term}}` or `{:error, reason}`. `nil` (the default) means no
-  outbound HTTP, so no webhook delivery and no profile lookups.
+  integer, body: term}}` or `{:error, reason}`. The default is
+  `Bazaar.Http.Req.client/0` when [Req](https://hex.pm/packages/req) is in
+  your dependencies, so webhooks and profile lookups work with no code;
+  without Req it is `nil`, and bazaar makes no outbound requests at all.
   """
   @callback http_client() :: %{get: function(), post: function()} | nil
 
@@ -155,7 +156,9 @@ defmodule Bazaar.Shop do
       def authorize(_instruments), do: :ok
 
       @impl Bazaar.Shop
-      def http_client, do: nil
+      def http_client do
+        if Code.ensure_loaded?(Bazaar.Http.Req), do: Bazaar.Http.Req.client()
+      end
 
       @impl Bazaar.Shop
       def signing_key, do: nil

@@ -109,9 +109,10 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
 
     """
 
-    Now wire it into the app:
+    Now wire it into the app, in two places:
 
-    1. Read the raw body for signature checks, in your endpoint's Plug.Parsers:
+    1. Read the raw body in your endpoint's Plug.Parsers, which signature
+       checks need (a Content-Digest covers the bytes exactly as sent):
 
         plug Plug.Parsers,
           parsers: [:json],
@@ -126,7 +127,6 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
         pipeline :ucp do
           plug :accepts, ["json"]
           plug Bazaar.Plugs.UCP
-          plug Bazaar.Plugs.VerifySignature  # optional, see the plugs guide
         end
 
         scope "/" do
@@ -134,15 +134,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
           bazaar_routes "/", #{module}
         end
 
-    3. Start the store and the idempotency table in lib/#{app}/application.ex:
-
-        children = [
-          Bazaar.Store.ETS,
-          Bazaar.Idempotency.ETS,
-          ...
-        ]
-
-    4. Tell the handler where it lives, in config/runtime.exs:
+    Then tell the shop where it lives, in config/runtime.exs:
 
         config #{inspect(app)}, bazaar_base_url: System.get_env("BASE_URL", "http://localhost:4000")
 

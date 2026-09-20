@@ -1,8 +1,9 @@
 defmodule FlowerShopWeb.Router do
   @moduledoc """
-  `bazaar_routes` mounts discovery, checkout and order routes for the handler
-  behind bazaar's header and idempotency plugs. The app adds the two routes
-  the conformance suite drives that aren't part of UCP at all.
+  `bazaar_routes` mounts every UCP route for the handler, behind the one plug
+  that negotiates versions, replays idempotent requests, verifies inbound
+  signatures and signs the answers. The app adds the two routes the
+  conformance suite drives that aren't part of UCP at all.
   """
 
   use Phoenix.Router
@@ -11,9 +12,6 @@ defmodule FlowerShopWeb.Router do
   pipeline :ucp do
     plug :accepts, ["json"]
     plug Bazaar.Plugs.UCP
-    plug Bazaar.Plugs.VerifySignature
-
-    plug Bazaar.Plugs.SignResponse, key: &FlowerShop.Shop.signing_key/0
   end
 
   scope "/" do

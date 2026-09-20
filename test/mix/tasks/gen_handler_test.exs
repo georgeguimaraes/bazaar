@@ -44,7 +44,8 @@ defmodule Mix.Tasks.Bazaar.Gen.HandlerTest do
 
   test "prints the wiring and generates a handler that answers on first boot", %{output: output} do
     assert output =~ ~s(bazaar_routes "/", ScaffoldFull.Handler)
-    assert output =~ "Bazaar.Store.ETS"
+    assert output =~ "plug Bazaar.Plugs.UCP"
+    refute output =~ "children", "nothing goes in the supervision tree"
     assert output =~ "body_reader"
 
     handler = full()

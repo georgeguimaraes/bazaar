@@ -102,11 +102,15 @@ defmodule Bazaar.Plugs.IdempotencyTest do
     end
   end
 
-  test "raises a helpful error when the ETS store is not running" do
-    opts = Idempotency.init(store: {Bazaar.Idempotency.ETS, :missing_idempotency_table})
+  test "starts its ETS table on first use, so nothing goes in the supervision tree" do
+    table = :"idempotency_#{System.unique_integer([:positive])}"
+    assert :ets.whereis(table) == :undefined
 
-    assert_raise RuntimeError, ~r/add Bazaar.Idempotency.ETS/, fn ->
-      request(opts, "key-4", %{})
-    end
+    opts = Idempotency.init(store: {Bazaar.Idempotency.ETS, table})
+    first = respond(request(opts, "key-4", %{"currency" => "USD"}))
+    assert :ets.whereis(table) != :undefined
+
+    replay = request(opts, "key-4", %{"currency" => "USD"})
+    assert replay.resp_body == first.resp_body
   end
 end

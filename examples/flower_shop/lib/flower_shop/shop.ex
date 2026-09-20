@@ -120,9 +120,6 @@ defmodule FlowerShop.Shop do
   def authorize(instruments), do: Payments.authorize(instruments)
 
   @impl true
-  def http_client, do: %{get: &FlowerShop.Http.get/1, post: &FlowerShop.Http.post/3}
-
-  @impl true
   def signing_key, do: Application.fetch_env!(:flower_shop, :signing_key)
 
   # Delivery is the library's; the shop only remembers which platform asked,

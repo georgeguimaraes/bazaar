@@ -67,4 +67,30 @@ defmodule Bazaar.Store.EctoTest do
 
     assert Store.get_order("missing") == nil
   end
+
+  test "a handler on the repo never starts the ETS store" do
+    defmodule EctoShop do
+      use Bazaar.Shop
+
+      @impl true
+      def base_url, do: "https://shop.test"
+
+      @impl true
+      def item(_id), do: %{item: %{"title" => "Roses", "price" => 3500}, stock: nil}
+
+      @impl true
+      def http_client, do: nil
+    end
+
+    defmodule EctoHandler do
+      use Bazaar.Handler, shop: EctoShop, store: Bazaar.TestEctoStore
+    end
+
+    # Whatever other tests did, the point is this handler doesn't need it.
+    {:ok, checkout} =
+      EctoHandler.create_checkout(%{"line_items" => [%{"item" => %{"id" => "r"}}]}, nil)
+
+    assert {:ok, ^checkout} = EctoHandler.get_checkout(checkout["id"], nil)
+    assert Bazaar.TestEctoStore.get_checkout(checkout["id"]).id == checkout["id"]
+  end
 end

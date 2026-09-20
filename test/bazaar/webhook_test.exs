@@ -147,6 +147,10 @@ defmodule Bazaar.WebhookTest do
 
       @impl true
       def item(_id), do: nil
+
+      # No client at all, whether or not Req is around.
+      @impl true
+      def http_client, do: nil
     end
 
     defp with_client(profile, post) do

@@ -9,11 +9,7 @@ defmodule FlowerShop.Application do
     # Bazaar.Signing.Key.from_pem/1 so its kid stays stable across restarts.
     Application.put_env(:flower_shop, :signing_key, Bazaar.Signing.Key.generate(:p256))
 
-    children = [
-      FlowerShop.Store,
-      Bazaar.Idempotency.ETS,
-      FlowerShopWeb.Endpoint
-    ]
+    children = [FlowerShop.Store, FlowerShopWeb.Endpoint]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: FlowerShop.Supervisor)
   end

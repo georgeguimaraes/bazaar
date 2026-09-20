@@ -1,17 +1,11 @@
 defmodule Bazaar.Store.ETS do
   @moduledoc """
-  In-memory `Bazaar.Store` on a named ETS table. Add it to your supervision
-  tree:
+  In-memory `Bazaar.Store` on a named ETS table, started the first time a
+  handler uses it, so there is nothing to add to your supervision tree.
 
-      children = [
-        Bazaar.Store.ETS,
-        Bazaar.Idempotency.ETS,
-        MyAppWeb.Endpoint
-      ]
-
-  Everything lives until the process restarts, which is fine for
-  development and a single node. In production keep checkouts, carts and
-  orders in your database behind your own `Bazaar.Store`.
+  Everything lives until the process restarts, which is fine for development
+  and a single node. In production keep checkouts, carts and orders in your
+  database with `Bazaar.Store.Ecto` or your own `Bazaar.Store`.
   """
 
   @behaviour Bazaar.Store
@@ -73,11 +67,10 @@ defmodule Bazaar.Store.ETS do
     value
   end
 
+  # Started the first time something reads or writes it, so an app that keeps
+  # its checkouts elsewhere never pays for the table.
   defp running! do
-    if :ets.whereis(@table) == :undefined do
-      raise "#{inspect(@table)} is not running; add Bazaar.Store.ETS to your supervision tree"
-    end
-
+    if :ets.whereis(@table) == :undefined, do: Bazaar.Application.ensure_started(__MODULE__)
     @table
   end
 end

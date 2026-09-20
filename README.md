@@ -151,14 +151,16 @@ defmodule MyAppWeb.Router do
 end
 ```
 
-The handler also needs its store and the idempotency table in your supervision tree, and its base URL in config (the generator prints both):
+Nothing goes in your supervision tree: the in-memory stores start themselves on first use. The shop needs its base URL in config, and the endpoint has to keep the raw body for signature checks (the generator prints both):
 
 ```elixir
-# lib/my_app/application.ex
-children = [Bazaar.Store.ETS, Bazaar.Idempotency.ETS, MyAppWeb.Endpoint]
-
 # config/runtime.exs
 config :my_app, bazaar_base_url: System.get_env("BASE_URL", "http://localhost:4000")
+
+# lib/my_app_web/endpoint.ex
+plug Plug.Parsers,
+  parsers: [:json], pass: ["*/*"], json_decoder: Jason,
+  body_reader: {Bazaar.Plugs.RawBody, :read_body, []}
 ```
 
 UCP endpoints:
@@ -335,16 +337,14 @@ Optional plugs for production use:
 ```elixir
 pipeline :ucp do
   plug :accepts, ["json"]
-  plug Bazaar.Plugs.UCP              # UCPHeaders (version negotiation) then Idempotency (replay)
-  plug Bazaar.Plugs.VerifySignature                                    # RFC 9421 request signatures, when present
-  plug Bazaar.Plugs.SignResponse, key: &MyApp.Signing.key/0            # sign responses with your published key
-  plug Bazaar.Plugs.ValidateRequest  # Validate request body
+  plug Bazaar.Plugs.UCP              # versions, idempotent replay, request and response signatures
+  plug Bazaar.Plugs.ValidateRequest  # optional, validate request bodies
 end
 ```
 
-`VerifySignature` checks signed requests against the keys in the platform's profile and lets unsigned ones through unless `required: true`; it needs the raw body, so configure `Plug.Parsers` with `body_reader: {Bazaar.Plugs.RawBody, :read_body, []}`.
+`Bazaar.Plugs.UCP` is the whole request path: version negotiation, idempotent replay, signature verification against the platform's published keys, and signing the answer with your shop's key. The four steps are public plugs too, for a pipeline that needs its own order.
 
-`Bazaar.Plugs.UCP` composes `Bazaar.Plugs.UCPHeaders` and `Bazaar.Plugs.Idempotency`; use them individually if you need something in between. Idempotency needs a store: `Bazaar.Idempotency.ETS` in your supervision tree for development and a single node, or `Bazaar.Idempotency.Cachex` on a [Cachex](https://hexdocs.pm/cachex) cache for production and any multi-node deployment. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
+`Bazaar.Plugs.UCP` composes `UCPHeaders`, `Idempotency`, `VerifySignature` and `SignResponse`; use them individually if you need something in between. Idempotency keeps its records in memory by default, started on first use, which suits development and a single node; pass `store: {Bazaar.Idempotency.Cachex, :cache}` on a [Cachex](https://hexdocs.pm/cachex) cache for production and any multi-node deployment. Errors from the plugs and the controller are spec-shaped: the UCP error response for UCP routes, the ACP `Error` object for ACP routes. See the [plugs guide](guides/plugs.md).
 
 ## Guides
 

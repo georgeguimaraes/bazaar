@@ -1,27 +1,43 @@
 # Plugs Guide
 
-Bazaar provides plugs for UCP implementations:
+One plug is the whole UCP request path:
+
+```elixir
+pipeline :ucp do
+  plug :accepts, ["json"]
+  plug Bazaar.Plugs.UCP
+end
+```
+
+`Bazaar.Plugs.UCP` runs four steps in order, reading what it needs from the handler the route mounts and its shop:
+
+| Step | What it does |
+|------|--------------|
+| `UCPHeaders` | Reads `UCP-Agent`, negotiates the protocol version |
+| `Idempotency` | Replays a repeated `Idempotency-Key`, headers and all |
+| `VerifySignature` | Verifies a signed request against the platform's published keys, using the shop's `http_client/0` |
+| `SignResponse` | Signs the answer with the shop's `signing_key/0`, when it has one |
+
+`verify_signatures: false` and `sign_responses: false` switch off the last two; every other option (`version:`, `store:`, `required:`, `max_age:`, `statuses:`) passes through. The four are public plugs, so a pipeline that needs a different order or something in between can compose its own.
+
+Two more are separate, since they take per-action schema configuration:
 
 | Plug | Purpose |
 |------|---------|
-| `UCP` | `UCPHeaders` followed by `Idempotency`, one plug for the whole pipeline |
-| `UCPHeaders` | Read the UCP headers and negotiate the protocol version |
-| `Idempotency` | Replay responses for repeated `Idempotency-Key` requests |
-| `VerifySignature` | Verify RFC 9421 signatures on requests from platforms |
 | `ValidateRequest` | Validate request bodies against the generated schemas |
-| `SignResponse` | Sign successful responses with RFC 9421 signatures platforms verify against your published key |
 | `ValidateResponse` | Validate response bodies against the spec's JSON Schemas (needs `jsv`) |
 
 ## Setting Up Plugs
 
-Add the plugs to your router pipeline, and the idempotency store to your supervision tree:
+The pipeline above and one line in your endpoint, which signature checks need because a `Content-Digest` covers the body exactly as sent:
 
 ```elixir
-# lib/my_app/application.ex
-children = [
-  Bazaar.Idempotency.ETS,
-  MyAppWeb.Endpoint
-]
+# lib/my_app_web/endpoint.ex
+plug Plug.Parsers,
+  parsers: [:json],
+  pass: ["*/*"],
+  json_decoder: Jason,
+  body_reader: {Bazaar.Plugs.RawBody, :read_body, []}
 
 # lib/my_app_web/router.ex
 defmodule MyAppWeb.Router do
@@ -35,12 +51,12 @@ defmodule MyAppWeb.Router do
 
   scope "/" do
     pipe_through :ucp
-    bazaar_routes "/", MyApp.UCPHandler
+    bazaar_routes "/", MyApp.CommerceHandler
   end
 end
 ```
 
-`Bazaar.Plugs.UCP` runs `UCPHeaders` and then `Idempotency`, and hands its options to both (`store:`, `methods:`, `reservation_ttl:`, `version:`). The sections below describe each plug; use them directly when something has to run between the two.
+Nothing goes in your supervision tree: the in-memory stores start themselves the first time a handler uses them. The sections below describe each step, for when you compose your own pipeline.
 
 ## UCPHeaders
 
@@ -142,14 +158,27 @@ plug Bazaar.Plugs.VerifySignature,
 
 A verified request carries `conn.assigns.ucp_signature` with the `keyid` and `created`. Failures answer 401 with an error document: `invalid_signature`, `signer_unknown` or `signature_required`.
 
+## SignResponse
+
+Signs every successful response with an RFC 9421 signature over `@status`, `Content-Digest` and `Content-Type`, which the spec recommends for checkout completion and payment responses. Platforms verify against the public key you publish as `"keys"` in `business_profile/0`, so pass the same key:
+
+```elixir
+plug Bazaar.Plugs.SignResponse, key: &MyApp.Signing.key/0
+```
+
+`key:` takes a `Bazaar.Signing.Key` or a zero-arity function (for a key loaded at boot); `statuses:` narrows what gets signed (default `200..299`).
+
 ## Plug Order
+
+`Bazaar.Plugs.UCP` runs them in the order that matters: headers first so rejections carry a request id, idempotency next so a replay skips everything after it, verification once the profile URL is known, and response signing last so replays carry the signature they were first sent with. Composing your own, keep that order:
 
 ```elixir
 pipeline :ucp do
-  plug Bazaar.Plugs.UCPHeaders       # headers and version first, so rejections carry a request id
-  plug Bazaar.Plugs.Idempotency      # replay before validation and before the action
-  plug Bazaar.Plugs.VerifySignature  # needs the profile URL from UCPHeaders
+  plug Bazaar.Plugs.UCPHeaders
+  plug Bazaar.Plugs.Idempotency
+  plug Bazaar.Plugs.VerifySignature
   plug Bazaar.Plugs.ValidateRequest
+  plug Bazaar.Plugs.SignResponse, key: &MyApp.Shop.signing_key/0
 end
 ```
 
@@ -173,13 +202,3 @@ end
 
 - [Handlers Guide](handlers.md) - Access plug data in handlers
 - [Testing Guide](testing.md) - Test with plugs
-
-## SignResponse
-
-Signs every successful response with an RFC 9421 signature over `@status`, `Content-Digest` and `Content-Type`, which the spec recommends for checkout completion and payment responses. Platforms verify against the public key you publish as `"keys"` in `business_profile/0`, so pass the same key:
-
-```elixir
-plug Bazaar.Plugs.SignResponse, key: &MyApp.Signing.key/0
-```
-
-`key:` takes a `Bazaar.Signing.Key` or a zero-arity function (for a key loaded at boot); `statuses:` narrows what gets signed (default `200..299`).
