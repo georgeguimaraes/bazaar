@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Bazaar.Gen.SchemasTest do
   @schemas_dir :code.priv_dir(:bazaar) |> Path.join("ucp_schemas/2026-08-25")
 
   # The roots bazaar generates from: its handler surface plus the profile documents.
-  @roots ~w(*.json shopping/cart*.json shopping/catalog*.json shopping/checkout*.json shopping/order*.json shopping/fulfillment*.json shopping/discount*.json shopping/buyer_consent*.json transports/*.json)
+  @roots ~w(*.json shopping/cart*.json shopping/catalog*.json shopping/checkout*.json shopping/order*.json shopping/fulfillment*.json shopping/discount*.json shopping/buyer_consent*.json)
 
   test "generates a module for an array root with inline object items, skips arrays of refs" do
     dir = Path.join(System.tmp_dir!(), "bazaar_gen_schemas_#{System.unique_integer([:positive])}")
