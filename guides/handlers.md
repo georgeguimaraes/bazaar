@@ -39,8 +39,10 @@ Handlers speak UCP. On ACP routes the controller translates requests before and 
 | `loyalty/1` | memberships answering `context.eligibility` claims | none |
 | `payment_terms/1` | selectable payment terms for a total | immediate only |
 | `authorize/1` | charging the instruments at completion | an instrument is required |
-| `order_placed/2` | called with the order and the conn once placed | nothing |
-| `order_updated/2` | called after an order changed through `update_order` (events, adjustments) | nothing |
+| `http_client/0` | `%{get: fn url -> ... end, post: fn url, body, headers -> ... end}` for reaching platforms | none, so no outbound requests |
+| `signing_key/0` | the key order webhooks are signed with | none, unsigned with a warning |
+| `order_placed/2`, `order_updated/2` | called when an order is placed or changes | deliver the signed order to the platform |
+| `fulfillment_config/0` | the fulfillment capability's config in discovery | no multi-destination, no method combinations |
 | `products/0` | the catalog | `[]` |
 | `locations/0` | the stores | `[]` |
 | `serves?/2`, `stocks?/2` | location search predicates | unsupported (such requests are rejected, as the spec asks) |
@@ -167,31 +169,48 @@ The controller formats what a callback returns:
 
 ## Sending order events
 
-Platforms expect the full order document whenever an order is created or changes. The platform's profile (the URL in its `UCP-Agent` header, `conn.assigns.ucp_agent_profile`) says where to send it. `order_placed/2` is the place for the first one; `order_updated/2` fires after every `update_order` (fulfillment events, adjustments) and your own changes (shipping) call the same delivery. Later events use the same URL, so remember it with the order:
+Platforms expect the full order document whenever an order is created or changes, signed, at the URL their profile advertises. That happens by itself: `order_placed/2` and `order_updated/2` default to `Bazaar.Webhook.deliver_order/3`, which finds the platform from the request's `UCP-Agent`, reads its `webhook_url`, signs with your key and delivers off the request path with retries. Two callbacks turn it on:
 
 ```elixir
 @impl true
-def order_placed(order, conn) do
-  {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
-  MyApp.Orders.remember_webhook(order["id"], url)
-  event = Bazaar.Webhook.event(order, url)
-
-  Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
-    Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {signing_key(), base_url() <> "/.well-known/ucp"})
-  end)
+def http_client do
+  %{
+    get: fn url -> with {:ok, r} <- Req.get(url), do: {:ok, %{status: r.status, body: r.body}} end,
+    post: fn url, body, headers ->
+      with {:ok, r} <- Req.post(url, body: body, headers: headers), do: {:ok, %{status: r.status, body: r.body}}
+    end
+  }
 end
+
+@impl true
+def signing_key, do: Bazaar.Signing.Key.from_pem(File.read!(System.fetch_env!("UCP_SIGNING_KEY_PEM")))
 ```
 
-`deliver/2` retries transport errors and 5xx with the same body, `Webhook-Id` and `Webhook-Timestamp`, and treats 4xx as final. With a `:signer` it adds RFC 9421 signature headers; publish the key's public half so platforms can verify:
+Publish the key's public half so platforms can verify:
 
 ```elixir
 @impl true
 def business_profile do
-  %{"name" => "My Store", "keys" => [Bazaar.Signing.Key.public_jwk(signing_key())]}
+  %{"name" => "My Store", "keys" => [Bazaar.Signing.Key.public_jwk(MyApp.Shop.signing_key())]}
+end
+```
+
+Changes that don't come from a platform's request (an order shipping from your own systems) have no conn to read, so remember which platform placed the order and pass its profile URL:
+
+```elixir
+@impl true
+def order_placed(order, conn) do
+  MyApp.Orders.remember_platform(order["id"], conn.assigns[:ucp_agent_profile])
+  super(order, conn)
 end
 
-defp signing_key, do: Bazaar.Signing.Key.from_pem(File.read!(System.fetch_env!("UCP_SIGNING_KEY_PEM")))
+def ship(order_id) do
+  order = MyApp.Orders.ship(order_id)
+  Bazaar.Webhook.deliver_order(order, __MODULE__, MyApp.Orders.platform(order_id))
+end
 ```
+
+Deliveries run under `Bazaar.TaskSupervisor`, which bazaar starts; `webhook_task_supervisor/0` names another or `nil` to deliver inline. `Bazaar.Webhook.deliver_order/3` never raises: it answers `{:error, :no_http_client}`, `{:error, :no_platform}` or the lookup's error. Overriding `order_placed/2` without calling `super` takes delivery over entirely, with `Bazaar.Webhook.event/2` and `deliver/2` underneath.
 
 ## Testing
 

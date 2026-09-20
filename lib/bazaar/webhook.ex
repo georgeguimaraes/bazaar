@@ -8,17 +8,26 @@ defmodule Bazaar.Webhook do
   and again whenever it changes. Failed deliveries are retried with the same
   body and headers, so the platform can deduplicate.
 
-  Build the event once, then deliver it off the request path:
+  A shop that names an `http_client/0` and a `signing_key/0` gets this for
+  free: `Bazaar.Shop`'s `order_placed/2` and `order_updated/2` call
+  `deliver_order/3`, which finds the platform's webhook URL, signs, and
+  delivers off the request path.
 
-      {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
-      event = Bazaar.Webhook.event(order, url)
+      defmodule MyApp.Shop do
+        use Bazaar.Shop
 
-      Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
-        Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {key, profile_url})
-      end)
+        @impl true
+        def http_client, do: %{get: &MyApp.Http.get/1, post: &MyApp.Http.post/3}
 
-  Delivery blocks the calling process through its retries, so never run it
-  inside the completion request: the platform is waiting on that response.
+        @impl true
+        def signing_key, do: MyApp.Signing.key()
+      end
+
+  `deliver_order/3` also takes a platform profile URL instead of a conn, for
+  changes that don't come from a request (an order shipping from your own
+  system). `event/2` and `deliver/2` are the pieces underneath, for a shop
+  that wants to own the delivery: note that `deliver/2` blocks the calling
+  process through its retries, so never run it inside the completion request.
 
   ## Signing
 
@@ -27,6 +36,8 @@ defmodule Bazaar.Webhook do
   platform verifies them against the `keys[]` in your discovery profile.
   Without one, none of the four headers is sent.
   """
+
+  require Logger
 
   alias Bazaar.Signing.HttpSignature
   alias Bazaar.Telemetry
@@ -38,6 +49,75 @@ defmodule Bazaar.Webhook do
 
   @doc "Builds the event for an order document and the platform's webhook URL."
   def event(order, url), do: Event.new(order, url)
+
+  @doc """
+  Delivers an order to the platform that asked for it: reads the platform's
+  `webhook_url` from its profile, signs with the shop's key, and runs the
+  delivery under the shop's task supervisor, or inline when it names none.
+  The profile is fetched per delivery, so a platform that moves its endpoint
+  is followed; deliveries run off the request path, where that costs nothing.
+
+  The third argument is the conn of the request that changed the order (its
+  `ucp_agent_profile` assign names the platform) or a platform profile URL
+  you stored. Returns `:ok`, or `{:error, reason}` when the shop has no HTTP
+  client, no platform was named, or its profile advertises no webhook URL.
+  Never raises.
+  """
+  def deliver_order(order, shop, conn_or_profile_url) do
+    with {:ok, client} <- http_client(shop),
+         {:ok, profile_url} <- profile_url(conn_or_profile_url),
+         {:ok, url} <- Bazaar.Platform.webhook_url(profile_url, http_client: client.get) do
+      event = event(order, url)
+      deliver_under(shop, event)
+      :ok
+    end
+  end
+
+  defp http_client(shop) do
+    case shop.http_client() do
+      %{get: get, post: post} when is_function(get, 1) and is_function(post, 3) ->
+        {:ok, %{get: get, post: post}}
+
+      _ ->
+        {:error, :no_http_client}
+    end
+  end
+
+  defp profile_url(%Plug.Conn{} = conn) do
+    case conn.assigns[:ucp_agent_profile] do
+      url when is_binary(url) -> {:ok, url}
+      _ -> {:error, :no_platform}
+    end
+  end
+
+  defp profile_url(url) when is_binary(url), do: {:ok, url}
+  defp profile_url(_other), do: {:error, :no_platform}
+
+  defp deliver_under(shop, event) do
+    %{post: post} = shop.http_client()
+    signer = signer(shop)
+    run = fn -> deliver(event, http_client: post, signer: signer) end
+
+    case shop.webhook_task_supervisor() do
+      nil -> run.()
+      name -> Task.Supervisor.start_child(name, run)
+    end
+  end
+
+  defp signer(shop) do
+    case shop.signing_key() do
+      nil ->
+        Logger.warning(
+          "[Bazaar] #{inspect(shop)} has no signing_key/0, so order webhooks go unsigned; " <>
+            "the spec has them signed and platforms may reject them"
+        )
+
+        nil
+
+      key ->
+        {key, shop.base_url() <> "/.well-known/ucp"}
+    end
+  end
 
   @doc """
   Delivers an event, retrying transport errors, 5xx and 429 with exponential

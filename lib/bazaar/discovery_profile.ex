@@ -106,7 +106,7 @@ defmodule Bazaar.DiscoveryProfile do
       "shopping/extensions/fulfillment"
       |> capability("shopping/fulfillment")
       |> Map.put("extends", "dev.ucp.shopping.checkout")
-      |> Map.put("config", handler.fulfillment_config())
+      |> Map.put("config", handler.__bazaar__(:shop).fulfillment_config())
 
     [{"dev.ucp.shopping.fulfillment", entry}]
   end

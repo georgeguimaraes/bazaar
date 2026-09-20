@@ -126,7 +126,7 @@ defmodule Mix.Tasks.Bazaar.Gen.Handler do
         pipeline :ucp do
           plug :accepts, ["json"]
           plug Bazaar.Plugs.UCP
-          plug Bazaar.Plugs.VerifySignature, http_client: &#{module}.Http.get/1  # optional, see the plugs guide
+          plug Bazaar.Plugs.VerifySignature  # optional, see the plugs guide
         end
 
         scope "/" do

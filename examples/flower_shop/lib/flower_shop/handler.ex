@@ -46,7 +46,7 @@ defmodule FlowerShop.Handler do
 
       order ->
         order = order |> Orders.ship() |> Store.put_order()
-        Shop.deliver(order, Store.get_webhook_url(id))
+        Bazaar.Webhook.deliver_order(order, Shop, Store.get_platform(id))
         {:ok, order}
     end
   end

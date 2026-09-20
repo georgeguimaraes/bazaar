@@ -105,4 +105,104 @@ defmodule Bazaar.WebhookTest do
       assert {:ok, _} = HttpSignature.verify(request, Key.from_jwk(Key.public_jwk(key)))
     end
   end
+
+  describe "deliver_order/3 from a shop" do
+    # A platform whose profile advertises where its order events go.
+    defp platform_profile(url) do
+      %{
+        "ucp" => %{
+          "version" => "2026-08-25",
+          "capabilities" => %{
+            "dev.ucp.shopping.order" => [%{"config" => %{"webhook_url" => url}}]
+          }
+        }
+      }
+    end
+
+    defmodule Shop do
+      use Bazaar.Shop
+
+      @impl true
+      def base_url, do: "https://shop.test"
+
+      @impl true
+      def item(_id), do: nil
+
+      @impl true
+      def http_client, do: Process.get(:http_client)
+
+      @impl true
+      def signing_key, do: Process.get(:signing_key)
+
+      # Inline, so a test sees the delivery without waiting on a task.
+      @impl true
+      def webhook_task_supervisor, do: nil
+    end
+
+    defmodule ClientlessShop do
+      use Bazaar.Shop
+
+      @impl true
+      def base_url, do: "https://shop.test"
+
+      @impl true
+      def item(_id), do: nil
+    end
+
+    defp with_client(profile, post) do
+      Process.put(:http_client, %{
+        get: fn _url -> {:ok, %{status: 200, body: profile}} end,
+        post: post
+      })
+    end
+
+    test "finds the platform's webhook url, signs, and delivers" do
+      key = Key.generate(:p256)
+      Process.put(:signing_key, key)
+      {client, calls} = scripted([{:ok, %{status: 200, body: ""}}])
+      with_client(platform_profile(@url), client)
+
+      conn =
+        Plug.Test.conn(:post, "/")
+        |> Plug.Conn.assign(:ucp_agent_profile, "https://platform.test/.well-known/ucp")
+
+      assert Webhook.deliver_order(@order, Shop, conn) == :ok
+
+      assert [%{url: @url, headers: headers, body: body}] = calls.()
+      assert JSON.decode!(body)["id"] == "order_123"
+      assert header(headers, "ucp-agent") == ~s(profile="https://shop.test/.well-known/ucp")
+
+      request = %{method: "POST", url: @url, headers: headers, body: body}
+      assert {:ok, %{keyid: keyid}} = HttpSignature.verify(request, key)
+      assert keyid == key.kid
+    end
+
+    test "takes a stored profile url too, for changes outside a request" do
+      Process.put(:signing_key, Key.generate(:ed25519))
+      {client, calls} = scripted([{:ok, %{status: 200, body: ""}}])
+      with_client(platform_profile(@url), client)
+
+      assert Webhook.deliver_order(@order, Shop, "https://platform.test/.well-known/ucp") == :ok
+      assert [%{url: @url}] = calls.()
+    end
+
+    test "says why it didn't deliver instead of raising" do
+      assert Webhook.deliver_order(
+               @order,
+               ClientlessShop,
+               "https://platform.test/.well-known/ucp"
+             ) ==
+               {:error, :no_http_client}
+
+      Process.put(:signing_key, nil)
+      never = fn _url, _body, _headers -> flunk("delivered without a webhook url") end
+      with_client(%{"ucp" => %{"version" => "2026-08-25"}}, never)
+
+      assert Webhook.deliver_order(@order, Shop, "https://platform.test/.well-known/ucp") ==
+               {:error, :webhook_url_not_advertised}
+
+      assert Webhook.deliver_order(@order, Shop, Plug.Test.conn(:post, "/")) ==
+               {:error, :no_platform}
+    end
+  end
 end

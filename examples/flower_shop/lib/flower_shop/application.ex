@@ -12,7 +12,6 @@ defmodule FlowerShop.Application do
     children = [
       FlowerShop.Store,
       Bazaar.Idempotency.ETS,
-      {Task.Supervisor, name: FlowerShop.TaskSupervisor},
       FlowerShopWeb.Endpoint
     ]
 

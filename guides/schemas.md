@@ -318,9 +318,8 @@ Bazaar.Schemas.Shopping.CheckoutResp.fields()
 # All order fields
 Bazaar.Schemas.Shopping.OrderResp.fields()
 
-# Fulfillment configuration
-Bazaar.Fulfillment.default_merchant_config()
-Bazaar.Fulfillment.default_platform_config()
+# Fulfillment configuration advertised in discovery
+MyApp.Shop.fulfillment_config()
 ```
 
 ## Tips

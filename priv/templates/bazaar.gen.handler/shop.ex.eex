@@ -83,12 +83,23 @@ defmodule <%= @shop %> do
   @impl true
   def payment_handlers, do: %{}
 <%= if @orders? do %>
-  # TODO: tell the platform about the order and its later events with
-  # Bazaar.Webhook.deliver/2 (see the handlers guide, "Sending Order Events").
-  @impl true
-  def order_placed(_order, _conn), do: :ok
+  # Orders are delivered to the platform automatically once these two are
+  # real: bazaar looks up the platform's webhook URL, signs and retries.
 
-  # TODO: send the full order again after every change (events, adjustments).
+  # TODO: an HTTP client, a few lines on Req or whatever you use.
   @impl true
-  def order_updated(_order, _conn), do: :ok
+  def http_client do
+    nil
+    # %{
+    #   get: fn url -> with {:ok, r} <- Req.get(url), do: {:ok, %{status: r.status, body: r.body}} end,
+    #   post: fn url, body, headers ->
+    #     with {:ok, r} <- Req.post(url, body: body, headers: headers), do: {:ok, %{status: r.status, body: r.body}}
+    #   end
+    # }
+  end
+
+  # TODO: the key webhooks are signed with, whose public half goes in the
+  # handler's business_profile/0 as "keys" (Bazaar.Signing.Key.from_pem/1).
+  @impl true
+  def signing_key, do: nil
 <% end %>end

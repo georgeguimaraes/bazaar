@@ -94,9 +94,6 @@ defmodule Bazaar.Handler do
   @callback capabilities() :: [capability()]
   @callback business_profile() :: map()
 
-  # Fulfillment configuration (optional)
-  @callback fulfillment_config() :: map()
-
   # Checkout capability
   @callback create_checkout(params(), conn()) ::
               {:ok, map()} | {:error, term()}
@@ -151,7 +148,6 @@ defmodule Bazaar.Handler do
 
   @optional_callbacks [
     # Discovery
-    fulfillment_config: 0,
     # Checkout
     create_checkout: 2,
     get_checkout: 2,
@@ -221,12 +217,7 @@ defmodule Bazaar.Handler do
         }
       end
 
-      @impl Bazaar.Handler
-      def fulfillment_config do
-        Bazaar.Fulfillment.default_merchant_config()
-      end
-
-      defoverridable capabilities: 0, business_profile: 0, fulfillment_config: 0
+      defoverridable capabilities: 0, business_profile: 0
 
       unquote(Bazaar.Handler.defaults(shop, store))
     end

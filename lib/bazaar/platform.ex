@@ -67,7 +67,13 @@ defmodule Bazaar.Platform do
   `discover/2` error.
   """
   def webhook_url(profile_url, opts) do
-    with {:ok, profile} <- discover(profile_url, opts) do
+    discovered =
+      case Keyword.get(opts, :cache) do
+        nil -> discover(profile_url, opts)
+        cache -> discover_cached(profile_url, cache, opts)
+      end
+
+    with {:ok, profile} <- discovered do
       profile
       |> get_in(["ucp", "capabilities", @order_capability])
       |> List.wrap()

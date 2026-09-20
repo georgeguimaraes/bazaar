@@ -1,7 +1,7 @@
 defmodule FlowerShop.Store do
   @moduledoc """
   In-memory `Bazaar.Store` on an Agent, plus the idempotency records and
-  each order's webhook URL. All a demo merchant needs, and it keeps the
+  which platform placed each order. All a demo merchant needs, and it keeps the
   example free of a database.
   """
 
@@ -17,7 +17,7 @@ defmodule FlowerShop.Store do
           checkout_for_cart: %{},
           checkouts: %{},
           orders: %{},
-          webhook_urls: %{},
+          platforms: %{},
           idempotency: %{}
         }
       end,
@@ -56,9 +56,9 @@ defmodule FlowerShop.Store do
     :ok
   end
 
-  @doc "Where an order's events are delivered, learned when it was placed."
-  def get_webhook_url(order_id), do: get(:webhook_urls, order_id)
-  def put_webhook_url(order_id, url), do: put(:webhook_urls, order_id, url)
+  @doc "The platform that placed an order, so its later events reach the same one."
+  def get_platform(order_id), do: get(:platforms, order_id)
+  def put_platform(order_id, profile_url), do: put(:platforms, order_id, profile_url)
 
   def get_idempotency(key), do: get(:idempotency, key)
   def put_idempotency(key, record), do: put(:idempotency, key, record)

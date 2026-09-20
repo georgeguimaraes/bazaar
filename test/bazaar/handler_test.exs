@@ -27,7 +27,6 @@ defmodule Bazaar.HandlerTest do
   test "use Bazaar.Handler defines discovery defaults and every capability callback" do
     assert Plain.capabilities() == [:checkout]
     assert Plain.business_profile()["name"] == "My Store"
-    assert Plain.fulfillment_config() == Bazaar.Fulfillment.default_merchant_config()
     assert Bazaar.Handler in (Plain.__info__(:attributes)[:behaviour] || [])
     assert Plain.__bazaar__(:shop) == Bazaar.TestShop
     assert Plain.__bazaar__(:store) == Bazaar.Store.ETS

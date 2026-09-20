@@ -9,7 +9,7 @@ defmodule FlowerShop.Shop do
 
   use Bazaar.Shop
 
-  alias Bazaar.{Checkout, Platform, Webhook}
+  alias Bazaar.Checkout
   alias FlowerShop.{Catalog, Payments, Store}
 
   @impl true
@@ -119,19 +119,25 @@ defmodule FlowerShop.Shop do
   @impl true
   def authorize(instruments), do: Payments.authorize(instruments)
 
-  # The platform's profile says where its order events go; the order's
-  # webhook URL is remembered so later events (shipping) reach the same place.
+  @impl true
+  def http_client, do: %{get: &FlowerShop.Http.get/1, post: &FlowerShop.Http.post/3}
+
+  @impl true
+  def signing_key, do: Application.fetch_env!(:flower_shop, :signing_key)
+
+  # Delivery is the library's; the shop only remembers which platform asked,
+  # so later events (shipping, from the shop's own systems) reach the same one.
   @impl true
   def order_placed(order, conn) do
-    url = webhook_url(conn.assigns[:ucp_agent_profile])
-    Store.put_webhook_url(order["id"], url)
-    deliver(order, url)
+    Store.put_platform(order["id"], conn.assigns[:ucp_agent_profile])
+    super(order, conn)
   end
 
-  # Every change to an order goes to the platform as the full order, at the
-  # URL learned when it was placed.
+  # Every change goes to the platform that placed the order, whether or not
+  # the change came from one of its own requests.
   @impl true
-  def order_updated(order, _conn), do: deliver(order, Store.get_webhook_url(order["id"]))
+  def order_updated(order, _conn),
+    do: Bazaar.Webhook.deliver_order(order, __MODULE__, Store.get_platform(order["id"]))
 
   @impl true
   def products, do: Catalog.products()
@@ -144,30 +150,4 @@ defmodule FlowerShop.Shop do
 
   @impl true
   def stocks?(location, item_ids), do: Catalog.stocks?(location, item_ids)
-
-  @doc "Delivers a signed order event to the platform, off the request path with bounded retries."
-  def deliver(_order, nil), do: :ok
-
-  def deliver(order, url) do
-    event = Webhook.event(order, url)
-    signer = {signing_key(), base_url() <> "/.well-known/ucp"}
-
-    Task.Supervisor.start_child(FlowerShop.TaskSupervisor, fn ->
-      Webhook.deliver(event, http_client: &FlowerShop.Http.post/3, signer: signer)
-    end)
-
-    :ok
-  end
-
-  defp webhook_url(nil), do: nil
-
-  defp webhook_url(profile_url) do
-    case Platform.webhook_url(profile_url, http_client: &FlowerShop.Http.get/1) do
-      {:ok, url} -> url
-      {:error, _reason} -> nil
-    end
-  end
-
-  @doc "The key that signs the shop's webhooks and responses, generated at boot."
-  def signing_key, do: Application.fetch_env!(:flower_shop, :signing_key)
 end

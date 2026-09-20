@@ -18,12 +18,13 @@ defmodule Bazaar.Plugs.VerifySignature do
       pipeline :ucp do
         plug :accepts, ["json"]
         plug Bazaar.Plugs.UCP
-        plug Bazaar.Plugs.VerifySignature, http_client: &MyApp.Http.get/1, cache: MyApp.ProfileCache.map()
+        plug Bazaar.Plugs.VerifySignature, cache: MyApp.ProfileCache.map()
       end
 
   ## Options
 
-  - `:http_client` - required, the 1-arity GET `Bazaar.Platform` uses
+  - `:http_client` - a 1-arity GET; without one the handler's shop supplies
+    `http_client/0`'s `get`, so a mounted store needs nothing here
   - `:cache` - optional `Bazaar.Platform.discover_cached/3` cache map, so a
     platform's keys are fetched once
   - `:required` - reject unsigned requests with 401 (default `false`)
@@ -45,7 +46,7 @@ defmodule Bazaar.Plugs.VerifySignature do
   @impl true
   def init(opts) do
     %{
-      http_client: Keyword.fetch!(opts, :http_client),
+      http_client: Keyword.get(opts, :http_client),
       cache: Keyword.get(opts, :cache),
       required: Keyword.get(opts, :required, false),
       max_age: Keyword.get(opts, :max_age, 300)
@@ -66,7 +67,7 @@ defmodule Bazaar.Plugs.VerifySignature do
   defp verify(conn, opts) do
     request = request(conn)
 
-    with {:ok, keys} <- platform_keys(conn.assigns[:ucp_agent_profile], opts),
+    with {:ok, keys} <- platform_keys(conn.assigns[:ucp_agent_profile], conn, opts),
          {:ok, params} <- verify_with_any(request, candidates(keys, request)),
          :ok <- fresh(params, opts.max_age) do
       {assign(conn, :ucp_signature, %{keyid: params.keyid, created: params.created}),
@@ -133,13 +134,15 @@ defmodule Bazaar.Plugs.VerifySignature do
     end
   end
 
-  defp platform_keys(nil, _opts), do: {:error, :signer_unknown}
+  defp platform_keys(nil, _conn, _opts), do: {:error, :signer_unknown}
 
-  defp platform_keys(profile_url, opts) do
+  defp platform_keys(profile_url, conn, opts) do
     result =
-      case opts.cache do
-        nil -> Platform.discover(profile_url, http_client: opts.http_client)
-        cache -> Platform.discover_cached(profile_url, cache, http_client: opts.http_client)
+      with {:ok, get} <- http_client(conn, opts) do
+        case opts.cache do
+          nil -> Platform.discover(profile_url, http_client: get)
+          cache -> Platform.discover_cached(profile_url, cache, http_client: get)
+        end
       end
 
     case result do
@@ -151,6 +154,19 @@ defmodule Bazaar.Plugs.VerifySignature do
 
       {:error, _} ->
         {:error, :signer_unknown}
+    end
+  end
+
+  # The client given to the plug, else the shop's, through the mounted handler.
+  defp http_client(_conn, %{http_client: get}) when is_function(get, 1), do: {:ok, get}
+
+  defp http_client(conn, _opts) do
+    with handler when not is_nil(handler) <- conn.assigns[:bazaar_handler],
+         true <- function_exported?(handler, :__bazaar__, 1),
+         %{get: get} when is_function(get, 1) <- handler.__bazaar__(:shop).http_client() do
+      {:ok, get}
+    else
+      _ -> {:error, :signer_unknown}
     end
   end
 

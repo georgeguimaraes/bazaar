@@ -22,9 +22,15 @@ defmodule Bazaar.Shop do
 
   Only `base_url/0` and `item/1` are required; `use Bazaar.Shop` gives every
   other callback a default that means "not offered" (no discounts, no
-  pickup, no loyalty, no terms, an empty catalog, no stores). Every callback
-  is pure and takes exactly what `Bazaar.Checkout.build/2`, `Bazaar.Catalog`
-  and `Bazaar.Location` document for the matching option.
+  pickup, no loyalty, no terms, an empty catalog, no stores). The facts are
+  pure functions taking exactly what `Bazaar.Checkout.build/2`,
+  `Bazaar.Catalog` and `Bazaar.Location` document for the matching option.
+
+  Three callbacks are the shop's connection to the outside: `http_client/0`,
+  `signing_key/0` and, when an order is placed or changes, delivery of the
+  signed order to the platform, which `order_placed/2` and `order_updated/2`
+  do by default. Name the first two and webhooks work; leave them out and
+  bazaar makes no outbound requests at all.
   """
 
   @type context :: map()
@@ -62,10 +68,41 @@ defmodule Bazaar.Shop do
   @doc "Charges the instruments at completion; `{:error, reason}` becomes a `payment_failed` message."
   @callback authorize(instruments :: [map()]) :: :ok | {:error, term()}
 
-  @doc "Called once an order is placed, with the order and the conn: the place to notify the platform."
+  @doc """
+  The HTTP client bazaar reaches platforms with: `%{get: fn url -> ... end,
+  post: fn url, body, headers -> ... end}`, each answering `{:ok, %{status:
+  integer, body: term}}` or `{:error, reason}`. `nil` (the default) means no
+  outbound HTTP, so no webhook delivery and no profile lookups.
+  """
+  @callback http_client() :: %{get: function(), post: function()} | nil
+
+  @doc """
+  The key order webhooks are signed with, whose public half belongs in
+  `business_profile/0`'s `"keys"`. `nil` (the default) delivers unsigned,
+  which the spec forbids.
+  """
+  @callback signing_key() :: Bazaar.Signing.Key.t() | nil
+
+  @doc """
+  Where webhook deliveries run: a `Task.Supervisor` name (default
+  `Bazaar.TaskSupervisor`, which bazaar starts) or `nil` to deliver inline.
+  """
+  @callback webhook_task_supervisor() :: atom() | nil
+
+  @doc "The fulfillment capability's `config` in discovery: multi-destination methods and method combinations."
+  @callback fulfillment_config() :: map()
+
+  @doc """
+  Called once an order is placed. The default delivers the signed order to
+  the platform (see `Bazaar.Webhook.deliver_order/3`); override to do it
+  yourself or to do more.
+  """
   @callback order_placed(order :: map(), conn :: Plug.Conn.t()) :: term()
 
-  @doc "Called after an order changed (events, adjustments); the spec has the platform sent the full order again."
+  @doc """
+  Called after an order changed (events, adjustments); the spec has the
+  platform sent the full order again, which the default does.
+  """
   @callback order_updated(order :: map(), conn :: Plug.Conn.t()) :: term()
 
   @doc "The catalog, products in the spec's shape."
@@ -118,10 +155,22 @@ defmodule Bazaar.Shop do
       def authorize(_instruments), do: :ok
 
       @impl Bazaar.Shop
-      def order_placed(_order, _conn), do: :ok
+      def http_client, do: nil
 
       @impl Bazaar.Shop
-      def order_updated(_order, _conn), do: :ok
+      def signing_key, do: nil
+
+      @impl Bazaar.Shop
+      def webhook_task_supervisor, do: Bazaar.TaskSupervisor
+
+      @impl Bazaar.Shop
+      def fulfillment_config, do: %{"multi_destination" => [], "method_combinations" => []}
+
+      @impl Bazaar.Shop
+      def order_placed(order, conn), do: Bazaar.Webhook.deliver_order(order, __MODULE__, conn)
+
+      @impl Bazaar.Shop
+      def order_updated(order, conn), do: Bazaar.Webhook.deliver_order(order, __MODULE__, conn)
 
       @impl Bazaar.Shop
       def products, do: []
@@ -144,6 +193,10 @@ defmodule Bazaar.Shop do
                      loyalty: 1,
                      payment_terms: 1,
                      authorize: 1,
+                     http_client: 0,
+                     signing_key: 0,
+                     webhook_task_supervisor: 0,
+                     fulfillment_config: 0,
                      order_placed: 2,
                      order_updated: 2,
                      products: 0,

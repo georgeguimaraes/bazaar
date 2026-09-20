@@ -134,7 +134,7 @@ plug Plug.Parsers,
 
 # router.ex
 plug Bazaar.Plugs.VerifySignature,
-  http_client: &MyApp.Http.get/1,      # the 1-arity GET Bazaar.Platform uses
+  http_client: &MyApp.Http.get/1,      # optional; your shop's http_client/0 supplies one
   cache: MyApp.ProfileCache.map(),     # optional, fetch each platform's keys once
   required: false,                     # 401 for unsigned requests when true
   max_age: 300                         # seconds a signature's created may be in the past

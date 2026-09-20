@@ -23,8 +23,23 @@ defmodule Bazaar.DiscoveryProfileTest do
     end
   end
 
+  defmodule EverythingShop do
+    use Bazaar.Shop
+
+    defdelegate base_url, to: Bazaar.TestShop
+    defdelegate item(id), to: Bazaar.TestShop
+
+    @impl true
+    def fulfillment_config do
+      %{
+        "multi_destination" => [%{"method" => "shipping"}],
+        "method_combinations" => [["shipping", "pickup"]]
+      }
+    end
+  end
+
   defmodule EverythingHandler do
-    use Bazaar.Handler, shop: Bazaar.TestShop, store: Bazaar.Store.ETS
+    use Bazaar.Handler, shop: EverythingShop, store: Bazaar.Store.ETS
 
     @impl true
     def capabilities,
@@ -65,14 +80,6 @@ defmodule Bazaar.DiscoveryProfileTest do
             "y" => "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
           }
         ]
-      }
-    end
-
-    @impl true
-    def fulfillment_config do
-      %{
-        "multi_destination" => [%{"method" => "shipping"}],
-        "method_combinations" => [["shipping", "pickup"]]
       }
     end
   end

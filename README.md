@@ -312,22 +312,21 @@ mix bazaar.gen.schemas priv/ucp_schemas/2026-08-25 \
 
 ## Webhooks
 
-Platforms learn about orders through webhooks: the full order document, POSTed to the URL the platform advertises in its profile, with `Webhook-Id` and `Webhook-Timestamp` headers and retries that keep both. Bazaar finds the URL and delivers the event; your handler decides when.
+Platforms learn about orders through webhooks: the full order document, POSTed to the URL the platform advertises in its profile, signed, with `Webhook-Id` and `Webhook-Timestamp` headers and retries that keep both. Bazaar does all of it once your shop names an HTTP client and a signing key:
 
 ```elixir
-# in your Bazaar.Shop
-@impl true
-def order_placed(order, conn) do
-  {:ok, url} = Bazaar.Platform.webhook_url(conn.assigns.ucp_agent_profile, http_client: &MyApp.Http.get/1)
-  event = Bazaar.Webhook.event(order, url)
+defmodule MyApp.Shop do
+  use Bazaar.Shop
 
-  Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
-    Bazaar.Webhook.deliver(event, http_client: &MyApp.Http.post/3, signer: {key, "https://shop.example/.well-known/ucp"})
-  end)
+  @impl true
+  def http_client, do: %{get: &MyApp.Http.get/1, post: &MyApp.Http.post/3}
+
+  @impl true
+  def signing_key, do: MyApp.Signing.key()
 end
 ```
 
-Delivery is signed with RFC 9421 HTTP message signatures when you pass a `Bazaar.Signing.Key` (EC P-256 or Ed25519, loaded from PEM or JWK). Publish its public half as `"keys"` in `business_profile/0` and platforms verify against it. Bazaar bundles no HTTP client: the two functions above are yours, a few lines on Req or whatever you use.
+Every order placed or changed is then delivered off the request path with RFC 9421 signatures, verified by platforms against the public key you publish as `"keys"` in `business_profile/0`. Override `order_placed/2` or `order_updated/2` to do it yourself. Bazaar bundles no HTTP client: those two functions are yours, a few lines on Req or whatever you use.
 
 ## Plugs
 
@@ -337,7 +336,7 @@ Optional plugs for production use:
 pipeline :ucp do
   plug :accepts, ["json"]
   plug Bazaar.Plugs.UCP              # UCPHeaders (version negotiation) then Idempotency (replay)
-  plug Bazaar.Plugs.VerifySignature, http_client: &MyApp.Http.get/1   # RFC 9421 request signatures, when present
+  plug Bazaar.Plugs.VerifySignature                                    # RFC 9421 request signatures, when present
   plug Bazaar.Plugs.SignResponse, key: &MyApp.Signing.key/0            # sign responses with your published key
   plug Bazaar.Plugs.ValidateRequest  # Validate request body
 end
