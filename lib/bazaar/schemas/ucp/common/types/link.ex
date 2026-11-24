@@ -6,17 +6,21 @@ defmodule Bazaar.Schemas.Common.Types.Link do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    title:
-      "Optional display text for the link. When provided, use this instead of generating from type.",
-    type:
-      "Type of link. Well-known values: `privacy_policy`, `terms_of_service`, `refund_policy`, `shipping_policy`, `faq`. Consumers SHOULD handle unknown values gracefully by displaying them using the `title` field or omitting the link.",
-    url: "The actual URL pointing to the content to be displayed."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:title) do
+    "Optional display text for the link. When provided, use this instead of generating from type."
+  end
+
+  def field_description(:type) do
+    "Type of link. Well-known values: `privacy_policy`, `terms_of_service`, `refund_policy`, `shipping_policy`, `faq`. Consumers SHOULD handle unknown values gracefully by displaying them using the `title` field or omitting the link."
+  end
+
+  def field_description(:url) do
+    "The actual URL pointing to the content to be displayed."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

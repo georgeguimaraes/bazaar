@@ -14,20 +14,37 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentCreateReq.DevUcpShoppingCheckout do
   alias Bazaar.Schemas.Shopping.Types.Buyer
   alias Bazaar.Schemas.Shopping.Types.FulfillmentCreateReq
   alias Bazaar.Schemas.Shopping.Types.LineItemCreateReq
-
-  @field_descriptions %{
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    buyer: "Representation of the buyer.",
-    context: nil,
-    fulfillment: "Fulfillment details.",
-    line_items: "List of line items being checked out.",
-    payment: nil,
-    signals: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:buyer) do
+    "Representation of the buyer."
+  end
+
+  def field_description(:context) do
+    nil
+  end
+
+  def field_description(:fulfillment) do
+    "Fulfillment details."
+  end
+
+  def field_description(:line_items) do
+    "List of line items being checked out."
+  end
+
+  def field_description(:payment) do
+    nil
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

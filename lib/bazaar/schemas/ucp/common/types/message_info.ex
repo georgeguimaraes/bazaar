@@ -8,17 +8,29 @@ defmodule Bazaar.Schemas.Common.Types.MessageInfo do
   import Ecto.Changeset
   @content_type_values [:plain, :markdown]
   @type_values [:info]
-  @field_descriptions %{
-    code:
-      "Info code identifying the type of informational message. Standard codes are defined in capability specifications (see examples) and have standardized semantics; freeform codes are permitted.",
-    content: "Human-readable message.",
-    content_type: "Content format, default = plain.",
-    path: "RFC 9535 JSONPath to the component the message refers to (e.g., $.line_items[0]).",
-    type: "Message type discriminator."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:code) do
+    "Info code identifying the type of informational message. Standard codes are defined in capability specifications (see examples) and have standardized semantics; freeform codes are permitted."
+  end
+
+  def field_description(:content) do
+    "Human-readable message."
+  end
+
+  def field_description(:content_type) do
+    "Content format, default = plain."
+  end
+
+  def field_description(:path) do
+    "RFC 9535 JSONPath to the component the message refers to (e.g., $.line_items[0])."
+  end
+
+  def field_description(:type) do
+    "Message type discriminator."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

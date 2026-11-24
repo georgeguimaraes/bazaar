@@ -8,14 +8,17 @@ defmodule Bazaar.Schemas.Common.Types.PriceFilter do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    max: "Maximum price in ISO 4217 minor units.",
-    min: "Minimum price in ISO 4217 minor units."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:max) do
+    "Maximum price in ISO 4217 minor units."
+  end
+
+  def field_description(:min) do
+    "Minimum price in ISO 4217 minor units."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

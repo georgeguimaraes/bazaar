@@ -8,20 +8,33 @@ defmodule Bazaar.Schemas.Capability.BusinessSchema do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    config: "Entity-specific configuration. Structure defined by each entity's schema.",
-    extends:
-      "Parent capability(s) this extends. Present for extensions, absent for root capabilities. Use array for multi-parent extensions.",
-    id:
-      "Unique identifier for this entity instance. Used to disambiguate when multiple instances exist.",
-    schema: "URL to JSON Schema defining this entity's structure and payloads.",
-    spec: "URL to human-readable specification document.",
-    version: "Entity version in YYYY-MM-DD format."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:config) do
+    "Entity-specific configuration. Structure defined by each entity's schema."
+  end
+
+  def field_description(:extends) do
+    "Parent capability(s) this extends. Present for extensions, absent for root capabilities. Use array for multi-parent extensions."
+  end
+
+  def field_description(:id) do
+    "Unique identifier for this entity instance. Used to disambiguate when multiple instances exist."
+  end
+
+  def field_description(:schema) do
+    "URL to JSON Schema defining this entity's structure and payloads."
+  end
+
+  def field_description(:spec) do
+    "URL to human-readable specification document."
+  end
+
+  def field_description(:version) do
+    "Entity version in YYYY-MM-DD format."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

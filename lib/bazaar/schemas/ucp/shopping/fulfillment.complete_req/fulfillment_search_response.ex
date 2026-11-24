@@ -10,18 +10,29 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentCompleteReq.FulfillmentSearchRespon
   alias Bazaar.Schemas.Common.Types.Policy
   alias Bazaar.Schemas.Shopping.FulfillmentCompleteReq.FulfillmentProduct
   alias Bazaar.Schemas.UcpCompleteReq.ResponseCatalogSchema
-
-  @field_descriptions %{
-    messages: "Errors, warnings, or informational messages about the search results.",
-    pagination: nil,
-    policies:
-      "Policies (e.g., return/refund terms) that apply to the products in these search results. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
-    products: "Products matching the search criteria.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:messages) do
+    "Errors, warnings, or informational messages about the search results."
+  end
+
+  def field_description(:pagination) do
+    nil
+  end
+
+  def field_description(:policies) do
+    "Policies (e.g., return/refund terms) that apply to the products in these search results. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`."
+  end
+
+  def field_description(:products) do
+    "Products matching the search criteria."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

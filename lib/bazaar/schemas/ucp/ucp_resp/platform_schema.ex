@@ -9,18 +9,33 @@ defmodule Bazaar.Schemas.UcpResp.PlatformSchema do
   use Ecto.Schema
   import Ecto.Changeset
   @status_values [:success, :error]
-  @field_descriptions %{
-    capabilities: "Capability registry keyed by reverse-domain name.",
-    map_order:
-      "Preferred key-traversal order for sibling registry fields inside the root `ucp` envelope (`services`, `capabilities`, and `payment_handlers`).",
-    payment_handlers: "Payment handler registry keyed by reverse-domain name.",
-    services: "Service registry keyed by reverse-domain name.",
-    status: "Application-level status of the UCP operation.",
-    version: "Version identifier in YYYY-MM-DD format."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:capabilities) do
+    "Capability registry keyed by reverse-domain name."
+  end
+
+  def field_description(:map_order) do
+    "Preferred key-traversal order for sibling registry fields inside the root `ucp` envelope (`services`, `capabilities`, and `payment_handlers`)."
+  end
+
+  def field_description(:payment_handlers) do
+    "Payment handler registry keyed by reverse-domain name."
+  end
+
+  def field_description(:services) do
+    "Service registry keyed by reverse-domain name."
+  end
+
+  def field_description(:status) do
+    "Application-level status of the UCP operation."
+  end
+
+  def field_description(:version) do
+    "Version identifier in YYYY-MM-DD format."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

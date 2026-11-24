@@ -9,10 +9,17 @@ defmodule Bazaar.Schemas.Common.Types.PriceRange do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.Price
-  @field_descriptions %{max: "Maximum price in the range.", min: "Minimum price in the range."}
   @doc "Returns the description for a field, if available."
+  def field_description(:max) do
+    "Maximum price in the range."
+  end
+
+  def field_description(:min) do
+    "Minimum price in the range."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

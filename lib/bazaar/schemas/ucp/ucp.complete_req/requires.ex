@@ -9,15 +9,17 @@ defmodule Bazaar.Schemas.UcpCompleteReq.Requires do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.UcpCompleteReq.VersionConstraint
-
-  @field_descriptions %{
-    capabilities:
-      "Required capability versions, keyed by capability name. Keys must be a subset of the extension's $defs keys.",
-    protocol: "Required range for the selected `ucp.version`."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:capabilities) do
+    "Required capability versions, keyed by capability name. Keys must be a subset of the extension's $defs keys."
+  end
+
+  def field_description(:protocol) do
+    "Required range for the selected `ucp.version`."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

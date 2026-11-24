@@ -13,19 +13,33 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentUpdateReq.DevUcpShoppingCheckout d
   alias Bazaar.Schemas.Common.Types.Signals
   alias Bazaar.Schemas.Shopping.BuyerConsentUpdateReq.Buyer
   alias Bazaar.Schemas.Shopping.Types.LineItemUpdateReq
-
-  @field_descriptions %{
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    buyer: "Buyer with consent tracking.",
-    context: nil,
-    line_items: "List of line items being checked out.",
-    payment: nil,
-    signals: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:buyer) do
+    "Buyer with consent tracking."
+  end
+
+  def field_description(:context) do
+    nil
+  end
+
+  def field_description(:line_items) do
+    "List of line items being checked out."
+  end
+
+  def field_description(:payment) do
+    nil
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

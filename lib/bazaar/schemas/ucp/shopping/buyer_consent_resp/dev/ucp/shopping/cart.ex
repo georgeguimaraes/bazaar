@@ -16,31 +16,69 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentResp.DevUcpShoppingCart do
   alias Bazaar.Schemas.Shopping.BuyerConsentResp.Buyer
   alias Bazaar.Schemas.Shopping.Types.LineItemResp
   alias Bazaar.Schemas.UcpResp.ResponseCartSchema
-
-  @field_descriptions %{
-    actions: "Outstanding extension-defined Actions for this cart.",
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    buyer: "Buyer with consent tracking.",
-    context:
-      "Buyer signals for localization (country, region, postal_code). Merchant uses for pricing, availability, currency. Falls back to geo-IP if omitted.",
-    continue_url:
-      "URL for cart handoff and session recovery. Enables sharing and human-in-the-loop flows.",
-    currency: "ISO 4217 currency code. Determined by merchant based on context or geo-IP.",
-    expires_at: "Cart expiry timestamp (RFC 3339). Optional.",
-    id: "Unique cart identifier.",
-    line_items: "Cart line items. Same structure as checkout. Full replacement on update.",
-    links: "Optional merchant links (policies, FAQs).",
-    messages: "Validation messages, warnings, or informational notices.",
-    policies:
-      "Policies (e.g., return/refund terms) that apply to the items in this cart. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
-    signals: nil,
-    totals: "Estimated cost breakdown. May be partial if shipping/tax not yet calculable.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:actions) do
+    "Outstanding extension-defined Actions for this cart."
+  end
+
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:buyer) do
+    "Buyer with consent tracking."
+  end
+
+  def field_description(:context) do
+    "Buyer signals for localization (country, region, postal_code). Merchant uses for pricing, availability, currency. Falls back to geo-IP if omitted."
+  end
+
+  def field_description(:continue_url) do
+    "URL for cart handoff and session recovery. Enables sharing and human-in-the-loop flows."
+  end
+
+  def field_description(:currency) do
+    "ISO 4217 currency code. Determined by merchant based on context or geo-IP."
+  end
+
+  def field_description(:expires_at) do
+    "Cart expiry timestamp (RFC 3339). Optional."
+  end
+
+  def field_description(:id) do
+    "Unique cart identifier."
+  end
+
+  def field_description(:line_items) do
+    "Cart line items. Same structure as checkout. Full replacement on update."
+  end
+
+  def field_description(:links) do
+    "Optional merchant links (policies, FAQs)."
+  end
+
+  def field_description(:messages) do
+    "Validation messages, warnings, or informational notices."
+  end
+
+  def field_description(:policies) do
+    "Policies (e.g., return/refund terms) that apply to the items in this cart. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`."
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
+  def field_description(:totals) do
+    "Estimated cost breakdown. May be partial if shipping/tax not yet calculable."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

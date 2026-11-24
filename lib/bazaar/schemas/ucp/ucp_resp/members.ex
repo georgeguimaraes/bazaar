@@ -9,15 +9,17 @@ defmodule Bazaar.Schemas.UcpResp.Members do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.RequestConstraints
-
-  @field_descriptions %{
-    map_order:
-      "Preferred key order for map-valued fields in the scope annotated by the containing `ucp` member. Each property names a target map, and its array lists target keys in preferred order. Lists may be partial and are not allowlists.",
-    request_constraints: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:map_order) do
+    "Preferred key order for map-valued fields in the scope annotated by the containing `ucp` member. Each property names a target map, and its array lists target keys in preferred order. Lists may be partial and are not allowlists."
+  end
+
+  def field_description(:request_constraints) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

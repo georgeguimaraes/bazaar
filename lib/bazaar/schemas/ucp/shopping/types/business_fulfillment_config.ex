@@ -8,16 +8,17 @@ defmodule Bazaar.Schemas.Shopping.Types.BusinessFulfillmentConfig do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    method_combinations:
-      "Method-type combinations the business permits within one cart. Each inner array is a permitted set of method `type` values (e.g. shipping + pickup).",
-    multi_destination:
-      "Method types that permit multiple destinations within one cart (e.g. split shipping across addresses). Listing a method permits it; an omitted method does not. Open — businesses MAY list any method type."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:method_combinations) do
+    "Method-type combinations the business permits within one cart. Each inner array is a permitted set of method `type` values (e.g. shipping + pickup)."
+  end
+
+  def field_description(:multi_destination) do
+    "Method types that permit multiple destinations within one cart (e.g. split shipping across addresses). Listing a method permits it; an omitted method does not. Open — businesses MAY list any method type."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

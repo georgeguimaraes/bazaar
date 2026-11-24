@@ -10,18 +10,25 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentResp.ConsentSegment do
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.Link
   @source_values [:business, :platform]
-  @field_descriptions %{
-    description:
-      "Human-readable description of what the buyer is consenting to within this segment (e.g., 'Promotional emails and exclusive offers').",
-    granted:
-      "Whether consent has been granted for this segment. Overrides the parent purpose's `granted` value for this specific scope.",
-    links: "Optional segment-specific links (e.g., channel terms or privacy disclosures).",
-    source:
-      "Identifies the party that asserted the current `granted` value for this segment. `business` means the value reflects the business's default policy; `platform` means the value reflects an explicit buyer decision captured by the platform."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:description) do
+    "Human-readable description of what the buyer is consenting to within this segment (e.g., 'Promotional emails and exclusive offers')."
+  end
+
+  def field_description(:granted) do
+    "Whether consent has been granted for this segment. Overrides the parent purpose's `granted` value for this specific scope."
+  end
+
+  def field_description(:links) do
+    "Optional segment-specific links (e.g., channel terms or privacy disclosures)."
+  end
+
+  def field_description(:source) do
+    "Identifies the party that asserted the current `granted` value for this segment. `business` means the value reflects the business's default policy; `platform` means the value reflects an explicit buyer decision captured by the platform."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

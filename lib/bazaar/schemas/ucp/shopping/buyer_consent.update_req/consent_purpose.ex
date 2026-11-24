@@ -9,17 +9,21 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentUpdateReq.ConsentPurpose do
   use Ecto.Schema
   import Ecto.Changeset
   @source_values [:business, :platform]
-  @field_descriptions %{
-    granted:
-      "Whether consent has been granted for this purpose. The `source` field identifies who asserted this state (business default or platform-captured buyer preference).",
-    segments:
-      "Optional refinements scoping this purpose to specific channels, vendors, or programs. Keys are reverse-DNS identifiers. UCP currently defines two well-known segment identifiers under `dev.ucp.consent.marketing`: `dev.ucp.consent.marketing.email`, `dev.ucp.consent.marketing.sms`. Other segments follow vendor or merchant reverse-DNS conventions.",
-    source:
-      "Identifies the party that asserted the current `granted` value. `business` means the value reflects the business's default policy; `platform` means the value reflects an explicit buyer decision captured by the platform."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:granted) do
+    "Whether consent has been granted for this purpose. The `source` field identifies who asserted this state (business default or platform-captured buyer preference)."
+  end
+
+  def field_description(:segments) do
+    "Optional refinements scoping this purpose to specific channels, vendors, or programs. Keys are reverse-DNS identifiers. UCP currently defines two well-known segment identifiers under `dev.ucp.consent.marketing`: `dev.ucp.consent.marketing.email`, `dev.ucp.consent.marketing.sms`. Other segments follow vendor or merchant reverse-DNS conventions."
+  end
+
+  def field_description(:source) do
+    "Identifies the party that asserted the current `granted` value. `business` means the value reflects the business's default policy; `platform` means the value reflects an explicit buyer decision captured by the platform."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

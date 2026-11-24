@@ -9,16 +9,17 @@ defmodule Bazaar.Schemas.Common.Types.AvailablePaymentInstrument do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.ConstraintExpression
-
-  @field_descriptions %{
-    constraints:
-      "A Constraint Expression describing the instrument this entry makes available. Keys in `properties` name members of the `constraint_target` declared by the instrument schema for this `type`. Requirements on submitted request data belong in `ucp.request_constraints` instead.",
-    type:
-      "The instrument type identifier (e.g., 'card', 'gift_card'). References an instrument schema's type constant."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:constraints) do
+    "A Constraint Expression describing the instrument this entry makes available. Keys in `properties` name members of the `constraint_target` declared by the instrument schema for this `type`. Requirements on submitted request data belong in `ucp.request_constraints` instead."
+  end
+
+  def field_description(:type) do
+    "The instrument type identifier (e.g., 'card', 'gift_card'). References an instrument schema's type constant."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

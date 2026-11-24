@@ -8,16 +8,25 @@ defmodule Bazaar.Schemas.Shopping.Types.Rating do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    count: "Number of reviews contributing to the rating.",
-    scale_max: "Maximum value on the rating scale (e.g., 5 for 5-star).",
-    scale_min: "Minimum value on the rating scale (e.g., 1 for 1-5 stars).",
-    value: "Average rating value."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:count) do
+    "Number of reviews contributing to the rating."
+  end
+
+  def field_description(:scale_max) do
+    "Maximum value on the rating scale (e.g., 5 for 5-star)."
+  end
+
+  def field_description(:scale_min) do
+    "Minimum value on the rating scale (e.g., 1 for 1-5 stars)."
+  end
+
+  def field_description(:value) do
+    "Average rating value."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

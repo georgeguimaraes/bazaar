@@ -8,14 +8,17 @@ defmodule Bazaar.Schemas.UcpCompleteReq.VersionConstraint do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    max: "Maximum compatible version (inclusive). When absent, no upper bound.",
-    min: "Minimum required version (inclusive)."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:max) do
+    "Maximum compatible version (inclusive). When absent, no upper bound."
+  end
+
+  def field_description(:min) do
+    "Minimum required version (inclusive)."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

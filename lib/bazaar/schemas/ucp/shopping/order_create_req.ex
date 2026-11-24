@@ -12,26 +12,49 @@ defmodule Bazaar.Schemas.Shopping.OrderCreateReq do
   alias Bazaar.Schemas.Shopping.Types.Adjustment
   alias Bazaar.Schemas.Shopping.Types.OrderLineItem
   alias Bazaar.Schemas.UcpCreateReq.ResponseOrderSchema
-
-  @field_descriptions %{
-    adjustments:
-      "Post-order events (refunds, returns, credits, disputes, cancellations, etc.) that exist independently of fulfillment.",
-    checkout_id: "Associated checkout ID for reconciliation.",
-    fulfillment: "Fulfillment data: buyer expectations and what actually happened.",
-    id: "Unique order identifier.",
-    label:
-      "Human-readable label for identifying the order. MUST only be provided by the business.",
-    line_items:
-      "Line items representing what was purchased — can change post-order via edits or exchanges.",
-    messages:
-      "Business outcome messages (errors, warnings, informational). Present when the business needs to communicate status or issues to the platform.",
-    permalink_url: "Permalink to access the order on merchant site.",
-    totals: "Different totals for the order.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:adjustments) do
+    "Post-order events (refunds, returns, credits, disputes, cancellations, etc.) that exist independently of fulfillment."
+  end
+
+  def field_description(:checkout_id) do
+    "Associated checkout ID for reconciliation."
+  end
+
+  def field_description(:fulfillment) do
+    "Fulfillment data: buyer expectations and what actually happened."
+  end
+
+  def field_description(:id) do
+    "Unique order identifier."
+  end
+
+  def field_description(:label) do
+    "Human-readable label for identifying the order. MUST only be provided by the business."
+  end
+
+  def field_description(:line_items) do
+    "Line items representing what was purchased — can change post-order via edits or exchanges."
+  end
+
+  def field_description(:messages) do
+    "Business outcome messages (errors, warnings, informational). Present when the business needs to communicate status or issues to the platform."
+  end
+
+  def field_description(:permalink_url) do
+    "Permalink to access the order on merchant site."
+  end
+
+  def field_description(:totals) do
+    "Different totals for the order."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

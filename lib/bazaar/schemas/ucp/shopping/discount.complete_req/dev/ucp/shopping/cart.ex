@@ -13,20 +13,33 @@ defmodule Bazaar.Schemas.Shopping.DiscountCompleteReq.DevUcpShoppingCart do
   alias Bazaar.Schemas.Shopping.DiscountCompleteReq.DiscountsObject
   alias Bazaar.Schemas.Shopping.Types.Buyer
   alias Bazaar.Schemas.Shopping.Types.LineItemCompleteReq
-
-  @field_descriptions %{
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    buyer: "Optional buyer information for personalized estimates.",
-    context:
-      "Buyer signals for localization (country, region, postal_code). Merchant uses for pricing, availability, currency. Falls back to geo-IP if omitted.",
-    discounts: "Discount codes input and applied discounts output.",
-    line_items: "Cart line items. Same structure as checkout. Full replacement on update.",
-    signals: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:buyer) do
+    "Optional buyer information for personalized estimates."
+  end
+
+  def field_description(:context) do
+    "Buyer signals for localization (country, region, postal_code). Merchant uses for pricing, availability, currency. Falls back to geo-IP if omitted."
+  end
+
+  def field_description(:discounts) do
+    "Discount codes input and applied discounts output."
+  end
+
+  def field_description(:line_items) do
+    "Cart line items. Same structure as checkout. Full replacement on update."
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

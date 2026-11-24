@@ -8,14 +8,13 @@ defmodule Bazaar.Schemas.Shopping.DiscountUpdateReq.DiscountsObject do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    codes:
-      "Discount codes to apply. Case-insensitive. Replaces previously submitted codes. Send empty array to clear."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:codes) do
+    "Discount codes to apply. Case-insensitive. Replaces previously submitted codes. Send empty array to clear."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -10,15 +10,25 @@ defmodule Bazaar.Schemas.Shopping.Types.LocationDestinationResp do
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.PostalAddress
   @type_values [:business_location]
-  @field_descriptions %{
-    address: "Physical address of the location.",
-    id: "Stable, opaque, Business-scoped Location identifier.",
-    name: "Buyer-facing, Business-owned display name.",
-    type: "Destination type discriminator. Response-only."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:address) do
+    "Physical address of the location."
+  end
+
+  def field_description(:id) do
+    "Stable, opaque, Business-scoped Location identifier."
+  end
+
+  def field_description(:name) do
+    "Buyer-facing, Business-owned display name."
+  end
+
+  def field_description(:type) do
+    "Destination type discriminator. Response-only."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

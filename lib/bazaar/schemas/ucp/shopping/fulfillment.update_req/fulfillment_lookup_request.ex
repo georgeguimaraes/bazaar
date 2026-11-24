@@ -11,20 +11,29 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentUpdateReq.FulfillmentLookupRequest 
   alias Bazaar.Schemas.Common.Types.Context
   alias Bazaar.Schemas.Common.Types.Signals
   alias Bazaar.Schemas.Shopping.FulfillmentUpdateReq.FulfillmentSearchFilters
-
-  @field_descriptions %{
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    context: nil,
-    filters:
-      "Catalog filters extended with a fulfillment destination filter and a method-type filter.",
-    ids:
-      "Identifiers to lookup. Implementations MUST support product ID and variant ID; MAY support secondary identifiers (SKU, handle, etc.).",
-    signals: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:context) do
+    nil
+  end
+
+  def field_description(:filters) do
+    "Catalog filters extended with a fulfillment destination filter and a method-type filter."
+  end
+
+  def field_description(:ids) do
+    "Identifiers to lookup. Implementations MUST support product ID and variant ID; MAY support secondary identifiers (SKU, handle, etc.)."
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

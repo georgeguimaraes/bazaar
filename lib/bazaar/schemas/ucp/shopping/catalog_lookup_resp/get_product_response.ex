@@ -9,20 +9,29 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupResp.GetProductResponse do
   alias Bazaar.Schemas.Common.Types.Policy
   alias Bazaar.Schemas.Shopping.CatalogLookupResp.DetailProduct
   alias Bazaar.Schemas.UcpResp.ResponseCatalogSchema
-
-  @field_descriptions %{
-    actions: "Outstanding extension-defined Actions for this product response.",
-    messages:
-      "Warnings or informational messages about the product (e.g., price recently changed, limited availability).",
-    policies:
-      "Policies (e.g., return/refund terms) that apply to this product. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
-    product:
-      "The requested product with full detail. Singular — this is a single-resource operation.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:actions) do
+    "Outstanding extension-defined Actions for this product response."
+  end
+
+  def field_description(:messages) do
+    "Warnings or informational messages about the product (e.g., price recently changed, limited availability)."
+  end
+
+  def field_description(:policies) do
+    "Policies (e.g., return/refund terms) that apply to this product. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`."
+  end
+
+  def field_description(:product) do
+    "The requested product with full detail. Singular — this is a single-resource operation."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

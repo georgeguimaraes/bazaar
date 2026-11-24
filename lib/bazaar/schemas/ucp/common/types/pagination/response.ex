@@ -8,16 +8,21 @@ defmodule Bazaar.Schemas.Common.Types.Pagination.Response do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    cursor:
-      "Cursor to fetch the next page of results. MUST be present when has_next_page is true.",
-    has_next_page: "Whether more results are available.",
-    total_count: "Total number of matching items, if available."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:cursor) do
+    "Cursor to fetch the next page of results. MUST be present when has_next_page is true."
+  end
+
+  def field_description(:has_next_page) do
+    "Whether more results are available."
+  end
+
+  def field_description(:total_count) do
+    "Total number of matching items, if available."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

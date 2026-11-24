@@ -8,13 +8,13 @@ defmodule Bazaar.Schemas.Shopping.OrderCreateReq.PlatformSchema do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    webhook_url: "URL where merchant sends order lifecycle events (webhooks)."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:webhook_url) do
+    "URL where merchant sends order lifecycle events (webhooks)."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

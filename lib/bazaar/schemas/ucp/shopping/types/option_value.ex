@@ -8,15 +8,17 @@ defmodule Bazaar.Schemas.Shopping.Types.OptionValue do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    id:
-      "Optional server-assigned identifier for this option value. When present in a selected_option, the server SHOULD use it for matching instead of label.",
-    label: "Display text for this option value (e.g., 'Small', 'Blue')."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:id) do
+    "Optional server-assigned identifier for this option value. When present in a selected_option, the server SHOULD use it for matching instead of label."
+  end
+
+  def field_description(:label) do
+    "Display text for this option value (e.g., 'Small', 'Blue')."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

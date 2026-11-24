@@ -8,14 +8,17 @@ defmodule Bazaar.Schemas.Common.Types.Price do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    amount: "Amount in ISO 4217 minor units. Use 0 for free items.",
-    currency: "ISO 4217 currency code (e.g., 'USD', 'EUR', 'GBP')."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:amount) do
+    "Amount in ISO 4217 minor units. Use 0 for free items."
+  end
+
+  def field_description(:currency) do
+    "ISO 4217 currency code (e.g., 'USD', 'EUR', 'GBP')."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

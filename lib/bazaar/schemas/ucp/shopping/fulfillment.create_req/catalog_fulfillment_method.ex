@@ -11,21 +11,29 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentCreateReq.CatalogFulfillmentMethod 
   alias Bazaar.Schemas.Common.Types.Description
   alias Bazaar.Schemas.Shopping.Types.Availability
   alias Bazaar.Schemas.Shopping.Types.FulfillmentOptionBaseCreateReq
-
-  @field_descriptions %{
-    availability:
-      "Availability of this variant via this method at the specified or inferred location.",
-    description: "Short buyer-facing summary (e.g. 'Ships in 2–4 business days').",
-    location:
-      "Stable, opaque identifier for the Business Location resolved for this place-based fulfillment method. The Business recognizes the same ID when submitted as `selected_destination_id` for that method; recognition does not reserve inventory or guarantee eligibility, and current terms are revalidated.",
-    options:
-      "Representative fulfillment options for this method (e.g. Standard, Express). Without a destination or full cart, a Business SHOULD preview meaningful boundary options (e.g. cheapest, fastest); more specific options are negotiated in Checkout once line items and destination are known.",
-    type:
-      "Fulfillment method type. Well-known values: `shipping`, `pickup`. Businesses MAY use additional values."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:availability) do
+    "Availability of this variant via this method at the specified or inferred location."
+  end
+
+  def field_description(:description) do
+    "Short buyer-facing summary (e.g. 'Ships in 2–4 business days')."
+  end
+
+  def field_description(:location) do
+    "Stable, opaque identifier for the Business Location resolved for this place-based fulfillment method. The Business recognizes the same ID when submitted as `selected_destination_id` for that method; recognition does not reserve inventory or guarantee eligibility, and current terms are revalidated."
+  end
+
+  def field_description(:options) do
+    "Representative fulfillment options for this method (e.g. Standard, Express). Without a destination or full cart, a Business SHOULD preview meaningful boundary options (e.g. cheapest, fastest); more specific options are negotiated in Checkout once line items and destination are known."
+  end
+
+  def field_description(:type) do
+    "Fulfillment method type. Well-known values: `shipping`, `pickup`. Businesses MAY use additional values."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

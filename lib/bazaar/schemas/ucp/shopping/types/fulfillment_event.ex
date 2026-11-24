@@ -8,22 +8,41 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentEvent do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    carrier: "Carrier name (e.g., 'FedEx', 'USPS').",
-    description:
-      "Human-readable description of the shipment status or delivery information (e.g., 'Delivered to front door', 'Out for delivery').",
-    id: "Fulfillment event identifier.",
-    line_items: "Which line items and quantities are fulfilled in this event.",
-    occurred_at: "RFC 3339 timestamp when this fulfillment event occurred.",
-    tracking_number: "Carrier tracking number (required if type != processing).",
-    tracking_url: "URL to track this shipment (required if type != processing).",
-    type:
-      "Fulfillment event type. Common values include: processing (preparing to ship), shipped (handed to carrier), in_transit (in delivery network), delivered (received by buyer), failed_attempt (delivery attempt failed), canceled (fulfillment canceled), undeliverable (cannot be delivered), returned_to_sender (returned to merchant)."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:carrier) do
+    "Carrier name (e.g., 'FedEx', 'USPS')."
+  end
+
+  def field_description(:description) do
+    "Human-readable description of the shipment status or delivery information (e.g., 'Delivered to front door', 'Out for delivery')."
+  end
+
+  def field_description(:id) do
+    "Fulfillment event identifier."
+  end
+
+  def field_description(:line_items) do
+    "Which line items and quantities are fulfilled in this event."
+  end
+
+  def field_description(:occurred_at) do
+    "RFC 3339 timestamp when this fulfillment event occurred."
+  end
+
+  def field_description(:tracking_number) do
+    "Carrier tracking number (required if type != processing)."
+  end
+
+  def field_description(:tracking_url) do
+    "URL to track this shipment (required if type != processing)."
+  end
+
+  def field_description(:type) do
+    "Fulfillment event type. Common values include: processing (preparing to ship), shipped (handed to carrier), in_transit (in delivery network), delivered (received by buyer), failed_attempt (delivery attempt failed), canceled (fulfillment canceled), undeliverable (cannot be delivered), returned_to_sender (returned to merchant)."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

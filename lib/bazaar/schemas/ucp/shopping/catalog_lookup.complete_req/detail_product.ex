@@ -16,31 +16,69 @@ defmodule Bazaar.Schemas.Shopping.CatalogLookupCompleteReq.DetailProduct do
   alias Bazaar.Schemas.Shopping.Types.Rating
   alias Bazaar.Schemas.Shopping.Types.SelectedOption
   alias Bazaar.Schemas.Shopping.Types.Variant
-
-  @field_descriptions %{
-    categories: "Product categories with optional taxonomy identifiers.",
-    description: "Product description in one or more formats.",
-    handle:
-      "URL-safe slug for SEO-friendly URLs (e.g., 'blue-runner-pro'). Use id for stable API references.",
-    id: "Global ID (GID) uniquely identifying this product.",
-    list_price_range: "List price range before discounts (for strikethrough display).",
-    media:
-      "Product media (images, videos, 3D models). First item is the featured media for listings.",
-    metadata: "Business-defined custom data extending the standard product model.",
-    options: "Product options with availability signals relative to the effective selections.",
-    price_range: "Price range across all variants.",
-    rating: "Aggregate product rating.",
-    selected:
-      "Effective option selections that anchor the featured variant and availability signals. Required when the product has configurable options; may be empty or omitted for products with no option axes.",
-    tags: "Product tags for categorization and search.",
-    title: "Product title.",
-    url: "Canonical product page URL.",
-    variants:
-      "Purchasable variants of this product. First item is the featured variant for listings."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:categories) do
+    "Product categories with optional taxonomy identifiers."
+  end
+
+  def field_description(:description) do
+    "Product description in one or more formats."
+  end
+
+  def field_description(:handle) do
+    "URL-safe slug for SEO-friendly URLs (e.g., 'blue-runner-pro'). Use id for stable API references."
+  end
+
+  def field_description(:id) do
+    "Global ID (GID) uniquely identifying this product."
+  end
+
+  def field_description(:list_price_range) do
+    "List price range before discounts (for strikethrough display)."
+  end
+
+  def field_description(:media) do
+    "Product media (images, videos, 3D models). First item is the featured media for listings."
+  end
+
+  def field_description(:metadata) do
+    "Business-defined custom data extending the standard product model."
+  end
+
+  def field_description(:options) do
+    "Product options with availability signals relative to the effective selections."
+  end
+
+  def field_description(:price_range) do
+    "Price range across all variants."
+  end
+
+  def field_description(:rating) do
+    "Aggregate product rating."
+  end
+
+  def field_description(:selected) do
+    "Effective option selections that anchor the featured variant and availability signals. Required when the product has configurable options; may be empty or omitted for products with no option axes."
+  end
+
+  def field_description(:tags) do
+    "Product tags for categorization and search."
+  end
+
+  def field_description(:title) do
+    "Product title."
+  end
+
+  def field_description(:url) do
+    "Canonical product page URL."
+  end
+
+  def field_description(:variants) do
+    "Purchasable variants of this product. First item is the featured variant for listings."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

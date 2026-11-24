@@ -9,17 +9,21 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentOptionBaseResp do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.Description
-
-  @field_descriptions %{
-    description:
-      "Supplementary context for the title (e.g. 'Arrives in 4 business days', 'Arrives Dec 12-15 via FedEx'). Directly renderable; MUST NOT repeat the title.",
-    id: "Unique identifier for this fulfillment option.",
-    title:
-      "Short label that distinguishes this option from its siblings (e.g. 'Standard', 'Express Shipping', 'Curbside Pickup')."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:description) do
+    "Supplementary context for the title (e.g. 'Arrives in 4 business days', 'Arrives Dec 12-15 via FedEx'). Directly renderable; MUST NOT repeat the title."
+  end
+
+  def field_description(:id) do
+    "Unique identifier for this fulfillment option."
+  end
+
+  def field_description(:title) do
+    "Short label that distinguishes this option from its siblings (e.g. 'Standard', 'Express Shipping', 'Curbside Pickup')."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -10,19 +10,25 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentUpdateReq.FulfillmentSearchFilters 
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.PriceFilter
   alias Bazaar.Schemas.Shopping.Types.FulfillmentDestinationFilter
-
-  @field_descriptions %{
-    categories:
-      "Filter by product categories (OR logic — matches products in any listed categories). Values match against the value field in product category entries. Valid values can be discovered from the categories field in search results, merchant documentation, or standard taxonomies that businesses may align with.",
-    fulfills_to:
-      "Explicit destination where items are fulfilled. It may differ from the locality or Business Location supplied in `context` (e.g. a gift delivered directly to the recipient). The filter restricts results to what can be fulfilled there and seeds method `availability`. It supersedes `context` only for fulfillment destination and availability resolution.",
-    methods:
-      "Restrict results to these fulfillment method types (e.g. [\"pickup\"]). Well-known values: `shipping`, `pickup`.",
-    price: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:categories) do
+    "Filter by product categories (OR logic — matches products in any listed categories). Values match against the value field in product category entries. Valid values can be discovered from the categories field in search results, merchant documentation, or standard taxonomies that businesses may align with."
+  end
+
+  def field_description(:fulfills_to) do
+    "Explicit destination where items are fulfilled. It may differ from the locality or Business Location supplied in `context` (e.g. a gift delivered directly to the recipient). The filter restricts results to what can be fulfilled there and seeds method `availability`. It supersedes `context` only for fulfillment destination and availability resolution."
+  end
+
+  def field_description(:methods) do
+    "Restrict results to these fulfillment method types (e.g. [\"pickup\"]). Well-known values: `shipping`, `pickup`."
+  end
+
+  def field_description(:price) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

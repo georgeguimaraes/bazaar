@@ -9,19 +9,33 @@ defmodule Bazaar.Schemas.Common.Types.MessageError do
   @content_type_values [:plain, :markdown]
   @severity_values [:recoverable, :requires_buyer_input, :requires_buyer_review, :unrecoverable]
   @type_values [:error]
-  @field_descriptions %{
-    code:
-      "Error code identifying the type of error. Standard errors are defined in capability specifications (see examples) and have standardized semantics; freeform codes are permitted.",
-    content: "Human-readable message.",
-    content_type: "Content format, default = plain.",
-    path: "RFC 9535 JSONPath to the component the message refers to (e.g., $.line_items[0]).",
-    severity:
-      "Reflects the resource state and recommended action. 'recoverable': platform can resolve the condition in band, for example by modifying inputs or processing a related Action, and submit a new operation when needed. 'requires_buyer_input': merchant requires information their API doesn't support collecting programmatically (checkout incomplete). 'requires_buyer_review': buyer must authorize before order placement due to policy, regulatory, or entitlement rules. 'unrecoverable': no valid resource exists to act on, retry with new resource or inputs. Errors with 'requires_*' severity contribute to 'status: requires_escalation'.",
-    type: "Message type discriminator."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:code) do
+    "Error code identifying the type of error. Standard errors are defined in capability specifications (see examples) and have standardized semantics; freeform codes are permitted."
+  end
+
+  def field_description(:content) do
+    "Human-readable message."
+  end
+
+  def field_description(:content_type) do
+    "Content format, default = plain."
+  end
+
+  def field_description(:path) do
+    "RFC 9535 JSONPath to the component the message refers to (e.g., $.line_items[0])."
+  end
+
+  def field_description(:severity) do
+    "Reflects the resource state and recommended action. 'recoverable': platform can resolve the condition in band, for example by modifying inputs or processing a related Action, and submit a new operation when needed. 'requires_buyer_input': merchant requires information their API doesn't support collecting programmatically (checkout incomplete). 'requires_buyer_review': buyer must authorize before order placement due to policy, regulatory, or entitlement rules. 'unrecoverable': no valid resource exists to act on, retry with new resource or inputs. Errors with 'requires_*' severity contribute to 'status: requires_escalation'."
+  end
+
+  def field_description(:type) do
+    "Message type discriminator."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

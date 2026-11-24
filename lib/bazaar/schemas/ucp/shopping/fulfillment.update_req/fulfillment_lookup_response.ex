@@ -9,18 +9,25 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentUpdateReq.FulfillmentLookupResponse
   alias Bazaar.Schemas.Common.Types.Policy
   alias Bazaar.Schemas.Shopping.FulfillmentUpdateReq.FulfillmentLookupProduct
   alias Bazaar.Schemas.UcpUpdateReq.ResponseCatalogSchema
-
-  @field_descriptions %{
-    messages: "Errors, warnings, or informational messages about the requested items.",
-    policies:
-      "Policies (e.g., return/refund terms) that apply to the products in this response. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
-    products:
-      "Products matching the requested identifiers. May contain fewer items if some identifiers not found, or more if identifiers match multiple products.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:messages) do
+    "Errors, warnings, or informational messages about the requested items."
+  end
+
+  def field_description(:policies) do
+    "Policies (e.g., return/refund terms) that apply to the products in this response. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`."
+  end
+
+  def field_description(:products) do
+    "Products matching the requested identifiers. May contain fewer items if some identifiers not found, or more if identifiers match multiple products."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -8,14 +8,17 @@ defmodule Bazaar.Schemas.Common.Types.Signals do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    "dev.ucp.buyer_ip": "Client's IP address (IPv4 or IPv6).",
-    "dev.ucp.user_agent": "Client's HTTP User-Agent header or equivalent."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:"dev.ucp.buyer_ip") do
+    "Client's IP address (IPv4 or IPv6)."
+  end
+
+  def field_description(:"dev.ucp.user_agent") do
+    "Client's HTTP User-Agent header or equivalent."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

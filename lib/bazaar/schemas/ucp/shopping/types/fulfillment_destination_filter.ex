@@ -8,18 +8,25 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentDestinationFilter do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    address_country:
-      "The country, as a 2-letter ISO 3166-1 alpha-2 code (e.g. \"US\"). A 3-letter alpha-3 code or full country name MAY also be used.",
-    address_region:
-      "The first-level administrative region within the country (e.g. a state or province such as California).",
-    location: "A reference to the destination (e.g. store, pickup location, saved address).",
-    postal_code: "The postal code (e.g. \"94043\")."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:address_country) do
+    "The country, as a 2-letter ISO 3166-1 alpha-2 code (e.g. \"US\"). A 3-letter alpha-3 code or full country name MAY also be used."
+  end
+
+  def field_description(:address_region) do
+    "The first-level administrative region within the country (e.g. a state or province such as California)."
+  end
+
+  def field_description(:location) do
+    "A reference to the destination (e.g. store, pickup location, saved address)."
+  end
+
+  def field_description(:postal_code) do
+    "The postal code (e.g. \"94043\")."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

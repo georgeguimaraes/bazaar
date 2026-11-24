@@ -9,15 +9,17 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentCompleteReq.ConsentSegment do
   use Ecto.Schema
   import Ecto.Changeset
   @source_values [:business, :platform]
-  @field_descriptions %{
-    granted:
-      "Whether consent has been granted for this segment. Overrides the parent purpose's `granted` value for this specific scope.",
-    source:
-      "Identifies the party that asserted the current `granted` value for this segment. `business` means the value reflects the business's default policy; `platform` means the value reflects an explicit buyer decision captured by the platform."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:granted) do
+    "Whether consent has been granted for this segment. Overrides the parent purpose's `granted` value for this specific scope."
+  end
+
+  def field_description(:source) do
+    "Identifies the party that asserted the current `granted` value for this segment. `business` means the value reflects the business's default policy; `platform` means the value reflects an explicit buyer decision captured by the platform."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

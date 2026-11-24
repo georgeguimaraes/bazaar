@@ -8,15 +8,17 @@ defmodule Bazaar.Schemas.Shopping.Types.Category do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    taxonomy:
-      "Source taxonomy. Well-known values: `google_product_category`, `shopify`, `merchant`.",
-    value: "Category value or path (e.g., 'Apparel > Shirts', '1604')."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:taxonomy) do
+    "Source taxonomy. Well-known values: `google_product_category`, `shopify`, `merchant`."
+  end
+
+  def field_description(:value) do
+    "Category value or path (e.g., 'Apparel > Shirts', '1604')."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -10,14 +10,17 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentResp do
   import Ecto.Changeset
   alias Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp
   alias Bazaar.Schemas.Shopping.Types.FulfillmentMethodResp
-
-  @field_descriptions %{
-    available_methods: "Inventory availability hints.",
-    methods: "Fulfillment methods for cart items."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:available_methods) do
+    "Inventory availability hints."
+  end
+
+  def field_description(:methods) do
+    "Fulfillment methods for cart items."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

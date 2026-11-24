@@ -8,15 +8,17 @@ defmodule Bazaar.Schemas.Shopping.Types.InputCorrelation do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    id: "The identifier from the lookup request that resolved to this variant.",
-    match:
-      "How the request identifier resolved to this variant. Well-known values: `exact` (input directly identifies this variant, e.g., variant ID, SKU), `featured` (server selected this variant as representative, e.g., product ID resolved to best match). Businesses MAY implement and provide additional resolution strategies."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:id) do
+    "The identifier from the lookup request that resolved to this variant."
+  end
+
+  def field_description(:match) do
+    "How the request identifier resolved to this variant. Well-known values: `exact` (input directly identifies this variant, e.g., variant ID, SKU), `featured` (server selected this variant as representative, e.g., product ID resolved to best match). Businesses MAY implement and provide additional resolution strategies."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

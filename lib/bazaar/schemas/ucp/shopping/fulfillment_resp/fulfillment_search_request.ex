@@ -10,20 +10,33 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentResp.FulfillmentSearchRequest do
   alias Bazaar.Schemas.Common.Types.Pagination.Request
   alias Bazaar.Schemas.Common.Types.Signals
   alias Bazaar.Schemas.Shopping.FulfillmentResp.FulfillmentSearchFilters
-
-  @field_descriptions %{
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    context: nil,
-    filters:
-      "Catalog filters extended with a fulfillment destination filter and a method-type filter.",
-    pagination: nil,
-    query: "Free-text search query.",
-    signals: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:context) do
+    nil
+  end
+
+  def field_description(:filters) do
+    "Catalog filters extended with a fulfillment destination filter and a method-type filter."
+  end
+
+  def field_description(:pagination) do
+    nil
+  end
+
+  def field_description(:query) do
+    "Free-text search query."
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

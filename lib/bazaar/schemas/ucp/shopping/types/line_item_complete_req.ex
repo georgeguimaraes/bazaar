@@ -9,17 +9,25 @@ defmodule Bazaar.Schemas.Shopping.Types.LineItemCompleteReq do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Shopping.Types.ItemCompleteReq
-
-  @field_descriptions %{
-    id: nil,
-    item: nil,
-    parent_id: "Parent line item identifier for any nested structures.",
-    quantity:
-      "Always an integer step count. On Platform requests, steps use the item's Business-authoritative sale basis; omitting `item.quantity_unit` makes no assertion and does not imply `each`. On Business responses, `item.quantity_unit` describes the basis; if absent, it encodes the `each` machine identity (`C62`, 0) and `quantity` counts whole items."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:id) do
+    nil
+  end
+
+  def field_description(:item) do
+    nil
+  end
+
+  def field_description(:parent_id) do
+    "Parent line item identifier for any nested structures."
+  end
+
+  def field_description(:quantity) do
+    "Always an integer step count. On Platform requests, steps use the item's Business-authoritative sale basis; omitting `item.quantity_unit` makes no assertion and does not imply `each`. On Business responses, `item.quantity_unit` describes the basis; if absent, it encodes the `each` machine identity (`C62`, 0) and `quantity` counts whole items."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -9,14 +9,13 @@ defmodule Bazaar.Schemas.Common.Types.Payment do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.PaymentInstrument.SelectedPaymentInstrument
-
-  @field_descriptions %{
-    instruments:
-      "The payment instruments available for this payment. Each instrument is associated with a specific handler via the handler_id field. Handlers can extend the base payment_instrument schema to add handler-specific fields."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:instruments) do
+    "The payment instruments available for this payment. Each instrument is associated with a specific handler via the handler_id field. Handlers can extend the base payment_instrument schema to add handler-specific fields."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

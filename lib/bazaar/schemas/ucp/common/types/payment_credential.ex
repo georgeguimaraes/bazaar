@@ -8,14 +8,13 @@ defmodule Bazaar.Schemas.Common.Types.PaymentCredential do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    type:
-      "The credential type discriminator. Specific schemas will constrain this to a constant value."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:type) do
+    "The credential type discriminator. Specific schemas will constrain this to a constant value."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

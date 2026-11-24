@@ -9,16 +9,25 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentGroupResp do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Shopping.Types.FulfillmentOptionResp
-
-  @field_descriptions %{
-    id: "Group identifier for referencing merchant-generated groups in updates.",
-    line_item_ids: "Line item IDs included in this group/package.",
-    options: "Available fulfillment options for this group.",
-    selected_option_id: "ID of the selected fulfillment option for this group."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:id) do
+    "Group identifier for referencing merchant-generated groups in updates."
+  end
+
+  def field_description(:line_item_ids) do
+    "Line item IDs included in this group/package."
+  end
+
+  def field_description(:options) do
+    "Available fulfillment options for this group."
+  end
+
+  def field_description(:selected_option_id) do
+    "ID of the selected fulfillment option for this group."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

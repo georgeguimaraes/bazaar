@@ -8,23 +8,37 @@ defmodule Bazaar.Schemas.Profile.JwkPublicKey do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    alg:
-      "JWA algorithm associated with this public key. Optional; verifiers derive the algorithm from crv when alg is omitted. When present for a well-known curve it MUST match: ES256 with P-256, ES384 with P-384, EdDSA with Ed25519.",
-    crv: "Curve name. Well-known values: P-256, P-384 (EC); Ed25519 (OKP). Open vocabulary.",
-    kid:
-      "Key identifier referenced by Signature-Input keyid. For keys used in dual-audience (Web Bot Auth) signatures, the kid MUST be the key's JWK SHA-256 Thumbprint (RFC 7638) so UCP-Agent and Signature-Agent lookups resolve the same key; otherwise the kid MAY be any stable string.",
-    kty:
-      "JWK key type. Well-known values: EC for ECDSA (P-256, P-384); OKP for EdDSA (Ed25519). Open vocabulary; verifiers tolerate unrecognized types and select keys by kid.",
-    use: "JWK public key use. UCP examples use sig for signatures.",
-    x:
-      "Public key value, base64url-encoded. For EC, the x coordinate (RFC 7518 §6.2); for OKP, the public key (RFC 8037 §2).",
-    y: "EC public key y coordinate, base64url-encoded (RFC 7518 §6.2). Not used by OKP keys."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:alg) do
+    "JWA algorithm associated with this public key. Optional; verifiers derive the algorithm from crv when alg is omitted. When present for a well-known curve it MUST match: ES256 with P-256, ES384 with P-384, EdDSA with Ed25519."
+  end
+
+  def field_description(:crv) do
+    "Curve name. Well-known values: P-256, P-384 (EC); Ed25519 (OKP). Open vocabulary."
+  end
+
+  def field_description(:kid) do
+    "Key identifier referenced by Signature-Input keyid. For keys used in dual-audience (Web Bot Auth) signatures, the kid MUST be the key's JWK SHA-256 Thumbprint (RFC 7638) so UCP-Agent and Signature-Agent lookups resolve the same key; otherwise the kid MAY be any stable string."
+  end
+
+  def field_description(:kty) do
+    "JWK key type. Well-known values: EC for ECDSA (P-256, P-384); OKP for EdDSA (Ed25519). Open vocabulary; verifiers tolerate unrecognized types and select keys by kid."
+  end
+
+  def field_description(:use) do
+    "JWK public key use. UCP examples use sig for signatures."
+  end
+
+  def field_description(:x) do
+    "Public key value, base64url-encoded. For EC, the x coordinate (RFC 7518 §6.2); for OKP, the public key (RFC 8037 §2)."
+  end
+
+  def field_description(:y) do
+    "EC public key y coordinate, base64url-encoded (RFC 7518 §6.2). Not used by OKP keys."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -8,15 +8,17 @@ defmodule Bazaar.Schemas.Shopping.Types.Availability do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    available: "Whether this can be obtained. See status for fulfillment details.",
-    status:
-      "Qualifies available with fulfillment state. Well-known values: `in_stock`, `backorder`, `preorder`, `out_of_stock`, `discontinued`."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:available) do
+    "Whether this can be obtained. See status for fulfillment details."
+  end
+
+  def field_description(:status) do
+    "Qualifies available with fulfillment state. Well-known values: `in_stock`, `backorder`, `preorder`, `out_of_stock`, `discontinued`."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

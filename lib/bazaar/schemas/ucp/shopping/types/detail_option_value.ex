@@ -8,19 +8,25 @@ defmodule Bazaar.Schemas.Shopping.Types.DetailOptionValue do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    available:
-      "Whether a variant matching this value and the current option selections is purchasable.",
-    exists:
-      "Whether a variant matching this value and the current option selections exists in the catalog.",
-    id:
-      "Optional server-assigned identifier for this option value. When present in a selected_option, the server SHOULD use it for matching instead of label.",
-    label: "Display text for this option value (e.g., 'Small', 'Blue')."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:available) do
+    "Whether a variant matching this value and the current option selections is purchasable."
+  end
+
+  def field_description(:exists) do
+    "Whether a variant matching this value and the current option selections exists in the catalog."
+  end
+
+  def field_description(:id) do
+    "Optional server-assigned identifier for this option value. When present in a selected_option, the server SHOULD use it for matching instead of label."
+  end
+
+  def field_description(:label) do
+    "Display text for this option value (e.g., 'Small', 'Blue')."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

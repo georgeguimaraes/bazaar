@@ -10,22 +10,33 @@ defmodule Bazaar.Schemas.Common.Types.PaymentInstrument do
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.PaymentCredential
   alias Bazaar.Schemas.Common.Types.PostalAddress
-
-  @field_descriptions %{
-    billing_address: "The billing address associated with this payment method.",
-    credential: nil,
-    display:
-      "Display information for this payment instrument. Each payment instrument schema defines its specific display properties, as outlined by the payment handler.",
-    handler_id:
-      "The unique identifier for the handler instance that produced this instrument. This corresponds to the 'id' field in the Payment Handler definition.",
-    id:
-      "A unique identifier for this instrument instance. Typically assigned by the platform for instruments it collects. For a business-owned saved instrument returned on an identity-linked response, this identifier is assigned by the business; the platform MUST treat it as an opaque, business-scoped reference, and the business resolves it server-side when the buyer selects it.",
-    type:
-      "The broad category of the instrument (e.g., 'card', 'tokenized_card'). Specific schemas will constrain this to a constant value."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:billing_address) do
+    "The billing address associated with this payment method."
+  end
+
+  def field_description(:credential) do
+    nil
+  end
+
+  def field_description(:display) do
+    "Display information for this payment instrument. Each payment instrument schema defines its specific display properties, as outlined by the payment handler."
+  end
+
+  def field_description(:handler_id) do
+    "The unique identifier for the handler instance that produced this instrument. This corresponds to the 'id' field in the Payment Handler definition."
+  end
+
+  def field_description(:id) do
+    "A unique identifier for this instrument instance. Typically assigned by the platform for instruments it collects. For a business-owned saved instrument returned on an identity-linked response, this identifier is assigned by the business; the platform MUST treat it as an opaque, business-scoped reference, and the business resolves it server-side when the buyer selects it."
+  end
+
+  def field_description(:type) do
+    "The broad category of the instrument (e.g., 'card', 'tokenized_card'). Specific schemas will constrain this to a constant value."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

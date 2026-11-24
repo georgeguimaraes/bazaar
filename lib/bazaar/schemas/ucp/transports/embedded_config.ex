@@ -8,16 +8,17 @@ defmodule Bazaar.Schemas.Transports.EmbeddedConfig do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    color_scheme:
-      "Color schemes the business supports. Hosts use ec_color_scheme query parameter to request a scheme from this list.",
-    delegate:
-      "Delegations the business allows. At service-level, declares available delegations. In UCP responses, confirms accepted delegations for this session."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:color_scheme) do
+    "Color schemes the business supports. Hosts use ec_color_scheme query parameter to request a scheme from this list."
+  end
+
+  def field_description(:delegate) do
+    "Delegations the business allows. At service-level, declares available delegations. In UCP responses, confirms accepted delegations for this session."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

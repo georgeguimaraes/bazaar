@@ -8,13 +8,13 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentGroupCreateReq do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    selected_option_id: "ID of the selected fulfillment option for this group."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:selected_option_id) do
+    "ID of the selected fulfillment option for this group."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

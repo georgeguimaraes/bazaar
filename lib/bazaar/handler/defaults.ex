@@ -284,7 +284,10 @@ defmodule Bazaar.Handler.Defaults do
     )
   end
 
-  defp update_opts(handler), do: [stored_addresses: &shop(handler).stored_addresses/1]
+  defp update_opts(handler) do
+    shop = shop(handler)
+    [stored_addresses: &shop.stored_addresses/1]
+  end
 
   defp order_url(shop, order_id), do: shop.base_url() <> "/orders/" <> order_id
 

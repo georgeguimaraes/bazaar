@@ -9,20 +9,33 @@ defmodule Bazaar.Schemas.Shopping.Types.Expectation do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.PostalAddress
-
-  @field_descriptions %{
-    description: "Human-readable delivery description (e.g., 'Arrives in 5-8 business days').",
-    destination: "Delivery destination address.",
-    fulfillable_on:
-      "When this expectation can be fulfilled: 'now' or ISO 8601 timestamp for future date (backorder, pre-order).",
-    id: "Expectation identifier.",
-    line_items: "Which line items and quantities are in this expectation.",
-    method_type:
-      "Delivery method type. Well-known values: `shipping`, `pickup`, `digital`; additional values MAY be used."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:description) do
+    "Human-readable delivery description (e.g., 'Arrives in 5-8 business days')."
+  end
+
+  def field_description(:destination) do
+    "Delivery destination address."
+  end
+
+  def field_description(:fulfillable_on) do
+    "When this expectation can be fulfilled: 'now' or ISO 8601 timestamp for future date (backorder, pre-order)."
+  end
+
+  def field_description(:id) do
+    "Expectation identifier."
+  end
+
+  def field_description(:line_items) do
+    "Which line items and quantities are in this expectation."
+  end
+
+  def field_description(:method_type) do
+    "Delivery method type. Well-known values: `shipping`, `pickup`, `digital`; additional values MAY be used."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

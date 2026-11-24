@@ -27,35 +27,81 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentResp.DevUcpShoppingCheckout do
     :completed,
     :canceled
   ]
-  @field_descriptions %{
-    actions: "Outstanding extension-defined Actions for this checkout.",
-    attribution:
-      "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows.",
-    buyer: "Buyer with consent tracking.",
-    context: nil,
-    continue_url:
-      "URL for checkout handoff and session recovery. MUST be provided when status is requires_escalation. See specification for format and availability requirements.",
-    currency:
-      "ISO 4217 currency code reflecting the merchant's market determination. Derived from address, context, and geo IP—buyers provide signals, merchants determine currency.",
-    expires_at: "RFC 3339 expiry timestamp. Default TTL is 6 hours from creation if not sent.",
-    id: "Unique identifier of the checkout session.",
-    line_items: "List of line items being checked out.",
-    links:
-      "Links to be displayed by the platform (Privacy Policy, TOS). Mandatory for legal compliance.",
-    messages: "List of messages with error and info about the checkout session state.",
-    order: "Details about an order created for this checkout session.",
-    payment: nil,
-    policies:
-      "Policies (e.g., return/refund terms) that apply to the items in this checkout. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
-    signals: nil,
-    status:
-      "Checkout state indicating the current phase and required processing. See Checkout Status lifecycle documentation for state transition details.",
-    totals: "Different cart totals.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:actions) do
+    "Outstanding extension-defined Actions for this checkout."
+  end
+
+  def field_description(:attribution) do
+    "Platform-emitted referral and conversion-event context — campaign identifiers, click IDs, source/medium markers, etc. The same parameters platforms communicate via URL query parameters in browser-based flows."
+  end
+
+  def field_description(:buyer) do
+    "Buyer with consent tracking."
+  end
+
+  def field_description(:context) do
+    nil
+  end
+
+  def field_description(:continue_url) do
+    "URL for checkout handoff and session recovery. MUST be provided when status is requires_escalation. See specification for format and availability requirements."
+  end
+
+  def field_description(:currency) do
+    "ISO 4217 currency code reflecting the merchant's market determination. Derived from address, context, and geo IP—buyers provide signals, merchants determine currency."
+  end
+
+  def field_description(:expires_at) do
+    "RFC 3339 expiry timestamp. Default TTL is 6 hours from creation if not sent."
+  end
+
+  def field_description(:id) do
+    "Unique identifier of the checkout session."
+  end
+
+  def field_description(:line_items) do
+    "List of line items being checked out."
+  end
+
+  def field_description(:links) do
+    "Links to be displayed by the platform (Privacy Policy, TOS). Mandatory for legal compliance."
+  end
+
+  def field_description(:messages) do
+    "List of messages with error and info about the checkout session state."
+  end
+
+  def field_description(:order) do
+    "Details about an order created for this checkout session."
+  end
+
+  def field_description(:payment) do
+    nil
+  end
+
+  def field_description(:policies) do
+    "Policies (e.g., return/refund terms) that apply to the items in this checkout. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`."
+  end
+
+  def field_description(:signals) do
+    nil
+  end
+
+  def field_description(:status) do
+    "Checkout state indicating the current phase and required processing. See Checkout Status lifecycle documentation for state transition details."
+  end
+
+  def field_description(:totals) do
+    "Different cart totals."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

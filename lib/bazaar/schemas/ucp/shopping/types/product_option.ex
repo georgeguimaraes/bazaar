@@ -9,14 +9,17 @@ defmodule Bazaar.Schemas.Shopping.Types.ProductOption do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.Shopping.Types.OptionValue
-
-  @field_descriptions %{
-    name: "Option name (e.g., 'Size', 'Color').",
-    values: "Available values for this option."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:name) do
+    "Option name (e.g., 'Size', 'Color')."
+  end
+
+  def field_description(:values) do
+    "Available values for this option."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

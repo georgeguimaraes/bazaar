@@ -8,14 +8,17 @@ defmodule Bazaar.Schemas.Common.Types.ActionsResp.Instance do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    config: "Configuration defined by the extension that declares this Action type.",
-    id: "Identifier for this Action instance."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:config) do
+    "Configuration defined by the extension that declares this Action type."
+  end
+
+  def field_description(:id) do
+    "Identifier for this Action instance."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

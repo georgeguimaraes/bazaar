@@ -9,15 +9,21 @@ defmodule Bazaar.Schemas.Common.Types.ErrorResponse do
   use Ecto.Schema
   import Ecto.Changeset
   alias Bazaar.Schemas.UcpResp.Error
-
-  @field_descriptions %{
-    continue_url: "URL for buyer handoff or session recovery.",
-    messages: "Array of messages describing why the operation failed.",
-    ucp: "UCP protocol metadata. Status MUST be 'error' for error response."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:continue_url) do
+    "URL for buyer handoff or session recovery."
+  end
+
+  def field_description(:messages) do
+    "Array of messages describing why the operation failed."
+  end
+
+  def field_description(:ucp) do
+    "UCP protocol metadata. Status MUST be 'error' for error response."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

@@ -9,19 +9,25 @@ defmodule Bazaar.Schemas.Shopping.FulfillmentCompleteReq.FulfillmentGetProductRe
   alias Bazaar.Schemas.Common.Types.Policy
   alias Bazaar.Schemas.Shopping.FulfillmentCompleteReq.FulfillmentDetailProduct
   alias Bazaar.Schemas.UcpCompleteReq.ResponseCatalogSchema
-
-  @field_descriptions %{
-    messages:
-      "Warnings or informational messages about the product (e.g., price recently changed, limited availability).",
-    policies:
-      "Policies (e.g., return/refund terms) that apply to this product. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`.",
-    product:
-      "A get_product detail product (carrying selected/options availability signals) whose variants are fulfillment-enriched. Used by get_product.",
-    ucp: nil
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:messages) do
+    "Warnings or informational messages about the product (e.g., price recently changed, limited availability)."
+  end
+
+  def field_description(:policies) do
+    "Policies (e.g., return/refund terms) that apply to this product. `applies_to` targets are relative to the response root; when absent or empty, refer to the URLs in `links[]`."
+  end
+
+  def field_description(:product) do
+    "A get_product detail product (carrying selected/options availability signals) whose variants are fulfillment-enriched. Used by get_product."
+  end
+
+  def field_description(:ucp) do
+    nil
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

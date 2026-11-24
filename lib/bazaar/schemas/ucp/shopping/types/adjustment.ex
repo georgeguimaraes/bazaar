@@ -10,21 +10,37 @@ defmodule Bazaar.Schemas.Shopping.Types.Adjustment do
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.TotalResp
   @status_values [:pending, :completed, :failed]
-  @field_descriptions %{
-    description:
-      "Human-readable reason or description (e.g., 'Defective item', 'Customer requested').",
-    id: "Adjustment event identifier.",
-    line_items: "Which line items and quantities are affected (optional).",
-    occurred_at: "RFC 3339 timestamp when this adjustment occurred.",
-    status: "Adjustment status.",
-    totals:
-      "Adjustment totals breakdown. Signed values - negative for money returned to buyer (refunds, credits), positive for additional charges (exchanges).",
-    type:
-      "Type of adjustment (open string). Typically money-related like: refund, return, credit, price_adjustment, dispute, cancellation. Can be any value that makes sense for the merchant's business."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:description) do
+    "Human-readable reason or description (e.g., 'Defective item', 'Customer requested')."
+  end
+
+  def field_description(:id) do
+    "Adjustment event identifier."
+  end
+
+  def field_description(:line_items) do
+    "Which line items and quantities are affected (optional)."
+  end
+
+  def field_description(:occurred_at) do
+    "RFC 3339 timestamp when this adjustment occurred."
+  end
+
+  def field_description(:status) do
+    "Adjustment status."
+  end
+
+  def field_description(:totals) do
+    "Adjustment totals breakdown. Signed values - negative for money returned to buyer (refunds, credits), positive for additional charges (exchanges)."
+  end
+
+  def field_description(:type) do
+    "Type of adjustment (open string). Typically money-related like: refund, return, credit, price_adjustment, dispute, cancellation. Can be any value that makes sense for the merchant's business."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

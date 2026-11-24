@@ -9,26 +9,53 @@ defmodule Bazaar.Schemas.Shopping.Types.ShippingDestinationResp do
   use Ecto.Schema
   import Ecto.Changeset
   @type_values [:shipping_address]
-  @field_descriptions %{
-    address_country:
-      "The country. Recommended to be in 2-letter ISO 3166-1 alpha-2 format, for example \"US\". For backward compatibility, a 3-letter ISO 3166-1 alpha-3 country code such as \"SGP\" or a full country name such as \"Singapore\" can also be used.",
-    address_locality:
-      "The locality in which the street address is, and which is in the region. For example, Mountain View.",
-    address_region:
-      "The region in which the locality is, and which is in the country. Required for applicable countries (i.e. state in US, province in CA). For example, California or another appropriate first-level Administrative division.",
-    extended_address:
-      "An address extension such as an apartment number, C/O or alternative name.",
-    first_name: "Optional. First name of the contact associated with the address.",
-    id: "ID specific to this shipping destination.",
-    last_name: "Optional. Last name of the contact associated with the address.",
-    phone_number: "Optional. Phone number of the contact associated with the address.",
-    postal_code: "The postal code. For example, 94043.",
-    street_address: "The street address.",
-    type: "Destination type discriminator."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:address_country) do
+    "The country. Recommended to be in 2-letter ISO 3166-1 alpha-2 format, for example \"US\". For backward compatibility, a 3-letter ISO 3166-1 alpha-3 country code such as \"SGP\" or a full country name such as \"Singapore\" can also be used."
+  end
+
+  def field_description(:address_locality) do
+    "The locality in which the street address is, and which is in the region. For example, Mountain View."
+  end
+
+  def field_description(:address_region) do
+    "The region in which the locality is, and which is in the country. Required for applicable countries (i.e. state in US, province in CA). For example, California or another appropriate first-level Administrative division."
+  end
+
+  def field_description(:extended_address) do
+    "An address extension such as an apartment number, C/O or alternative name."
+  end
+
+  def field_description(:first_name) do
+    "Optional. First name of the contact associated with the address."
+  end
+
+  def field_description(:id) do
+    "ID specific to this shipping destination."
+  end
+
+  def field_description(:last_name) do
+    "Optional. Last name of the contact associated with the address."
+  end
+
+  def field_description(:phone_number) do
+    "Optional. Phone number of the contact associated with the address."
+  end
+
+  def field_description(:postal_code) do
+    "The postal code. For example, 94043."
+  end
+
+  def field_description(:street_address) do
+    "The street address."
+  end
+
+  def field_description(:type) do
+    "Destination type discriminator."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

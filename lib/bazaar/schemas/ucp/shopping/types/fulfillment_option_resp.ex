@@ -10,21 +10,37 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentOptionResp do
   import Ecto.Changeset
   alias Bazaar.Schemas.Common.Types.Description
   alias Bazaar.Schemas.Common.Types.TotalResp
-
-  @field_descriptions %{
-    carrier: "Carrier name (for shipping).",
-    description:
-      "Supplementary context for the title (e.g. 'Arrives in 4 business days', 'Arrives Dec 12-15 via FedEx'). Directly renderable; MUST NOT repeat the title.",
-    earliest_fulfillment_time: "Earliest fulfillment date.",
-    id: "Unique identifier for this fulfillment option.",
-    latest_fulfillment_time: "Latest fulfillment date.",
-    title:
-      "Short label that distinguishes this option from its siblings (e.g. 'Standard', 'Express Shipping', 'Curbside Pickup').",
-    totals: "Fulfillment option totals breakdown."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:carrier) do
+    "Carrier name (for shipping)."
+  end
+
+  def field_description(:description) do
+    "Supplementary context for the title (e.g. 'Arrives in 4 business days', 'Arrives Dec 12-15 via FedEx'). Directly renderable; MUST NOT repeat the title."
+  end
+
+  def field_description(:earliest_fulfillment_time) do
+    "Earliest fulfillment date."
+  end
+
+  def field_description(:id) do
+    "Unique identifier for this fulfillment option."
+  end
+
+  def field_description(:latest_fulfillment_time) do
+    "Latest fulfillment date."
+  end
+
+  def field_description(:title) do
+    "Short label that distinguishes this option from its siblings (e.g. 'Standard', 'Express Shipping', 'Curbside Pickup')."
+  end
+
+  def field_description(:totals) do
+    "Fulfillment option totals breakdown."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

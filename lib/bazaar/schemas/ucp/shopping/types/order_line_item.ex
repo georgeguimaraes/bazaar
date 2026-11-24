@@ -9,19 +9,33 @@ defmodule Bazaar.Schemas.Shopping.Types.OrderLineItem do
   alias Bazaar.Schemas.Common.Types.TotalResp
   alias Bazaar.Schemas.Shopping.Types.ItemResp
   @status_values [:processing, :partial, :fulfilled, :removed]
-  @field_descriptions %{
-    id: "Line item identifier.",
-    item: "Purchased item data, including identity, price, and sale basis.",
-    parent_id: "Parent line item identifier for any nested structures.",
-    quantity:
-      "Tracks the line item's original, current active, and fulfilled quantities. All three values use the same inherited `item.quantity_unit`. When `item.quantity_unit` is absent on an authoritative order response, each step is one whole item (`each`) under the shared default.",
-    status:
-      "Derived status: removed if quantity.total == 0, fulfilled if quantity.total > 0 and quantity.fulfilled == quantity.total, partial if quantity.total > 0 and quantity.fulfilled > 0, otherwise processing.",
-    totals: "Line item totals breakdown."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:id) do
+    "Line item identifier."
+  end
+
+  def field_description(:item) do
+    "Purchased item data, including identity, price, and sale basis."
+  end
+
+  def field_description(:parent_id) do
+    "Parent line item identifier for any nested structures."
+  end
+
+  def field_description(:quantity) do
+    "Tracks the line item's original, current active, and fulfilled quantities. All three values use the same inherited `item.quantity_unit`. When `item.quantity_unit` is absent on an authoritative order response, each step is one whole item (`each`) under the shared default."
+  end
+
+  def field_description(:status) do
+    "Derived status: removed if quantity.total == 0, fulfilled if quantity.total > 0 and quantity.fulfilled == quantity.total, partial if quantity.total > 0 and quantity.fulfilled > 0, otherwise processing."
+  end
+
+  def field_description(:totals) do
+    "Line item totals breakdown."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

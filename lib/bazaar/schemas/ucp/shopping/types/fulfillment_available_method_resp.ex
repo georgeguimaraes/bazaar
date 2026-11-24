@@ -8,19 +8,25 @@ defmodule Bazaar.Schemas.Shopping.Types.FulfillmentAvailableMethodResp do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    description:
-      "Human-readable availability info (e.g., 'Available for pickup at Downtown Store today').",
-    fulfillable_on:
-      "'now' for immediate availability, or ISO 8601 date for future (preorders, transfers).",
-    line_item_ids: "Line items available for this fulfillment method.",
-    type:
-      "Fulfillment method type this availability applies to. Well-known values: `shipping`, `pickup`; businesses MAY use additional values."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:description) do
+    "Human-readable availability info (e.g., 'Available for pickup at Downtown Store today')."
+  end
+
+  def field_description(:fulfillable_on) do
+    "'now' for immediate availability, or ISO 8601 date for future (preorders, transfers)."
+  end
+
+  def field_description(:line_item_ids) do
+    "Line items available for this fulfillment method."
+  end
+
+  def field_description(:type) do
+    "Fulfillment method type this availability applies to. Well-known values: `shipping`, `pickup`; businesses MAY use additional values."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

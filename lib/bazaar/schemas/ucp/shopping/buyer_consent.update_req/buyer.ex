@@ -8,17 +8,29 @@ defmodule Bazaar.Schemas.Shopping.BuyerConsentUpdateReq.Buyer do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    consent: "Per-purpose consent decisions and business-advertised consent options.",
-    email: "Email of the buyer.",
-    first_name: "First name of the buyer.",
-    last_name: "Last name of the buyer.",
-    phone_number: "E.164 standard."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:consent) do
+    "Per-purpose consent decisions and business-advertised consent options."
+  end
+
+  def field_description(:email) do
+    "Email of the buyer."
+  end
+
+  def field_description(:first_name) do
+    "First name of the buyer."
+  end
+
+  def field_description(:last_name) do
+    "Last name of the buyer."
+  end
+
+  def field_description(:phone_number) do
+    "E.164 standard."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false

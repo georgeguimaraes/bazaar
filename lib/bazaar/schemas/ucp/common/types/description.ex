@@ -8,16 +8,21 @@ defmodule Bazaar.Schemas.Common.Types.Description do
   """
   use Ecto.Schema
   import Ecto.Changeset
-
-  @field_descriptions %{
-    html:
-      "HTML-formatted content. Security: Platforms MUST sanitize before rendering—strip scripts, event handlers, and untrusted elements. Treat all rich text as untrusted input.",
-    markdown: "Markdown-formatted content.",
-    plain: "Plain text content."
-  }
   @doc "Returns the description for a field, if available."
+  def field_description(:html) do
+    "HTML-formatted content. Security: Platforms MUST sanitize before rendering—strip scripts, event handlers, and untrusted elements. Treat all rich text as untrusted input."
+  end
+
+  def field_description(:markdown) do
+    "Markdown-formatted content."
+  end
+
+  def field_description(:plain) do
+    "Plain text content."
+  end
+
   def field_description(field) when is_atom(field) do
-    Map.get(@field_descriptions, field)
+    nil
   end
 
   @primary_key false
