@@ -26,7 +26,9 @@ defmodule Bazaar.DiscoveryProfileTest do
   defmodule EverythingShop do
     use Bazaar.Shop
 
+    @impl true
     defdelegate base_url, to: Bazaar.TestShop
+    @impl true
     defdelegate item(id), to: Bazaar.TestShop
 
     @impl true

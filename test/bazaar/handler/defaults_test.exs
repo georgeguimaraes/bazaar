@@ -7,7 +7,9 @@ defmodule Bazaar.Handler.DefaultsTest do
   defmodule Shop do
     use Bazaar.Shop
 
+    @impl true
     defdelegate base_url, to: Bazaar.TestShop
+    @impl true
     defdelegate item(id), to: Bazaar.TestShop
     defdelegate fulfillment_options(destination, context), to: Bazaar.TestShop
     defdelegate products, to: Bazaar.TestShop
